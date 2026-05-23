@@ -1,0 +1,31 @@
+#!/bin/bash -e
+
+DES_COPPY=$(cat  /usr/local/bin/docs_dir.txt)
+
+. "$DES_COPPY/../script/lib.sh" #func helper
+
+if [ -z "$1" ]; then
+    LOG_ERROR "Need param contain file .txt or .md to copy"
+    exit 0
+elif [ "$1" == "--list" ]; then
+    ls $DES_COPPY
+    exit 0
+else
+    FILLE_SRC=$1
+fi
+
+if [ ! -z "$2" ]; then
+    DES_COPPY="$DES_COPPY/$2"
+    # return if folder not exist
+    # ls $DES_COPPY
+    if [ ! -d "$DES_COPPY" ]; then
+        mkdir -p $DES_COPPY
+    fi
+    have_file_exists_unexpected "$DES_COPPY/$FILLE_SRC"
+fi
+
+# TODO add exception for folder with file exit 1 param
+# add else -> add ls to array -> check all file
+
+mv $FILLE_SRC $DES_COPPY
+LOG_SUCCESS "Moved file from ./$FILLE_SRC to $DES_COPPY"

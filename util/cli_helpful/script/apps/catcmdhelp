@@ -1,0 +1,22 @@
+#!/bin/bash -e
+
+DES=$(cat  /usr/local/bin/docs_dir.txt)
+
+. "$DES/../script/lib.sh" # function helper
+
+if [ -z "$TOOL_CAT" ]; then
+    TOOL_CAT=cat
+fi
+
+if [ -z "$1" ]; then
+    FOLDER=.
+elif [ "$1" == "--list" ]; then
+    ls $DES
+    exit
+else
+    FOLDER=$1
+fi
+
+cd $(cat  /usr/local/bin/docs_dir.txt)
+
+find $FOLDER -type f \( -name "*.md" -o -name "*.txt" \) -exec $TOOL_CAT {} +
