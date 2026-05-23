@@ -3,7 +3,7 @@
 AT_HERE_PATH=$(pwd)
 AT_HERE_PATH=$(realpath "$AT_HERE_PATH")
 
-cd ../../script_root
+cd $HARIS_UTILS/script_root
 . "$(dirname "$0")/lib.sh"
 cd $AT_HERE_PATH
 

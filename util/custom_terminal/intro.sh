@@ -3,9 +3,9 @@
 INTRO_PATH=$(pwd)
 INTRO_PATH=$(realpath "$INTRO_PATH")
 
-cd ../script_root
+cd $HARIS_UTILS/script_root
 . "$(dirname "$0")/lib.sh"
-cd $INTRO_PATH
+cd $AT_HERE_PATH
 
 echo -e "${CYAN}" 
 printf "  ██████╗ ███████╗██╗   ██╗██╗  ██╗\n"
