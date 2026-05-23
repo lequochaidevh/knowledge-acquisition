@@ -5,7 +5,7 @@ DOCS_DIR=$(realpath "$UTILS_PATH")
 # Define the list of files
 FILES_TO_LINK=("catcmdhelp" "batcmdhelp" "adddocshelp")
 
-cd ../
+cd ../../../script_root
 
 . "$(dirname "$0")/lib.sh"
 
@@ -14,14 +14,16 @@ export PROJECT_TYPE="TEST FUNCTION"
 source setup_enviroment.sh
 
 # export SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export DOCS_DIR=$(realpath "$SCRIPT_DIR/../docs")
+export DOCS_DIR=$(realpath "$SCRIPT_DIR/../cli_helpful/docs")
 LOG_INFO "\tParam Supported:"
 ls $DOCS_DIR
 LOG_SUCCESS "Declare docs path: $DOCS_DIR"
 echo ""
 
 # create file log tag
-echo "$DOCS_DIR" > docs_dir.txt
+export INSTALL_DIR=$(realpath "$SCRIPT_DIR/../cli_helpful/script/apps")
+echo "$DOCS_DIR" > $INSTALL_DIR/docs_dir.txt
+cd $INSTALL_DIR
 sudo ln -sfv $(pwd)/docs_dir.txt /usr/local/bin/
 
 # Loop through the array

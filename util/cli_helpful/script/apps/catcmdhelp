@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 DES=$(cat  /usr/local/bin/docs_dir.txt)
-
-. "$DES/../script/lib.sh" # function helper
+ 
+. "$DES/../../script_root/lib.sh"  # function helper
 
 if [ -z "$TOOL_CAT" ]; then
     TOOL_CAT=cat
@@ -12,7 +12,10 @@ if [ -z "$1" ]; then
     FOLDER=.
 elif [ "$1" == "--list" ]; then
     ls $DES
-    exit
+    exit 0
+elif [ "$1" == "--help" ]; then
+    cat __help.md
+    exit 0
 else
     FOLDER=$1
 fi
