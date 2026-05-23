@@ -1,0 +1,24 @@
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 120
+UseTab: Never
+
+SortIncludes: false
+
+Language: Cpp
+
+IndentPPDirectives: AfterHash
+# PPIndentWidth: 1
+
+# IndentAccessModifiers: false
+AccessModifierOffset: -3
+
+NamespaceIndentation: Inner
+
+AlignConsecutiveAssignments: true
+AlignConsecutiveMacros: true
+AlignConsecutiveDeclarations: true
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+AlignOperands: true
+IndentPPDirectives: None

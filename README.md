@@ -1,2 +1,2 @@
-# knowledge-acquisition
+# Knowledge Acquisition
 A minimalist repository tracking my journey in Embedded Systems, AI, and Linux ...
