@@ -1,0 +1,32 @@
+{
+    "app": "app_name",
+    "root": {
+    "children": {
+        "build": {
+            "flags": {
+                "--debug": {
+                    "type": "bool",
+                    "exclusive_group": "build_mode"
+                },
+                "--release": {
+                    "type": "bool",
+                    "exclusive_group": "build_mode"
+                }
+            }
+        },
+        "run": {
+            "flags": {
+                "--env": {
+                    "value": {
+                    "type": "enum",
+                    "values": ["fast", "slow"]
+                    }
+                },
+                "--port": {
+                    "value": { "type": "number" }
+                }
+            }
+        }
+    }
+    }
+}
