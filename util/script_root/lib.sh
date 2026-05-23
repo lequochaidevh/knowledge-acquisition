@@ -1,16 +1,26 @@
 #!/bin/bash
 
 # Export color variables for terminal output
-export RED='\033[0;31m'
-export GREEN='\033[0;32m'
-export YELLOW='\033[0;33m'
-export BLUE='\033[0;34m'
-export PURPLE='\033[0;35m'
-export CYAN='\033[0;36m'
+export RED='\e[31m'
+export GREEN='\e[32m'
+export YELLOW='\e[33m'
+export BLUE='\e[34m'
+export PURPLE='\e[35m'
+export CYAN='\e[36m'
+export RED_SLIM='\033[0;31m'
+export GREEN_SLIM='\033[0;32m'
+export YELLOW_SLIM='\033[0;33m'
+export BLUE_SLIM='\033[0;34m'
+export PURPLE_SLIM='\033[0;35m'
+export CYAN_SLIM='\033[0;36m'
 export NC='\033[0m' # No Color
 export BOLD='\033[1m'
 export UNDERLINE='\033[4m'
 export ENDLINE='\033[0m'
+
+export MAGENTA="\e[35m"
+export WHITE="\e[37m"
+export RESET="\e[0m"
 
 # Helper to ensure a message was passed to the logger
 _validate_require_param() {
