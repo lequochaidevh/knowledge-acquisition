@@ -19,6 +19,11 @@ struct __attribute__((packed)) PacketHeader {
     uint32_t sequence_id;   // 4 bytes // check lose data
 };
 
+struct __attribute__((packed)) PipeRequestPayload {
+    char     client_id[32];  // to naming for pipe
+    uint32_t command;        // Command: 1 = Register, 2 = Disconnect)
+};
+
 class PosixPipe {
  protected:
     int         _read_fd  = -1;

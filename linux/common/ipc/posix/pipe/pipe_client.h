@@ -13,15 +13,17 @@ class PipeClient : public PosixPipe {
     uint32_t   _current_seq = 0;
     uint32_t   _lost_count  = 0;
 
- public:
-    PipeClient(const std::string& path, ClientMode m) : PosixPipe(path), _mode(m) {}
+    std::string _client_id;
 
-    void connect();
+ public:
+    PipeClient(const std::string& request_path, const std::string& id, ClientMode m)
+        : PosixPipe(request_path), _client_id(id), _mode(m) {}
 
     void check_feedback();
+    bool request_and_switch_pipe();
 
     template <typename T>
-    void PushData(DataType type, const T& data) {
+    void push_data(DataType type, const T& data) {
         _current_seq++;
         send_packet(_write_fd, type, data, _current_seq);  // call Send in base class
     }
