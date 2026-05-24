@@ -17,6 +17,11 @@ bool PosixPipe::SendPacket(int fd, DataType type, const std::vector<uint8_t>& da
     return true;
 }
 
+uint64_t PosixPipe::GetCurrentTimeMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
 bool PosixPipe::ReadPacket(int fd, PacketHeader& header, std::vector<uint8_t>& data) {
     if (fd == -1) return false;
 
@@ -26,6 +31,20 @@ bool PosixPipe::ReadPacket(int fd, PacketHeader& header, std::vector<uint8_t>& d
     data.resize(header.payload_size);
     if (header.payload_size > 0) {
         ssize_t body_bytes = read(fd, data.data(), header.payload_size);
+        if (body_bytes != header.payload_size) return false;
+    }
+    return true;
+}
+
+bool PosixPipe::Receive(int fd, PacketHeader& header, std::vector<uint8_t>& payload) {
+    if (fd == -1) return false;
+
+    ssize_t bytes = read(fd, &header, sizeof(header));
+    if (bytes <= 0) return false;
+
+    payload.resize(header.payload_size);
+    if (header.payload_size > 0) {
+        ssize_t body_bytes = read(fd, payload.data(), header.payload_size);
         if (body_bytes != header.payload_size) return false;
     }
     return true;

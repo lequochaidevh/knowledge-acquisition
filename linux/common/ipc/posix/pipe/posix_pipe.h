@@ -26,6 +26,8 @@ class PosixPipe {
     std::string pipe_path_main;
     std::string pipe_path_fb;  // feedback pipe
 
+    uint64_t GetCurrentTimeMs();
+
  public:
     PosixPipe(const std::string& path) : pipe_path_main(path), pipe_path_fb(path + "_fb") {}
     virtual ~PosixPipe() {
@@ -37,6 +39,23 @@ class PosixPipe {
     bool SendPacket(int fd, DataType type, const std::vector<uint8_t>& data, uint32_t seq = 0);
 
     bool ReadPacket(int fd, PacketHeader& header, std::vector<uint8_t>& data);
+
+    // API send data: data acquisition
+    template <typename T>
+    bool Send(int fd, DataType type, const T& data, uint32_t seq = 0) {
+        if (fd == -1) return false;
+
+        const uint8_t* ptr  = reinterpret_cast<const uint8_t*>(data.data());
+        uint32_t       size = static_cast<uint32_t>(data.size() * sizeof(typename T::value_type));
+
+        PacketHeader header{type, size, GetCurrentTimeMs(), seq};
+
+        if (write(fd, &header, sizeof(header)) != sizeof(header)) return false;
+        if (size > 0 && write(fd, ptr, size) != static_cast<ssize_t>(size)) return false;
+        return true;
+    }
+
+    bool Receive(int fd, PacketHeader& header, std::vector<uint8_t>& payload);
 };
 
 }  // namespace HarisLinux
