@@ -9,23 +9,21 @@ class PipeClient : public PosixPipe {
     enum class ClientMode { Send, CheckLose };
 
  private:
-    ClientMode mode;
-    uint32_t   current_seq = 0;
-    uint32_t   lost_count  = 0;
+    ClientMode _mode;
+    uint32_t   _current_seq = 0;
+    uint32_t   _lost_count  = 0;
 
  public:
-    PipeClient(const std::string& path, ClientMode m) : PosixPipe(path), mode(m) {}
+    PipeClient(const std::string& path, ClientMode m) : PosixPipe(path), _mode(m) {}
 
-    void Connect();
+    void connect();
 
-    void SendData(DataType type, const std::vector<uint8_t>& data);
-
-    void CheckFeedback();
+    void check_feedback();
 
     template <typename T>
     void PushData(DataType type, const T& data) {
-        current_seq++;
-        Send(write_fd, type, data, current_seq);  // call Send in base class
+        _current_seq++;
+        send_packet(_write_fd, type, data, _current_seq);  // call Send in base class
     }
 };
 
