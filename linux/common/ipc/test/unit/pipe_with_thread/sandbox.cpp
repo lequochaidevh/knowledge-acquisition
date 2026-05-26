@@ -102,10 +102,6 @@ int main() {
     client01_thread_template.join();
     client02_thread_template.join();
 
-    // Clean up resource
-    // unlink(request_pipe_path.c_str());
-    // unlink((request_pipe_path + "_fb").c_str());
-
     std::cout << "[Main] Test Successfully !" << std::endl;
     return 0;
 }
