@@ -37,6 +37,14 @@ bool PipeClient::request_and_switch_pipe() {
         std::vector<uint8_t> fb_payload;
         if (receive_packet(_read_fd, fb_header, fb_payload)) {
             std::string_view ack_status(reinterpret_cast<const char*>(fb_payload.data()), fb_payload.size());
+            if (ack_status == "REJECTED") {
+                std::cout << "[Client][" << _client_id
+                          << "] ERROR: The ID have existed in Server ! Reject to connection." << std::endl;
+                close(_write_fd);
+                if (_read_fd != -1) close(_read_fd);
+                throw "Request failed";
+                // return false;
+            }
             // If server accepted request
             if (fb_header.sequence_id == _current_seq) {
                 std::cout << "[Client][" << _client_id << "] Server have opened new pipe. Switch to it...\n";

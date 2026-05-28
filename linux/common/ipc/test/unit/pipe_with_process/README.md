@@ -7,14 +7,17 @@ cmake ..
 make
 ```
 
+**Terminal 1**
 ```sh
-./build/server_pipe_test
+./server/server_pipe_test
 ```
 
+**Terminal 2**
 ```sh
-./build/client_pipe_test 01
+./client/client_pipe_test 01
 ```
 
+**Terminal 3**
 ```sh
-./build/client_pipe_test 02
+./client/client_pipe_test 02
 ```

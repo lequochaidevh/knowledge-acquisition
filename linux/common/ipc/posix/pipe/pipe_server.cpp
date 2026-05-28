@@ -58,6 +58,26 @@ bool PipeServer::accept_client() {
             std::string client_id(req.client_id, strnlen(req.client_id, sizeof(req.client_id)));
             std::cout << "[Server] Get client request: " << client_id << std::endl;
 
+            {
+                // Check ID has existed:
+                std::lock_guard<std::mutex> lock(_active_clients_mutex);
+
+                if (_active_clients.find(client_id) != _active_clients.end()) {
+                    std::cout << "[Server] ERROR: Client ID have been dupplicated request !"
+                                 " REJECT new Client: "
+                              << client_id << std::endl;
+
+                    // If The request dupplicated a id (REJECTED) for Client
+                    if (_mode == ServerMode::Feedback && req_write_fd != -1) {
+                        std::string_view reject_msg = "REJECTED";
+                        send_packet(req_write_fd, DataType::Command, reject_msg, header.sequence_id);
+                    }
+
+                    close(req_read_fd);
+                    if (req_write_fd != -1) close(req_write_fd);
+                    return false;
+                }
+            }
             // 1. Get ID and Create pipe for that client.
             std::string dynamic_main_path = "/tmp/pipe_" + client_id;
             std::string dynamic_fb_path   = dynamic_main_path + "_fb";
@@ -82,9 +102,11 @@ bool PipeServer::accept_client() {
             int dyn_read_fd = open(dynamic_main_path.c_str(), O_RDONLY | O_NONBLOCK);
             // block
             int dyn_write_fd = open(dynamic_fb_path.c_str(), O_WRONLY);
-
-            // Store the pair File Descriptors for that Client ID to monitor data.
-            _active_clients[client_id] = {dyn_read_fd, dyn_write_fd};
+            {
+                std::lock_guard<std::mutex> lock(_active_clients_mutex);
+                // Store the pair File Descriptors for that Client ID to monitor data.
+                _active_clients[client_id] = {dyn_read_fd, dyn_write_fd};
+            }
             std::cout << "[Server] Connected to client successfully: " << client_id << std::endl;
             return true;
         }
@@ -159,7 +181,10 @@ void PipeServer::poll_all_clients() {
     // Create thread because it will block at open pipe
     std::thread acceptor_thread([this]() {
         while (true) {
-            accept_client();  // auto block to wait new client, and add it to <_active_clients> container
+            // auto block to wait new client, and add it to <_active_clients> container
+            if (!accept_client())
+                // wait OS clean up
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     });
     acceptor_thread.detach();  // Trigger thread
@@ -167,18 +192,20 @@ void PipeServer::poll_all_clients() {
     // polling all client connected but non-block read
     while (true) {
         // Loop all element in map: _active_clients
-        // Key: client_id, Value: std::pair<int, int> chứa {read_fd, write_fd}
-        for (const auto& [client_id, fds] : _active_clients) {
-            int read_fd  = fds.first;
-            int write_fd = fds.second;
+        // Key: client_id, Value: std::pair<int, int> contain {read_fd, write_fd}
+        {
+            std::lock_guard<std::mutex> lock(_active_clients_mutex);
+            for (const auto& [client_id, fds] : _active_clients) {
+                int read_fd  = fds.first;
+                int write_fd = fds.second;
 
-            // check fd existing
-            if (read_fd != -1) {
-                process_client_packet(client_id, read_fd, write_fd);
+                // check fd existing
+                if (read_fd != -1) {
+                    process_client_packet(client_id, read_fd, write_fd);
+                }
             }
         }
-
-        // Save CPU
+        // Save CPU resource
         std::this_thread::sleep_for(std::chrono::milliseconds(3));
     }
 }

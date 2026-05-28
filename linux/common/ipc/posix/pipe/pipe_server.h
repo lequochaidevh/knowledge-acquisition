@@ -12,6 +12,7 @@ class PipeServer : public PosixPipe {
     ServerMode _mode;
 
     std::map<std::string, std::pair<int, int>> _active_clients;
+    std::mutex                                 _active_clients_mutex;
 
     // calc hz
     uint64_t _last_time = 0;
