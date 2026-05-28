@@ -63,6 +63,43 @@ bool PipeServer::accept_client() {
                 std::lock_guard<std::mutex> lock(_active_clients_mutex);
 
                 if (_active_clients.find(client_id) != _active_clients.end()) {
+                    std::cout << "[Server] Found Client\n";
+                    // ================= SHIFT LOGIC: PROCESS COMMAND REMOVE =================
+                    if (req.command == 2) {
+                        std::cout << "[Server] Get REMOVE request from Client: " << client_id << std::endl;
+
+                        {
+                            if (_mode == ServerMode::Feedback && req_write_fd != -1) {
+                                std::string_view reject_msg = "REMOVED";
+                                send_packet(req_write_fd, DataType::Command, reject_msg, header.sequence_id);
+                            }
+
+                            // 1. Close all File Descriptors for this remove request for this Client
+                            int dyn_read_fd  = _active_clients[client_id].first;
+                            int dyn_write_fd = _active_clients[client_id].second;
+
+                            if (dyn_read_fd != -1) close(dyn_read_fd);
+                            if (dyn_write_fd != -1) close(dyn_write_fd);
+
+                            // 2. Remove all FIFO file in the OS.
+                            std::string dynamic_main_path = "/tmp/pipe_" + client_id;
+                            std::string dynamic_fb_path   = dynamic_main_path + "_fb";
+                            unlink(dynamic_main_path.c_str());
+                            unlink(dynamic_fb_path.c_str());
+
+                            // 3. Remove element of the map.
+                            _active_clients.erase(client_id);
+                            std::cout << "[Server] Removed successfully Client: "  //
+                                      << client_id << std::endl;
+                        }
+
+                        // Clean up Request Pipe of this command.
+                        close(req_read_fd);
+                        if (req_write_fd != -1) close(req_write_fd);
+                        return false;  // todo: remove delay
+                    }
+                    // =================================================================
+
                     std::cout << "[Server] ERROR: Client ID have been dupplicated request !"
                                  " REJECT new Client: "
                               << client_id << std::endl;
@@ -81,7 +118,7 @@ bool PipeServer::accept_client() {
             // 1. Get ID and Create pipe for that client.
             std::string dynamic_main_path = "/tmp/pipe_" + client_id;
             std::string dynamic_fb_path   = dynamic_main_path + "_fb";
-            std::cout << dynamic_main_path << std::endl;
+
             unlink(dynamic_main_path.c_str());
             unlink(dynamic_fb_path.c_str());
             mkfifo(dynamic_main_path.c_str(), 0666);

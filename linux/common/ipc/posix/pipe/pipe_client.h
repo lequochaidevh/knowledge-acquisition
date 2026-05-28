@@ -14,13 +14,15 @@ class PipeClient : public PosixPipe {
     uint32_t   _lost_count  = 0;
 
     std::string _client_id;
+    std::string _old_pipe_path_main;
 
  public:
     PipeClient(const std::string& request_path, const std::string& id, ClientMode m)
-        : PosixPipe(request_path), _client_id(id), _mode(m) {}
-
+        : PosixPipe(request_path), _old_pipe_path_main(request_path), _client_id(id), _mode(m) {}
+    virtual ~PipeClient();
     void check_feedback();
-    bool request_and_switch_pipe();
+    bool request_and_switch_main_pipe();
+    bool request_and_switch_pipe(uint32_t command_arg = 1);
 
     template <typename T>
     void push_data(DataType type, const T& data) {

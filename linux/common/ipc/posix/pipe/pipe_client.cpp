@@ -1,6 +1,11 @@
 #include "pipe_client.h"
 
 namespace HarisLinux {
+PipeClient::~PipeClient() {
+    std::cout << "[Client][" << _client_id <<  //
+        "] Distructor class, send command REMOVE to Server..." << std::endl;
+    request_and_switch_main_pipe();
+}
 
 void PipeClient::check_feedback() {
     if (_mode != ClientMode::CheckLose) return;
@@ -14,7 +19,17 @@ void PipeClient::check_feedback() {
     }
 }
 
-bool PipeClient::request_and_switch_pipe() {
+bool PipeClient::request_and_switch_main_pipe() {
+    _pipe_path_main = _old_pipe_path_main;
+    _pipe_path_fb   = _old_pipe_path_main + "_fb";
+    if (_write_fd != -1) close(_write_fd);
+    if (_read_fd != -1) close(_read_fd);
+
+    request_and_switch_pipe(2);
+    return true;
+}
+
+bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
     std::cout << "[Client][" << _client_id << "] have connected to Request Pipe ...\n";
     _write_fd = open(_pipe_path_main.c_str(), O_WRONLY);
     if (_mode == ClientMode::CheckLose) {
@@ -24,7 +39,7 @@ bool PipeClient::request_and_switch_pipe() {
     // Prepare Payload
     PipeRequestPayload req;
     std::strncpy(req.client_id, _client_id.c_str(), sizeof(req.client_id));
-    req.command = 1;  // Command = 1 to request open new pipe
+    req.command = command_arg;  // Command = 1 to request open new pipe
 
     std::cout << "[Client][" << _client_id << "] Send request to pipe ...\n";
     _current_seq++;
@@ -44,7 +59,8 @@ bool PipeClient::request_and_switch_pipe() {
                 if (_read_fd != -1) close(_read_fd);
                 throw "Request failed";
                 // return false;
-            }
+            } else if (ack_status == "REMOVED")
+                return true;
             // If server accepted request
             if (fb_header.sequence_id == _current_seq) {
                 std::cout << "[Client][" << _client_id << "] Server have opened new pipe. Switch to it...\n";

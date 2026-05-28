@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             client.check_feedback();
         }
-
-        while (1) {
+        int cnt = 2;
+        while (--cnt) {
             // --- TEST 1: Send text data (Text) ---
             // Not need covert string to vector<uint8_t>, can send directly string data
             std::string text_msg = "Hello POSIX Pipe!";
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
             // Check lose data from Server
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             client.check_feedback();
-            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
             // --- TEST 2: Send interger (Number) ---
             // Not need temporary data and memcpy,
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             client.check_feedback();
-            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
             // --- TEST 3: Send data Media/Command type (byte array) ---
             // still use std::vector<uint8_t> for large raw data, func template auto get size infomation.
