@@ -5,7 +5,7 @@ INTRO_PATH=$(realpath "$INTRO_PATH")
 
 cd $HARIS_UTILS/script_root
 . "$(dirname "$0")/lib.sh"
-cd $AT_HERE_PATH
+cd $INTRO_PATH
 
 echo -e "${CYAN}" 
 printf "  ██████╗ ███████╗██╗   ██╗██╗  ██╗\n"
