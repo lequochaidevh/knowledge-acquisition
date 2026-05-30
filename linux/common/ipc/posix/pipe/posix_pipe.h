@@ -1,6 +1,7 @@
 #pragma once
 
 #include "std17pch.h"
+#include "logging/logger.h"
 
 namespace HarisLinux {
 

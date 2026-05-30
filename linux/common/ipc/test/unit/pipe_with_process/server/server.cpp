@@ -1,5 +1,4 @@
 #include "pipe_server.h"
-#include "pipe_client.h"
 
 using namespace HarisLinux;
 

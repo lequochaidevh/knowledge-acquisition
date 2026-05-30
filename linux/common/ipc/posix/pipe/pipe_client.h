@@ -17,8 +17,7 @@ class PipeClient : public PosixPipe {
     std::string _old_pipe_path_main;
 
  public:
-    PipeClient(const std::string& request_path, const std::string& id, ClientMode m)
-        : PosixPipe(request_path), _old_pipe_path_main(request_path), _client_id(id), _mode(m) {}
+    PipeClient(const std::string& request_path, const std::string& id, ClientMode m);
     virtual ~PipeClient();
     void check_feedback();
     bool request_and_switch_main_pipe();

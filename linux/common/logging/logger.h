@@ -56,9 +56,9 @@ class LogRegistry {
 };
 
 // Macros designed to use a local or module-specific logger variable named 'logger'
-#define LOG_TRACE(fmt, ...)    logger->log(LogLevel::Trace, fmt, ##__VA_ARGS__)
-#define LOG_DEBUG(fmt, ...)    logger->log(LogLevel::Debug, fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...)     logger->log(LogLevel::Info, fmt, ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...)     logger->log(LogLevel::Warn, fmt, ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...)    logger->log(LogLevel::Error, fmt, ##__VA_ARGS__)
-#define LOG_CRITICAL(fmt, ...) logger->log(LogLevel::Critical, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_TRACE(fmt, ...)    logger->log(LogLevel::Trace, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_DEBUG(fmt, ...)    logger->log(LogLevel::Debug, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_INFO(fmt, ...)     logger->log(LogLevel::Info, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_WARN(fmt, ...)     logger->log(LogLevel::Warn, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_ERROR(fmt, ...)    logger->log(LogLevel::Error, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_CRITICAL(fmt, ...) logger->log(LogLevel::Critical, fmt, ##__VA_ARGS__)

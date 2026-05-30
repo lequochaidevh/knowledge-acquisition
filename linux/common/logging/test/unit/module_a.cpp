@@ -6,6 +6,6 @@ static auto logger = LogRegistry::getInstance().getLogger("Module_A");
 void runModuleA() {
     logger->setLevel(LogLevel::Trace);  // Module A only handles Debug and above
 
-    LOG_DEBUG("Module A is initializing... code: {}", 101);  // Will print
-    LOG_TRACE("This trace will be skipped in Module A");     // Hidden
+    HARIS_LOG_DEBUG("Module A is initializing... code: {}", 101);  // Will print
+    HARIS_LOG_TRACE("This trace will be skipped in Module A");     // Hidden
 }
