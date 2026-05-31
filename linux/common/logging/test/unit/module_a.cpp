@@ -1,4 +1,4 @@
-#include "logger.h"
+#include "logging/logger.h"
 
 // Define a static logger pointer for this compilation unit (Module A)
 static auto logger = LogRegistry::getInstance().getLogger("Module_A");

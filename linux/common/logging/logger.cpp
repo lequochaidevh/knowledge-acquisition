@@ -3,22 +3,34 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+// C libs
+#include <unistd.h>       // Required for getpid() on Linux
+#include <sys/syscall.h>  // Required for SYS_gettid on Linux embedded/ubuntu
 
 // --- Logger Implementation ---
 Logger::Logger(std::string name) : _name(std::move(name)), _level(LogLevel::Info) {}
 
 void Logger::setLevel(LogLevel level) { _level = level; }
 
-std::string Logger::getTimestamp() {
+std::string Logger::getThreadProcessInfo() {
+    // 1. Fetch both Process ID and current Thread ID from Linux OS
+    pid_t pid = ::getpid();
+    pid_t tid = static_cast<pid_t>(::syscall(SYS_gettid));
+
+    // 2. Fetch current time for Minute:Second formatting
     auto    now        = std::chrono::system_clock::now();
     auto    time_t_now = std::chrono::system_clock::to_time_t(now);
     std::tm tm_struct;
+    ::localtime_r(&time_t_now, &tm_struct);
 
-    localtime_r(&time_t_now, &tm_struct);
-
-    std::stringstream ss;
-    ss << std::put_time(&tm_struct, "%Y-%m-%d %H:%M:%S");
-    return ss.str();
+    // 3. Dynamic identification logic
+    if (pid == tid) {
+        // If they match, we are currently executing on the Main Thread (Process level)
+        return fmt::format("[pid:{} {:02d}:{:02d}]", pid, tm_struct.tm_min, tm_struct.tm_sec);
+    } else {
+        // If they differ, a worker thread generated this log (Thread level)
+        return fmt::format("[tid:{} {:02d}:{:02d}]", tid, tm_struct.tm_min, tm_struct.tm_sec);
+    }
 }
 
 std::string_view Logger::levelToString(LogLevel level) {
@@ -41,8 +53,8 @@ std::string_view Logger::levelToString(LogLevel level) {
 }
 
 void Logger::printLog(LogLevel level, const std::string& msg) {
-    // Modified format to display the specific module name: [TIMESTAMP] [MODULE_NAME] [LEVEL] MESSAGE
-    std::cout << fmt::format("[{}] [{}] [{}] {}\n", getTimestamp(), _name, levelToString(level), msg);
+    // New pattern style: [T/P-id: ... min:second] [Module] [Level] Message
+    std::cout << fmt::format("{} [{}] [{}] {}\n", getThreadProcessInfo(), _name, levelToString(level), msg);
 }
 
 void Logger::printError(const char* error_msg) { std::cerr << "[LOG ERROR] Format failed: " << error_msg << "\n"; }

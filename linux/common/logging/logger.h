@@ -33,7 +33,7 @@ class Logger {
     std::string _name;
     LogLevel    _level;
 
-    std::string      getTimestamp();
+    std::string      getThreadProcessInfo();
     std::string_view levelToString(LogLevel level);
     void             printLog(LogLevel level, const std::string& msg);
     void             printError(const char* error_msg);
