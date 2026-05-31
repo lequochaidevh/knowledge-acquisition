@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(LoggingLibrary CXX)
+project(PosixPipeLibrary CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,23 +22,34 @@ endif()
 
 find_package(fmt REQUIRED PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
 
-add_library(logging STATIC logger.cpp logger.h)
+file(GLOB SOURCES 
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+)
 
-target_link_libraries(logging PUBLIC fmt::fmt)
+add_library(posix_pipe STATIC ${SOURCES})
+
+target_link_libraries(posix_pipe PUBLIC fmt::fmt)
 
 # Configure include directory paths for building and installing
-target_include_directories(logging PUBLIC 
+target_include_directories(posix_pipe PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../>
+    $<INSTALL_INTERFACE:include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
 # 3. CONFIGURE INSTALLATION TARGETS
-# Install the static library binary (liblogging.a) to 'lib/'
-install(TARGETS logging
+# Install the static library binary (libposix_pipe.a) to 'lib/'
+install(TARGETS posix_pipe
     ARCHIVE DESTINATION lib
 )
 
-# Install the header file (logger.h) to 'include/'
-install(FILES logger.h
-    DESTINATION include/logging
+file(GLOB HEADERS_BE_INSTALLED
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+)
+
+# Copies the 'posix' folder and its contents into 'include/'
+install(FILES ${HEADERS_BE_INSTALLED}
+    DESTINATION include/posix/pipe
 )

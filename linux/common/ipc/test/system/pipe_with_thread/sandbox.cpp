@@ -1,5 +1,5 @@
-#include "pipe_server.h"
-#include "pipe_client.h"
+#include "posix/pipe/pipe_server.h"
+#include "posix/pipe/pipe_client.h"
 
 using namespace HarisLinux;
 
@@ -87,7 +87,7 @@ int main() {
         while (cnt--) {
             // --- TEST 1: Send text data (Text) ---
             // Not need covert string to vector<uint8_t>, can send directly string data
-            std::string text_msg = "\n----02----\n";
+            std::string text_msg = "----02----";
             std::cout << "\n[Client 02] Send text..." << std::endl;
             client.push_data(DataType::Text, text_msg);
 

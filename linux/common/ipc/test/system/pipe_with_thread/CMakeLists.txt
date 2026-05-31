@@ -9,9 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Check if the external environment variable exists
 if(DEFINED ENV{LOCAL_MINOR_ROOT})
     # Read the environment variable and force it into CMAKE_INSTALL_PREFIX
-    set(LOGGING_SEARCH_PATH "$ENV{LOCAL_MINOR_ROOT}")
+    set(MINOR_ROOT_SEARCH_PATH "$ENV{LOCAL_MINOR_ROOT}")
     set(CMAKE_INSTALL_PREFIX "$ENV{LOCAL_MINOR_ROOT}" CACHE PATH "Install path from env" FORCE)
-    message(STATUS "--> Found LOGGING_SEARCH_PATH to: ${LOGGING_SEARCH_PATH}")
+    message(STATUS "--> Found MINOR_ROOT_SEARCH_PATH to: ${MINOR_ROOT_SEARCH_PATH}")
     message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
 else()
     # Fallback default path if the environment variable is not exported
@@ -24,42 +24,47 @@ endif()
 file(GLOB SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../posix/pipe/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../posix/pipe/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../common/std17pch.h"
 )
 
-message(STATUS "--> Searching for logging library in: ${LOGGING_SEARCH_PATH}")
-# 2. Find Header and logging static library in the path
+message(STATUS "--> Searching for logging library in: ${MINOR_ROOT_SEARCH_PATH}")
+# 2. Find Header and static library in the path
+
+find_library(MINOR_ROOT_LIBRARY 
+    NAMES posix_pipe
+    PATHS ${MINOR_ROOT_SEARCH_PATH}/lib
+    NO_DEFAULT_PATH
+)
+
 find_path(LOGGING_INCLUDE_DIR 
     NAMES logger.h
-    PATHS ${LOGGING_SEARCH_PATH}/include
+    PATHS ${MINOR_ROOT_SEARCH_PATH}/include
     NO_DEFAULT_PATH
 )
 
 find_library(LOGGING_LIBRARY 
     NAMES logging
-    PATHS ${LOGGING_SEARCH_PATH}/lib
+    PATHS ${MINOR_ROOT_SEARCH_PATH}/lib
     NO_DEFAULT_PATH
 )
 
-find_package(fmt REQUIRED PATHS ${LOGGING_SEARCH_PATH} NO_DEFAULT_PATH)
+
+find_package(fmt REQUIRED PATHS ${MINOR_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
 
 add_executable(pipe_test ${SOURCES})
 
 find_package(Threads REQUIRED)
 
 message(STATUS "--> Searching for LOGGING_LIBRARY in: ${LOGGING_LIBRARY}")
+message(STATUS "--> Searching for MINOR_ROOT_LIBRARY in: ${MINOR_ROOT_LIBRARY}")
 
 target_include_directories(pipe_test PRIVATE 
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../posix/pipe"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../common"
-    ${LOGGING_INCLUDE_DIR}
+    "${MINOR_ROOT_SEARCH_PATH}/include"
 )
 target_link_libraries(pipe_test PRIVATE 
     Threads::Threads
-    ${LOGGING_LIBRARY} 
+    ${MINOR_ROOT_LIBRARY}
+    ${LOGGING_LIBRARY}
     fmt::fmt
 )
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
