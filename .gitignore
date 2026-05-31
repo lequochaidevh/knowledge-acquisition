@@ -2,3 +2,4 @@ build/
 user_bashrc_export
 *.ignore
 local_minor_root/
+internal_root/
