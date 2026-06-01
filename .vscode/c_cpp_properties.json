@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/linux/common/logging/**"
+                "${workspaceFolder}/linux/common/logging/**",
+                "${workspaceFolder}/linux/common/**"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cppStandard": "c++17",

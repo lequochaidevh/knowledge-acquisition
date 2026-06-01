@@ -32,7 +32,6 @@
 #include <signal.h>
 #include <iostream>
 #include <vector>
-#include <string>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -46,6 +45,12 @@
 #include <atomic>
 
 #include <dlfcn.h>  // dloader
+
+#include <cstdint>
+// Unix socket
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 template <typename T>
 using Shared = std::shared_ptr<T>;
