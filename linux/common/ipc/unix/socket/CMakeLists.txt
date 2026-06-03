@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(PosixPipeLibrary CXX)
+project(UnixSocketLibrary CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,18 +19,18 @@ else()
     endif()
 endif()
 
+
 find_package(fmt REQUIRED PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
 
 file(GLOB SOURCES 
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-add_library(ipc_pipe_obj OBJECT
+add_library(ipc_socket_obj OBJECT
     ${SOURCES}
 )
 
-target_link_libraries(ipc_pipe_obj PUBLIC fmt::fmt)
-
+target_link_libraries(ipc_socket_obj PUBLIC fmt::fmt)
 
 if("${IPC_ROOT_DIR}" STREQUAL "")
     message(WARNING "IPC_ROOT_DIR is empty will auto find it")
@@ -39,21 +39,22 @@ if("${IPC_ROOT_DIR}" STREQUAL "")
 endif()
 
 # Configure include directory paths for building and installing
-target_include_directories(ipc_pipe_obj PUBLIC
+target_include_directories(ipc_socket_obj PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../>
     $<INSTALL_INTERFACE:include>
     ${IPC_ROOT_DIR}
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
+
 if(LIB_NOT_MERGE)
-    add_library(posix_pipe STATIC
-        $<TARGET_OBJECTS:ipc_pipe_obj>
+    add_library(unix_socket STATIC
+        $<TARGET_OBJECTS:ipc_socket_obj>
     )
 
     # 3. CONFIGURE INSTALLATION TARGETS
-    # Install the static library binary (libposix_pipe.a) to 'lib/'
-    install(TARGETS posix_pipe
+    # Install the static library binary (libunix_socket.a) to 'lib/'
+    install(TARGETS unix_socket
         ARCHIVE DESTINATION lib
     )
 
@@ -63,16 +64,16 @@ if(LIB_NOT_MERGE)
 
     # Copies the 'posix' folder and its contents into 'include/'
     install(FILES ${HEADERS_BE_INSTALLED}
-        DESTINATION include/posix/pipe
+        DESTINATION include/unix/socket
     )
-else()
-    file(GLOB SOCKET_HEADERS
+else() 
+    file(GLOB PIPE_HEADERS
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     )
 
     set(IPC_INSTALL_HEADERS
         ${IPC_INSTALL_HEADERS}
-        ${SOCKET_HEADERS}
+        ${PIPE_HEADERS}
         PARENT_SCOPE
     )
 endif()

@@ -39,9 +39,9 @@ int main() {
                     break;
                 }
                 case DataType::Command: {
-                    if (payload.size() >= sizeof(SocketRequestPayload)) {
-                        SocketRequestPayload cmd;
-                        std::memcpy(&cmd, payload.data(), sizeof(SocketRequestPayload));
+                    if (payload.size() >= sizeof(IPCRequestPayload)) {
+                        IPCRequestPayload cmd;
+                        std::memcpy(&cmd, payload.data(), sizeof(IPCRequestPayload));
                         std::cout << ">> Recv COMMAND Code: " << cmd.command << "\n";
                     }
                     break;

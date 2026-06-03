@@ -58,7 +58,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
     }
 
     // Prepare Payload
-    PipeRequestPayload req;
+    IPCRequestPayload req;
     std::strncpy(req.client_id, _client_id.c_str(), sizeof(req.client_id));
     req.command = command_arg;  // Command = 1 to request open new pipe
 
@@ -67,7 +67,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         "Send request to pipe ...",
         _client_id);
     _current_seq++;
-    std::string_view req_view(reinterpret_cast<const char*>(&req), sizeof(PipeRequestPayload));
+    std::string_view req_view(reinterpret_cast<const char*>(&req), sizeof(IPCRequestPayload));
     send_packet(_write_fd, DataType::Command, req_view, _current_seq);
 
     // Wait Server to accept and feedback ACK.

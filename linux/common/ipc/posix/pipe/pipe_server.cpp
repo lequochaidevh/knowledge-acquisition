@@ -56,9 +56,9 @@ bool PipeServer::accept_client() {
 
     // Read data from client request
     if (receive_packet(req_read_fd, header, data)) {
-        if (header.type == DataType::Command && data.size() == sizeof(PipeRequestPayload)) {
-            PipeRequestPayload req;
-            std::memcpy(&req, data.data(), sizeof(PipeRequestPayload));
+        if (header.type == DataType::Command && data.size() == sizeof(IPCRequestPayload)) {
+            IPCRequestPayload req;
+            std::memcpy(&req, data.data(), sizeof(IPCRequestPayload));
 
             std::string client_id(req.client_id, strnlen(req.client_id, sizeof(req.client_id)));
             HARIS_LOG_INFO("Get client request: {} ", client_id);

@@ -48,9 +48,9 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Scenario 3: Transmitting Operational System Directives (Command Struct)
-    SocketRequestPayload cmd_payload;
+    IPCRequestPayload cmd_payload;
 
-    std::memset(&cmd_payload, 0, sizeof(SocketRequestPayload));  // Clear buffer memory safely
+    std::memset(&cmd_payload, 0, sizeof(IPCRequestPayload));  // Clear buffer memory safely
 
     // Safely copy a text identifier into the fixed-size array
     std::strncpy(cmd_payload.client_id, "Client_A", sizeof(cmd_payload.client_id) - 1);
