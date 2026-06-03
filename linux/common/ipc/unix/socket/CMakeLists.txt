@@ -64,12 +64,16 @@ if(LIB_NOT_MERGE)
 
     # Copies the 'posix' folder and its contents into 'include/'
     install(FILES ${HEADERS_BE_INSTALLED}
-        DESTINATION include/unix/socket
+        DESTINATION include/haris/linux/common/ipc
     )
 else() 
     file(GLOB PIPE_HEADERS
         "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     )
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-Wshadow -Werror)
+    endif()
 
     set(IPC_INSTALL_HEADERS
         ${IPC_INSTALL_HEADERS}

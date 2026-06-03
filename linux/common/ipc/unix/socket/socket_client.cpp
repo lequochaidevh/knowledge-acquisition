@@ -1,8 +1,12 @@
 #include "socket_client.h"
 namespace HarisLinux {
 
+static auto logger = LogRegistry::getInstance().getLogger("SocketClient");
+
 bool SocketClient::connect_to_server(const std::string& ip, int port) {
     if (!initialize_socket()) return false;
+
+    logger->setLevel(LogLevel::Trace);
 
     _server_addr.sin_family = AF_INET;
     _server_addr.sin_port   = htons(port);
@@ -26,9 +30,12 @@ void SocketClient::check_lose_from_feedback() {
     ssize_t received =
         recvfrom(_socket_fd, &ack_header, sizeof(PacketHeader), 0, (struct sockaddr*)&from_addr, &addr_len);
 
+    HARIS_LOG_TRACE("Current map size tracking: {}", _sent_packets.size());
+
     if (received >= static_cast<ssize_t>(sizeof(PacketHeader))) {
         if (ack_header.type == DataType::Heartbeat) {
             // got ACK -> Remove it out of Client's queue
+            HARIS_LOG_TRACE("ack_header.sequence_id = {}", static_cast<int>(ack_header.sequence_id));
             _sent_packets.erase(ack_header.sequence_id);
         }
     }
@@ -39,8 +46,12 @@ void SocketClient::check_lose_from_feedback() {
     while (it != _sent_packets.end()) {
         if (now - it->second > 200) {  // over time
             _lost_packets_count++;
-            std::cout << "[Client] Lost Packet Detected! Seq ID: " << it->first
-                      << " | Total Lost: " << _lost_packets_count << "\n";
+
+            HARIS_LOG_ERROR(
+                "Lost Packet Detected! Seq ID:  {} "
+                "| Total Lost: {} ",
+                it->first, _lost_packets_count);
+
             it = _sent_packets.erase(it);
         } else {
             ++it;

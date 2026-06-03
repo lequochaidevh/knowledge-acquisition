@@ -1,4 +1,5 @@
 #pragma once
+#include "logging/logger.h"
 #include "ipc_metadata.h"
 #include <chrono>
 
@@ -12,7 +13,7 @@ class UnixSocket {
 
     uint64_t get_current_timestamp_ms();
 
-    std::map<uint32_t, uint64_t> _sent_packets;
+    std::map<uint32_t, uint64_t> _sent_packets;  // stored sequence_id and time to check timeout/lose
 
  public:
     UnixSocket() : _socket_fd(-1), _sequence_counter(0) { std::memset(&_server_addr, 0, sizeof(_server_addr)); }

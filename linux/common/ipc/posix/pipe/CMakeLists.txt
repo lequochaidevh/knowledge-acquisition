@@ -63,7 +63,7 @@ if(LIB_NOT_MERGE)
 
     # Copies the 'posix' folder and its contents into 'include/'
     install(FILES ${HEADERS_BE_INSTALLED}
-        DESTINATION include/posix/pipe
+        DESTINATION include/haris/linux/common/ipc
     )
 else()
     file(GLOB SOCKET_HEADERS

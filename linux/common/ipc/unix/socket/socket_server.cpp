@@ -2,8 +2,12 @@
 
 namespace HarisLinux {
 
+static auto logger = LogRegistry::getInstance().getLogger("SocketServer");
+
 bool SocketServer::start_server(int port) {
     if (!initialize_socket()) return false;
+
+    logger->setLevel(LogLevel::Trace);
 
     _server_addr.sin_family      = AF_INET;
     _server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -41,8 +45,11 @@ bool SocketServer::receive_packet(PacketHeader& out_header, std::vector<uint8_t>
     double   latency = (now >= out_header.timestamp_ms) ? (now - out_header.timestamp_ms) : 0;
     double   hz      = latency > 0 ? (1000.0 / latency) : 0.0;
 
-    std::cout << "[Server] Recv Type: " << static_cast<int>(out_header.type) << " | Seq: " << out_header.sequence_id
-              << " | Est. Speed: " << hz << " Hz\n";
+    HARIS_LOG_DEBUG("[Server] Recv Type: {}  ", static_cast<int>(out_header.type));
+    HARIS_LOG_DEBUG(
+        "   >> Seq: {} "
+        "| Est. Speed: {} Hz",
+        static_cast<int>(out_header.sequence_id), hz);
 
     // Feedback mode: send Heartbeat to Client check lose
     if (_mode == ServerMode::Feedback) {

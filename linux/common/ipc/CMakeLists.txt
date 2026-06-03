@@ -14,20 +14,24 @@ if(LIB_NOT_MERGE)
 
 else()
 
-    add_library(ipc_common STATIC
+    add_library(common_ipc STATIC
         $<TARGET_OBJECTS:ipc_pipe_obj>
         $<TARGET_OBJECTS:ipc_socket_obj>
     )
 
     # 3. CONFIGURE INSTALLATION TARGETS
     # Install the static library binary (libposix_pipe.a) to 'lib/'
-    install(TARGETS ipc_common
+    install(TARGETS common_ipc
         ARCHIVE DESTINATION lib
     )
 
+    file(GLOB COMMON_IPC_HEADERS
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+    )
+
     # Copies the 'ipc_common' folder and its contents into 'include/'
-    install(FILES ${IPC_INSTALL_HEADERS}
-        DESTINATION include/ipc_common
+    install(FILES ${IPC_INSTALL_HEADERS} ${COMMON_IPC_HEADERS}
+        DESTINATION include/haris/linux/common/ipc
     )
 
 endif()

@@ -5,8 +5,7 @@ namespace HarisLinux {
 
 class SocketClient : public UnixSocket {
  private:
-    uint32_t                     _lost_packets_count;
-    std::map<uint32_t, uint64_t> _sent_packets;  // stored sequence_id and time to check timeout/lose
+    uint32_t _lost_packets_count;
 
  public:
     SocketClient() : UnixSocket(), _lost_packets_count(0) {}

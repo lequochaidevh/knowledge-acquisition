@@ -104,7 +104,10 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                 // Connect to new pipe
                 _write_fd = open(_pipe_path_main.c_str(), O_WRONLY | O_NONBLOCK);
                 _read_fd  = open(_pipe_path_fb.c_str(), O_RDONLY);
-                std::cout << "[Client][" << _client_id << "] Switch to new pipe successfully!\n";
+                HARIS_LOG_DEBUG(
+                    "The client id: [{}] "
+                    "Switch to new pipe successfully!",
+                    _client_id);
                 return true;
             }
         }

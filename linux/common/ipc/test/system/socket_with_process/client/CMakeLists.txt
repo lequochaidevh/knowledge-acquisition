@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(DEFINED ENV{LOCAL_MINOR_ROOT})
     # Read the environment variable and force it into CMAKE_INSTALL_PREFIX
     set(ROOT_SEARCH_PATH "$ENV{LOCAL_MINOR_ROOT}")
+    # set(LOGGING_LIBRARY "$ENV{LOCAL_MINOR_ROOT}")
     set(CMAKE_INSTALL_PREFIX "$ENV{LOCAL_MINOR_ROOT}" CACHE PATH "Install path from env" FORCE)
     message(STATUS "--> Found ROOT_SEARCH_PATH to: ${ROOT_SEARCH_PATH}")
     message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
@@ -23,8 +24,6 @@ endif()
 
 file(GLOB SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket/*.h"
 )
 
 message(STATUS "--> Searching for logging library in: ${ROOT_SEARCH_PATH}")
@@ -41,6 +40,28 @@ find_library(LOGGING_LIBRARY
     NO_DEFAULT_PATH
 )
 
+find_path(COMMON_IPC_INCLUDE_DIR
+    NAMES haris/linux/common/ipc
+    PATHS ${ROOT_SEARCH_PATH}/include
+    NO_DEFAULT_PATH
+)
+
+if(LIB_NOT_MERGE)
+    # -lunix_socket
+    find_library(COMMON_IPC_LIBRARY 
+        NAMES unix_socket
+        PATHS ${ROOT_SEARCH_PATH}/lib
+        NO_DEFAULT_PATH
+    )
+else()
+    # -lcommon_ipc
+    find_library(COMMON_IPC_LIBRARY 
+        NAMES common_ipc
+        PATHS ${ROOT_SEARCH_PATH}/lib
+        NO_DEFAULT_PATH
+    )
+endif()
+
 find_package(fmt REQUIRED PATHS ${ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
 
 add_executable(client_socket_test ${SOURCES})
@@ -49,15 +70,16 @@ find_package(Threads REQUIRED)
 
 message(STATUS "--> Searching for LOGGING_LIBRARY in: ${LOGGING_LIBRARY}")
 message(STATUS "--> Searching for LOGGING_INCLUDE_DIR in: ${LOGGING_INCLUDE_DIR}")
+message(STATUS "--> Searching for COMMON_IPC_INCLUDE_DIR in: ${COMMON_IPC_INCLUDE_DIR}/haris/linux/common/ipc")
+message(STATUS "--> Searching for COMMON_IPC_LIBRARY in: ${COMMON_IPC_LIBRARY}")
 
-target_include_directories(client_socket_test PRIVATE 
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../common"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../common/ipc"
+target_include_directories(client_socket_test PRIVATE
+    "${COMMON_IPC_INCLUDE_DIR}/haris/linux/common/ipc"
     "${LOGGING_INCLUDE_DIR}"
 )
 target_link_libraries(client_socket_test PRIVATE 
     Threads::Threads
+    ${COMMON_IPC_LIBRARY}
     ${LOGGING_LIBRARY}
     fmt::fmt
 )

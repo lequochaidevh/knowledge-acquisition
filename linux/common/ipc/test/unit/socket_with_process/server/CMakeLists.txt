@@ -9,10 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Check if the external environment variable exists
 if(DEFINED ENV{LOCAL_MINOR_ROOT})
     # Read the environment variable and force it into CMAKE_INSTALL_PREFIX
-    set(LOGGING_SEARCH_PATH "$ENV{LOCAL_MINOR_ROOT}")
-    # set(LOGGING_LIBRARY "$ENV{LOCAL_MINOR_ROOT}")
+    set(ROOT_SEARCH_PATH "$ENV{LOCAL_MINOR_ROOT}")
     set(CMAKE_INSTALL_PREFIX "$ENV{LOCAL_MINOR_ROOT}" CACHE PATH "Install path from env" FORCE)
-    message(STATUS "--> Found LOGGING_SEARCH_PATH to: ${LOGGING_SEARCH_PATH}")
+    message(STATUS "--> Found ROOT_SEARCH_PATH to: ${ROOT_SEARCH_PATH}")
     message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
 else()
     # Fallback default path if the environment variable is not exported
@@ -24,28 +23,25 @@ endif()
 
 file(GLOB SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/server.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../common/std17pch.h"
 )
 
-message(STATUS "--> Searching for logging library in: ${LOGGING_SEARCH_PATH}")
+message(STATUS "--> Searching for logging library in: ${ROOT_SEARCH_PATH}")
 # 2. Find Header and logging static library in the path
 find_path(LOGGING_INCLUDE_DIR 
     NAMES logging
-    PATHS ${LOGGING_SEARCH_PATH}/include
+    PATHS ${ROOT_SEARCH_PATH}/include
     NO_DEFAULT_PATH
 )
 
 find_library(LOGGING_LIBRARY 
     NAMES logging
-    PATHS ${LOGGING_SEARCH_PATH}/lib
+    PATHS ${ROOT_SEARCH_PATH}/lib
     NO_DEFAULT_PATH
 )
 
-find_package(fmt REQUIRED PATHS ${LOGGING_SEARCH_PATH} NO_DEFAULT_PATH)
+find_package(fmt REQUIRED PATHS ${ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
 
 add_executable(server_socket_test ${SOURCES})
 
@@ -57,11 +53,13 @@ message(STATUS "--> Searching for LOGGING_INCLUDE_DIR in: ${LOGGING_INCLUDE_DIR}
 target_include_directories(server_socket_test PRIVATE 
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../unix/socket"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../common"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../common/ipc"
     "${LOGGING_INCLUDE_DIR}"
 )
-target_link_libraries(server_socket_test PRIVATE 
+
+target_link_libraries(server_socket_test PRIVATE
     Threads::Threads
-    ${LOGGING_LIBRARY} 
+    ${LOGGING_LIBRARY}
     fmt::fmt
 )
 
