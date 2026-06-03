@@ -1,5 +1,7 @@
 #include "socket_server.h"
 
+namespace HarisLinux {
+
 bool SocketServer::start_server(int port) {
     if (!initialize_socket()) return false;
 
@@ -65,3 +67,5 @@ void SocketServer::broadcast_packet(DataType type, const uint8_t* data, uint32_t
         sendto(_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&client, sizeof(client));
     }
 }
+
+}  // namespace HarisLinux

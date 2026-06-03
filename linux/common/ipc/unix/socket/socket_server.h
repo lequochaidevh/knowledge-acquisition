@@ -1,6 +1,8 @@
 #pragma once
 #include "unix_socket.h"
 
+namespace HarisLinux {
+
 class SocketServer : public UnixSocket {
  private:
     ServerMode               _mode;
@@ -26,3 +28,5 @@ class SocketServer : public UnixSocket {
     // set data to all client (use for mode Broadcast)
     void broadcast_packet(DataType type, const uint8_t* data, uint32_t size, uint32_t& seq_counter);
 };
+
+}  // namespace HarisLinux

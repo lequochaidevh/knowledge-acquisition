@@ -1,4 +1,5 @@
 #include "socket_client.h"
+namespace HarisLinux {
 
 bool SocketClient::connect_to_server(const std::string& ip, int port) {
     if (!initialize_socket()) return false;
@@ -46,3 +47,5 @@ void SocketClient::check_lose_from_feedback() {
         }
     }
 }
+
+}  // namespace HarisLinux

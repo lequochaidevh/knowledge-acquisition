@@ -3,6 +3,8 @@
 #include <thread>
 #include <chrono>
 
+using namespace HarisLinux;
+
 // Independent context execution worker tasked with parsing server feedback metrics
 void feedback_listener_thread(SocketClient* client, bool* keep_running) {
     while (*keep_running) {

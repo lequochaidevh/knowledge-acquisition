@@ -2,6 +2,8 @@
 #include "socket_metadata.h"
 #include <chrono>
 
+namespace HarisLinux {
+
 class UnixSocket {
  protected:
     int         _socket_fd;
@@ -51,3 +53,5 @@ class UnixSocket {
         return false;
     }
 };
+
+}  // namespace HarisLinux
