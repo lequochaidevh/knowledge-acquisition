@@ -31,13 +31,18 @@ int main() {
     // Scenario 1: Transmitting Telemetry Metric Types (Number)
     double telemetry_data = 24.58;
     std::cout << "[Client] Sending Number data...\n";
-    client.send_number(telemetry_data);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    std::vector<double> telemetry = {24.58, 12.34};
+    client.send_packet(DataType::Number, telemetry);
+
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Scenario 2: Transmitting Structured Characters (Text)
     std::string message = "Hello Server From UDP Client";
     std::cout << "[Client] Sending Text data...\n";
-    client.send_text(message);
+    std::string text_msg = "Hello Template Socket";
+    client.send_packet(DataType::Text, text_msg);
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Scenario 3: Transmitting Operational System Directives (Command Struct)
@@ -50,7 +55,6 @@ int main() {
 
     cmd_payload.command = 1;  // Code value 1 implies "Register"
     std::cout << "[Client] Sending Command data...\n";
-    client.send_packet(DataType::Command, reinterpret_cast<uint8_t*>(&cmd_payload), sizeof(cmd_payload));
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Scenario 4: Simulating high-frequency Media Streaming (~60 Hz throughput)
@@ -58,8 +62,7 @@ int main() {
     std::vector<uint8_t> dummy_video_frame(1024, 0xAB);  // Allocate standard 1KB dummy array buffer
 
     for (int i = 0; i < 30; ++i) {
-        client.send_packet(DataType::Media, dummy_video_frame.data(), dummy_video_frame.size());
-
+        client.send_packet(DataType::Media, dummy_video_frame);
         // Sleep ~16.6ms to simulate real-time ~60 frames per second frequency pacing
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }

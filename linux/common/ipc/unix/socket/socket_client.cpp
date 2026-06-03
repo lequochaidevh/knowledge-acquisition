@@ -16,38 +16,6 @@ bool SocketClient::connect_to_server(const std::string& ip, int port) {
     return true;
 }
 
-// API : send all
-bool SocketClient::send_packet(DataType type, const uint8_t* data, uint32_t size) {
-    PacketHeader header;
-    header.type         = type;
-    header.payload_size = size;
-    header.timestamp_ms = get_current_timestamp_ms();
-    header.sequence_id  = _sequence_counter++;
-
-    std::vector<uint8_t> buffer(sizeof(PacketHeader) + size);
-    std::memcpy(buffer.data(), &header, sizeof(PacketHeader));
-    if (size > 0 && data != nullptr) {
-        std::memcpy(buffer.data() + sizeof(PacketHeader), data, size);
-    }
-
-    ssize_t sent =
-        sendto(_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&_server_addr, sizeof(_server_addr));
-
-    if (sent > 0) {
-        _sent_packets[header.sequence_id] = header.timestamp_ms;
-        return true;
-    }
-    return false;
-}
-
-bool SocketClient::send_number(double num) {
-    return send_packet(DataType::Number, reinterpret_cast<const uint8_t*>(&num), sizeof(num));
-}
-
-bool SocketClient::send_text(const std::string& text) {
-    return send_packet(DataType::Text, reinterpret_cast<const uint8_t*>(text.c_str()), text.size() + 1);
-}
-
 void SocketClient::check_lose_from_feedback() {
     PacketHeader ack_header;
     sockaddr_in  from_addr;
