@@ -3,22 +3,92 @@ namespace HarisLinux {
 
 static auto logger = LogRegistry::getInstance().getLogger("SocketClient");
 
-bool SocketClient::connect_to_server(const std::string& ip, int port) {
+// bool SocketClient::connect_to_server(const std::string& target, int port) {
+//     if (!initialize_socket()) return false;
+
+//     // MANDATORY FOR UDS DATAGRAM SYMMETRY:
+//     // The client must bind to its own unique path so the server can track it
+//     if (_domain == AF_UNIX) {
+//         sockaddr_un client_addr;
+//         std::memset(&client_addr, 0, sizeof(client_addr));
+//         client_addr.sun_family = AF_UNIX;
+
+//         // Create a unique temporary file path using the client's Process ID (PID)
+//         std::string client_path = "/tmp/uds_client_" + std::to_string(getpid()) + ".sock";
+
+//         // Clean up any stale leftover sockets from previous runs
+//         unlink(client_path.c_str());
+
+//         std::strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
+
+//         if (bind(_socket_fd, reinterpret_cast<sockaddr*>(&client_addr), sizeof(sockaddr_un)) < 0) {
+//             std::cerr << "[Client] Failed to bind internal response path.\n";
+//             return false;
+//         }
+//     }
+
+//     // Map the destination target address inside the structural class block
+//     if (!configure_address(target, port)) return false;
+
+//     if (_type == SOCK_STREAM) {
+//         if (connect(_socket_fd, reinterpret_cast<sockaddr*>(&_remote_addr), _remote_addr_len) < 0) return false;
+//     }
+//     return true;
+// }
+bool SocketClient::connect_to_server(const std::string& target, int port) {
     if (!initialize_socket()) return false;
 
-    logger->setLevel(LogLevel::Trace);
+    // Automatically configure local bind paths if client requires feedback or checking metrics
+    if (_domain == AF_UNIX && (_modes & (IPC_CLIENT_CHECK_LOSE | IPC_CLIENT_FEEDBACK))) {
+        sockaddr_un client_addr;
+        std::memset(&client_addr, 0, sizeof(client_addr));
+        client_addr.sun_family = AF_UNIX;
 
-    _server_addr.sin_family = AF_INET;
-    _server_addr.sin_port   = htons(port);
-    inet_pton(AF_INET, ip.c_str(), &_server_addr.sin_addr);
+        std::string client_path = "/tmp/uds_client_" + std::to_string(getpid()) + ".sock";
+        unlink(client_path.c_str());
 
-    // Set timeout for recvfrom function to supper-loop when check feedback
-    struct timeval tv;
-    tv.tv_sec  = 0;
-    tv.tv_usec = 50000;  // 50ms timeout
-    setsockopt(_socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        std::strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
+        if (bind(_socket_fd, reinterpret_cast<sockaddr*>(&client_addr), sizeof(sockaddr_un)) < 0) return false;
+    }
+
+    if (!configure_address(target, port)) return false;
+    if (_type == SOCK_STREAM) {
+        if (connect(_socket_fd, reinterpret_cast<sockaddr*>(&_remote_addr), _remote_addr_len) < 0) return false;
+    }
+    return true;
+}
+
+bool SocketClient::receive_packet(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
+    if (!base_receive(_socket_fd, out_header, out_payload)) return false;
+
+    if (_modes & IPC_CLIENT_FEEDBACK) {
+        std::string ack_tag = "ACK_CLIENT";
+        base_send(_socket_fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
+    } else if ((_modes & IPC_CLIENT_CHECK_LOSE) && out_header.type == DataType::Heartbeat) {
+        std::lock_guard<std::mutex> lock(_map_mutex);
+        _sent_packets.erase(out_header.sequence_id);
+    }
 
     return true;
+}
+
+void SocketClient::process_loss_monitoring() {
+    if (!(_modes & IPC_CLIENT_CHECK_LOSE)) return;
+
+    uint64_t                    now = get_current_timestamp_ms();
+    std::lock_guard<std::mutex> lock(_map_mutex);
+
+    auto it = _sent_packets.begin();
+    while (it != _sent_packets.end()) {
+        if (now - it->second > 200) {
+            _lost_packets_count++;
+            std::cout << "[Client CheckLose] Lost Packet! Seq: " << it->first
+                      << " | Total Lost: " << _lost_packets_count << "\n";
+            it = _sent_packets.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void SocketClient::check_lose_from_feedback() {

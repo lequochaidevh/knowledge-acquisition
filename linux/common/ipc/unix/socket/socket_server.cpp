@@ -4,75 +4,80 @@ namespace HarisLinux {
 
 static auto logger = LogRegistry::getInstance().getLogger("SocketServer");
 
-bool SocketServer::start_server(int port) {
+void SocketServer::add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len) {
+    for (const auto& client : _connected_clients) {
+        // Compare memory blocks dynamically across family types safely
+        if (std::memcmp(&client, &client_addr, addr_len) == 0) {
+            return;
+        }
+    }
+    _connected_clients.push_back(client_addr);
+}
+
+bool SocketServer::start_server(const std::string& target, int port) {
     if (!initialize_socket()) return false;
+    if (!configure_address(target, port)) return false;
 
-    logger->setLevel(LogLevel::Trace);
-
-    _server_addr.sin_family      = AF_INET;
-    _server_addr.sin_addr.s_addr = INADDR_ANY;
-    _server_addr.sin_port        = htons(port);
+    if (_domain == AF_UNIX) unlink(target.c_str());
 
     int opt = 1;
     setsockopt(_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    if (bind(_socket_fd, (struct sockaddr*)&_server_addr, sizeof(_server_addr)) < 0) {
-        return false;
+    if (bind(_socket_fd, reinterpret_cast<sockaddr*>(&_remote_addr), _remote_addr_len) < 0) return false;
+
+    if (_type == SOCK_STREAM) {
+        if (listen(_socket_fd, 10) < 0) return false;
     }
     return true;
 }
 
+bool SocketServer::accept_connection() {
+    if (_type != SOCK_STREAM) return true;
+    _client_fd = accept(_socket_fd, nullptr, nullptr);
+    return _client_fd != -1;
+}
+
+void SocketServer::process_loss_monitoring() {
+    if (!(_modes & IPC_SERVER_CHECK_LOSE)) return;
+
+    uint64_t                    now = get_current_timestamp_ms();
+    std::lock_guard<std::mutex> lock(_map_mutex);
+
+    auto it = _sent_packets.begin();
+    while (it != _sent_packets.end()) {
+        if (now - it->second > 200) {
+            _lost_packets_count++;
+            std::cout << "[Server CheckLose] Lost Packet! Seq: " << it->first
+                      << " | Total Lost: " << _lost_packets_count << "\n";
+            it = _sent_packets.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+// Server Receive Wrapper
 bool SocketServer::receive_packet(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
-    uint8_t     buffer[65535];
-    sockaddr_in client_addr;
-    socklen_t   addr_len = sizeof(client_addr);
+    int fd = (_type == SOCK_STREAM) ? _client_fd : _socket_fd;
+    if (!base_receive(fd, out_header, out_payload)) return false;
 
-    ssize_t received_bytes = recvfrom(_socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
-    if (received_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) {
-        return false;
+    if (_type == SOCK_DGRAM) {
+        add_client_if_new(_remote_addr, _remote_addr_len);
     }
 
-    std::memcpy(&out_header, buffer, sizeof(PacketHeader));
-    out_payload.resize(out_header.payload_size);
-    std::memcpy(out_payload.data(), buffer + sizeof(PacketHeader), out_header.payload_size);
-
-    if (_mode == ServerMode::Broadcast || _mode == ServerMode::Feedback) {
-        add_client_if_new(client_addr);
+    // DYNAMIC CHECK 1: Feedback bitmask execution
+    if (_modes & IPC_SERVER_FEEDBACK) {
+        std::string ack_tag = "ACK_SERVER";
+        base_send(fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
     }
 
-    // Calc Hz base on Timestamp of all mess. Todo: calc on each message.
-    uint64_t now     = get_current_timestamp_ms();
-    double   latency = (now >= out_header.timestamp_ms) ? (now - out_header.timestamp_ms) : 0;
-    double   hz      = latency > 0 ? (1000.0 / latency) : 0.0;
-
-    HARIS_LOG_DEBUG("[Server] Recv Type: {}  ", static_cast<int>(out_header.type));
-    HARIS_LOG_DEBUG(
-        "   >> Seq: {} "
-        "| Est. Speed: {} Hz",
-        static_cast<int>(out_header.sequence_id), hz);
-
-    // Feedback mode: send Heartbeat to Client check lose
-    if (_mode == ServerMode::Feedback) {
-        PacketHeader ack_header = {DataType::Heartbeat, 0, get_current_timestamp_ms(), out_header.sequence_id};
-        sendto(_socket_fd, &ack_header, sizeof(PacketHeader), 0, (struct sockaddr*)&client_addr, addr_len);
+    // DYNAMIC CHECK 2: CheckLose bitmask execution
+    if ((_modes & IPC_SERVER_CHECK_LOSE) && out_header.type == DataType::Heartbeat) {
+        std::lock_guard<std::mutex> lock(_map_mutex);
+        _sent_packets.erase(out_header.sequence_id);
     }
 
     return true;
-}
-
-void SocketServer::broadcast_packet(DataType type, const uint8_t* data, uint32_t size, uint32_t& seq_counter) {
-    if (_mode != ServerMode::Broadcast || _connected_clients.empty()) return;
-
-    PacketHeader         header = {type, size, get_current_timestamp_ms(), seq_counter++};
-    std::vector<uint8_t> buffer(sizeof(PacketHeader) + size);
-    std::memcpy(buffer.data(), &header, sizeof(PacketHeader));
-    if (size > 0) {
-        std::memcpy(buffer.data() + sizeof(PacketHeader), data, size);
-    }
-
-    for (const auto& client : _connected_clients) {
-        sendto(_socket_fd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&client, sizeof(client));
-    }
 }
 
 }  // namespace HarisLinux
