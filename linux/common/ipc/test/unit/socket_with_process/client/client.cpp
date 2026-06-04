@@ -21,7 +21,7 @@ void async_feedback_listener(SocketClient* client, bool* keep_running) {
                           << " | Status: " << response << "\n";
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 }
 
@@ -76,7 +76,7 @@ int main() {
     }
 
     // Allow lingering server echoes time to clear the network buffer pipelines
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(10));
 
     std::cout << "\n[Client] Terminating test routines cleanly.\n";
     keep_running = false;

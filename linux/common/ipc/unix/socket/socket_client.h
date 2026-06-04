@@ -4,9 +4,6 @@
 namespace HarisLinux {
 
 class SocketClient : public UnixSocket {
- private:
-    uint8_t _modes;  // Stores the active client behavior model
-
  public:
     // Explicitly chains base constructor bindings to pipe parameters down
     SocketClient(int domain, int type, uint8_t modes) : UnixSocket(domain, type, modes) {}
