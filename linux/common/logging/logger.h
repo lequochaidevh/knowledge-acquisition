@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <memory>
 #include <fmt/core.h>
+#include <fmt/format.h>
 
 enum class LogLevel { Trace, Debug, Info, Warn, Error, Critical };
 
@@ -15,6 +16,8 @@ class Logger {
 
     // Set level for this specific logger instance
     void setLevel(LogLevel level);
+
+    LogLevel getLevel() const { return _level; };
 
     // Format and print log if level matches
     template <typename... Args>

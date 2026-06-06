@@ -31,8 +31,9 @@ int main() {
     server.accept_connection();
     std::cout << "[Server] Active. Listening for inbound packets...\n";
 
-    PacketHeader         header;
-    std::vector<uint8_t> payload;
+    PacketHeader                        header;
+    std::vector<uint8_t>                payload;
+    PacketDispatcher<DataHandlerPolicy> dispatcher;
 
     while (true) {
         if (server.receive_packet(header, payload)) {
@@ -42,12 +43,7 @@ int main() {
                       << " bytes\n";
 
             // Inspect the inner content payload variations
-            if (header.type == DataType::Text) {
-                std::string text_msg(reinterpret_cast<char*>(payload.data()), payload.size());
-                std::cout << ">> Content Data: \"" << text_msg << "\"\n";
-            } else if (header.type == DataType::Media) {
-                std::cout << ">> Content Data: Raw Image/Video Stream Frame Segment\n";
-            }
+            // dispatcher.dispatch(header, payload);
         }
 
         // Minor pacing context throttle to protect raw CPU utilization

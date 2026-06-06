@@ -2,9 +2,64 @@
 
 namespace HarisLinux {
 
+static auto logger = LogRegistry::getInstance().getLogger("UnixSocket");
+
+class UnixLogDataPolicy : public DataHandlerPolicy {
+ private:
+    /* data */
+ public:
+    virtual void on_packet(const std::string& text) override { HARIS_LOG_DEBUG("Text Received: {}", text); }
+
+    virtual void on_packet(double num) override { HARIS_LOG_DEBUG("Double Received: {}", num); }
+
+    virtual void on_packet(int num) override { HARIS_LOG_DEBUG("Int Received: {}", num); }
+
+    virtual void on_packet(const std::vector<uint8_t>& media) override {
+        HARIS_LOG_DEBUG("Media Buffer Size: {} bytes", media.size());
+
+        if (logger->getLevel() != LogLevel::Trace) return;
+        if (!media.empty()) {
+            // stack/heap smart memory
+            fmt::memory_buffer out;
+
+            // Append prefix char
+            fmt::format_to(std::back_inserter(out), ">> Bytes (Hex): ");
+
+            for (auto b : media) {
+                // format compile-time :
+                // :02X -> Hex UPCASE, width 2 charactor, auto add 0 for enough
+                fmt::format_to(std::back_inserter(out), "{:02X} X ", b);
+            }
+
+            // HARIS_LOG_TRACE("HEX: {}", fmt::to_string(out));
+
+            std::cout << fmt::to_string(out) << std::endl;
+        }
+    }
+
+    virtual void on_packet(const IPCRequestPayload& cmd) override {
+        HARIS_LOG_DEBUG("Command Payload -> ID: {} | Cmd: {} ", cmd.client_id, cmd.command);
+    }
+    UnixLogDataPolicy(/* args */);
+    ~UnixLogDataPolicy();
+};
+
+UnixLogDataPolicy::UnixLogDataPolicy(/* args */) { logger->setLevel(LogLevel::Trace); }
+
+UnixLogDataPolicy::~UnixLogDataPolicy() {}
+
 uint64_t UnixSocket::get_current_timestamp_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
         .count();
+}
+
+UnixSocket::UnixSocket(int address_families, int type, uint8_t modes)
+    : _socket_fd(-1),
+      _address_families(address_families),
+      _type(type),
+      _modes(modes),
+      _remote_addr_len(sizeof(sockaddr_storage)) {
+    std::memset(&_remote_addr, 0, sizeof(_remote_addr));
 }
 
 // Opens an un-bound OS file descriptor matching target address_families topologies
@@ -43,6 +98,8 @@ bool UnixSocket::configure_address(const std::string& target, int port) {
 bool UnixSocket::base_receive(int source_fd, PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
     if (source_fd == -1) return false;
 
+    PacketDispatcher<UnixLogDataPolicy> dispatcher;
+
     if (_type == SOCK_STREAM) {
         ssize_t header_bytes = read(source_fd, &out_header, sizeof(PacketHeader));
         if (header_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) return false;
@@ -69,6 +126,10 @@ bool UnixSocket::base_receive(int source_fd, PacketHeader& out_header, std::vect
             std::memcpy(out_payload.data(), stack_buffer + sizeof(PacketHeader), out_header.payload_size);
         }
     }
+
+    // Inspect the inner content payload variations
+    dispatcher.dispatch(out_header, out_payload);
+
     return true;
 }
 

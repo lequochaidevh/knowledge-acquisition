@@ -1,6 +1,7 @@
 #pragma once
 #include "logging/logger.h"
-#include "ipc_metadata.h"
+#include "data_packet.h"
+#include <cstdarg>
 
 namespace HarisLinux {
 
@@ -24,14 +25,7 @@ class UnixSocket {
 
  public:
     // Forces explicit validation tracking variables upon configuration instantiation
-    UnixSocket(int address_families, int type, uint8_t modes)
-        : _socket_fd(-1),
-          _address_families(address_families),
-          _type(type),
-          _modes(modes),
-          _remote_addr_len(sizeof(sockaddr_storage)) {
-        std::memset(&_remote_addr, 0, sizeof(_remote_addr));
-    }
+    UnixSocket(int address_families, int type, uint8_t modes);
 
     virtual ~UnixSocket() {
         if (_socket_fd != -1) {
@@ -54,9 +48,18 @@ class UnixSocket {
     bool base_send(int target_fd, DataType type, const T& data, uint32_t seq) {
         if (target_fd == -1) return false;
 
-        // Fixed: Added reinterpret_cast to safely convert any container's raw data pointer to uint8_t*
-        const uint8_t* ptr  = reinterpret_cast<const uint8_t*>(data.data());
-        uint32_t       size = static_cast<uint32_t>(data.size() * sizeof(typename T::value_type));
+        const uint8_t* ptr  = nullptr;
+        uint32_t       size = 0;
+
+        if constexpr (std::is_arithmetic_v<T>) {
+            // T is Number (int, float, double, uint32_t, ...)
+            ptr  = reinterpret_cast<const uint8_t*>(&data);
+            size = static_cast<uint32_t>(sizeof(T));
+        } else {
+            // T is Container (std::vector, std::string, ...)
+            ptr  = reinterpret_cast<const uint8_t*>(data.data());
+            size = static_cast<uint32_t>(data.size() * sizeof(typename T::value_type));
+        }
 
         PacketHeader header{type, size, get_current_timestamp_ms(), seq};
 
