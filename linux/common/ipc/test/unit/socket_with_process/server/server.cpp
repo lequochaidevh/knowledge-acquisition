@@ -48,18 +48,6 @@ int main() {
             } else if (header.type == DataType::Media) {
                 std::cout << ">> Content Data: Raw Image/Video Stream Frame Segment\n";
             }
-
-            // Symmetrical Check Mismatch: Echo feedback ACK back to client immediately.
-            // Because base_receive captured the source properties, server knows where to fire back.
-            // std::string ack_payload  = "ACK_OK";
-            // bool        echo_success = server.send_packet(DataType::Heartbeat, ack_payload, header.sequence_id);
-
-            // if (echo_success) {
-            //     std::cout << "[Server TX] Successfully echoed matching feedback for Seq: " << header.sequence_id
-            //               << "\n";
-            // } else {
-            //     std::cerr << "[Server TX] Warning: Failed to echo packet feedback back to client.\n";
-            // }
         }
 
         // Minor pacing context throttle to protect raw CPU utilization

@@ -6,6 +6,8 @@ static auto logger = LogRegistry::getInstance().getLogger("SocketServer");
 
 void SocketServer::add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len) {
     for (const auto& client : _connected_clients) {
+        logger->setLevel(LogLevel::Trace);
+
         // Compare memory blocks dynamically across family types safely
         if (std::memcmp(&client, &client_addr, addr_len) == 0) {
             return;
@@ -47,8 +49,8 @@ void SocketServer::process_loss_monitoring() {
     while (it != _sent_packets.end()) {
         if (now - it->second > 200) {
             _lost_packets_count++;
-            std::cout << "[Server CheckLose] Lost Packet! Seq: " << it->first
-                      << " | Total Lost: " << _lost_packets_count << "\n";
+            HARIS_LOG_WARN("[CheckLose] Lost Packet! Seq: {} | Total Lost: {}", it->first, _lost_packets_count);
+
             it = _sent_packets.erase(it);
         } else {
             ++it;

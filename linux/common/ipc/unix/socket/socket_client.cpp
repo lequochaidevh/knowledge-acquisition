@@ -3,40 +3,13 @@ namespace HarisLinux {
 
 static auto logger = LogRegistry::getInstance().getLogger("SocketClient");
 
-// bool SocketClient::connect_to_server(const std::string& target, int port) {
-//     if (!initialize_socket()) return false;
-
-//     // MANDATORY FOR UDS DATAGRAM SYMMETRY:
-//     // The client must bind to its own unique path so the server can track it
-//     if (_domain == AF_UNIX) {
-//         sockaddr_un client_addr;
-//         std::memset(&client_addr, 0, sizeof(client_addr));
-//         client_addr.sun_family = AF_UNIX;
-
-//         // Create a unique temporary file path using the client's Process ID (PID)
-//         std::string client_path = "/tmp/uds_client_" + std::to_string(getpid()) + ".sock";
-
-//         // Clean up any stale leftover sockets from previous runs
-//         unlink(client_path.c_str());
-
-//         std::strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
-
-//         if (bind(_socket_fd, reinterpret_cast<sockaddr*>(&client_addr), sizeof(sockaddr_un)) < 0) {
-//             std::cerr << "[Client] Failed to bind internal response path.\n";
-//             return false;
-//         }
-//     }
-
-//     // Map the destination target address inside the structural class block
-//     if (!configure_address(target, port)) return false;
-
-//     if (_type == SOCK_STREAM) {
-//         if (connect(_socket_fd, reinterpret_cast<sockaddr*>(&_remote_addr), _remote_addr_len) < 0) return false;
-//     }
-//     return true;
-// }
 bool SocketClient::connect_to_server(const std::string& target, int port) {
-    if (!initialize_socket()) return false;
+    logger->setLevel(LogLevel::Trace);
+
+    if (!initialize_socket()) {
+        HARIS_LOG_ERROR("[CheckLose] Initialize socket failed !");
+        return false;
+    };
 
     // Automatically configure local bind paths if client requires feedback or checking metrics
     if (_domain == AF_UNIX && (_modes & (IPC_CLIENT_CHECK_LOSE | IPC_CLIENT_FEEDBACK))) {
@@ -82,8 +55,8 @@ void SocketClient::process_loss_monitoring() {
     while (it != _sent_packets.end()) {
         if (now - it->second > 200) {
             _lost_packets_count++;
-            std::cout << "[Client CheckLose] Lost Packet! Seq: " << it->first
-                      << " | Total Lost: " << _lost_packets_count << "\n";
+            HARIS_LOG_WARN("[CheckLose] Lost Packet! Seq: {} | Total Lost: {}", it->first, _lost_packets_count);
+
             it = _sent_packets.erase(it);
         } else {
             ++it;
