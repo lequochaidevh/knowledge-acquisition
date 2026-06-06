@@ -6,7 +6,7 @@ namespace HarisLinux {
 class SocketClient : public UnixSocket {
  public:
     // Explicitly chains base constructor bindings to pipe parameters down
-    SocketClient(int domain, int type, uint8_t modes) : UnixSocket(domain, type, modes) {}
+    SocketClient(int address_families, int type, uint8_t modes) : UnixSocket(address_families, type, modes) {}
 
     // Add a custom destructor to your SocketClient class to clear file descriptors cleanly
     virtual ~SocketClient() {

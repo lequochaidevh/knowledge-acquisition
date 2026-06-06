@@ -20,7 +20,7 @@ bool SocketServer::start_server(const std::string& target, int port) {
     if (!initialize_socket()) return false;
     if (!configure_address(target, port)) return false;
 
-    if (_domain == AF_UNIX) unlink(target.c_str());
+    if (_address_families == AF_UNIX) unlink(target.c_str());
 
     int opt = 1;
     setsockopt(_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));

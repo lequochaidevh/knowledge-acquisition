@@ -13,7 +13,7 @@ class SocketServer : public UnixSocket {
     void add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len);
 
  public:
-    SocketServer(int domain, int type, uint8_t modes) : UnixSocket(domain, type, modes) {}
+    SocketServer(int address_families, int type, uint8_t modes) : UnixSocket(address_families, type, modes) {}
 
     virtual ~SocketServer() {
         if (_client_fd != -1) close(_client_fd);
@@ -80,8 +80,9 @@ class SocketServer : public UnixSocket {
 
         for (const auto& client : _connected_clients) {
             _remote_addr     = client;
-            _remote_addr_len = (_domain == AF_UNIX) ? sizeof(sockaddr_un)
-                                                    : (_domain == AF_INET) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+            _remote_addr_len = (_address_families == AF_UNIX)
+                                   ? sizeof(sockaddr_un)
+                                   : (_address_families == AF_INET) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
 
             // Fire batch data structures seamlessly out of the socket descriptor
             base_send(_socket_fd, type, data, seq_counter++);

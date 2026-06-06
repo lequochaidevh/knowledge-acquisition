@@ -7,10 +7,10 @@ namespace HarisLinux {
 class UnixSocket {
  protected:
     int              _socket_fd;
-    int              _domain;           // Stores: AF_UNIX, AF_INET, AF_INET6, etc.
-    int              _type;             // Stores: SOCK_DGRAM or SOCK_STREAM
-    sockaddr_storage _remote_addr;      // Universal storage block large enough for any address family
-    socklen_t        _remote_addr_len;  // Precise byte length of the active address structure
+    int              _address_families;  // Stores: AF_UNIX, AF_INET, AF_INET6, etc.
+    int              _type;              // Stores: SOCK_DGRAM or SOCK_STREAM
+    sockaddr_storage _remote_addr;       // Universal storage block large enough for any address family
+    socklen_t        _remote_addr_len;   // Precise byte length of the active address structure
 
     uint8_t _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose, (server Broadcast)
 
@@ -24,8 +24,12 @@ class UnixSocket {
 
  public:
     // Forces explicit validation tracking variables upon configuration instantiation
-    UnixSocket(int domain, int type, uint8_t modes)
-        : _socket_fd(-1), _domain(domain), _type(type), _modes(modes), _remote_addr_len(sizeof(sockaddr_storage)) {
+    UnixSocket(int address_families, int type, uint8_t modes)
+        : _socket_fd(-1),
+          _address_families(address_families),
+          _type(type),
+          _modes(modes),
+          _remote_addr_len(sizeof(sockaddr_storage)) {
         std::memset(&_remote_addr, 0, sizeof(_remote_addr));
     }
 

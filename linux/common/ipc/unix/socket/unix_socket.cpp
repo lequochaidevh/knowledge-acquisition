@@ -7,29 +7,29 @@ uint64_t UnixSocket::get_current_timestamp_ms() {
         .count();
 }
 
-// Opens an un-bound OS file descriptor matching target domain topologies
+// Opens an un-bound OS file descriptor matching target address_families topologies
 bool UnixSocket::initialize_socket() {
-    _socket_fd = socket(_domain, _type, 0);
+    _socket_fd = socket(_address_families, _type, 0);
     return _socket_fd != -1;
 }
 
 bool UnixSocket::configure_address(const std::string& target, int port) {
     std::memset(&_remote_addr, 0, sizeof(_remote_addr));
 
-    if (_domain == AF_UNIX) {
+    if (_address_families == AF_UNIX) {
         auto* addr       = reinterpret_cast<sockaddr_un*>(&_remote_addr);
         addr->sun_family = AF_UNIX;
         std::strncpy(addr->sun_path, target.c_str(), sizeof(addr->sun_path) - 1);
         _remote_addr_len = sizeof(sockaddr_un);
         return true;
-    } else if (_domain == AF_INET) {
+    } else if (_address_families == AF_INET) {
         auto* addr       = reinterpret_cast<sockaddr_in*>(&_remote_addr);
         addr->sin_family = AF_INET;
         addr->sin_port   = htons(port);
         if (inet_pton(AF_INET, target.c_str(), &addr->sin_addr) <= 0) return false;
         _remote_addr_len = sizeof(sockaddr_in);
         return true;
-    } else if (_domain == AF_INET6) {
+    } else if (_address_families == AF_INET6) {
         auto* addr        = reinterpret_cast<sockaddr_in6*>(&_remote_addr);
         addr->sin6_family = AF_INET6;
         addr->sin6_port   = htons(port);

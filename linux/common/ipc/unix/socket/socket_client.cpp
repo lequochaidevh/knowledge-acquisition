@@ -12,7 +12,7 @@ bool SocketClient::connect_to_server(const std::string& target, int port) {
     };
 
     // Automatically configure local bind paths if client requires feedback or checking metrics
-    if (_domain == AF_UNIX && (_modes & (IPC_CLIENT_CHECK_LOSE | IPC_CLIENT_FEEDBACK))) {
+    if (_address_families == AF_UNIX && (_modes & (IPC_CLIENT_CHECK_LOSE | IPC_CLIENT_FEEDBACK))) {
         sockaddr_un client_addr;
         std::memset(&client_addr, 0, sizeof(client_addr));
         client_addr.sun_family = AF_UNIX;
