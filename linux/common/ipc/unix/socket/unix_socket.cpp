@@ -53,12 +53,8 @@ uint64_t UnixSocket::get_current_timestamp_ms() {
         .count();
 }
 
-UnixSocket::UnixSocket(int address_families, int type, uint8_t modes)
-    : _socket_fd(-1),
-      _address_families(address_families),
-      _type(type),
-      _modes(modes),
-      _remote_addr_len(sizeof(sockaddr_storage)) {
+UnixSocket::UnixSocket(int address_families, int type)
+    : _socket_fd(-1), _address_families(address_families), _type(type), _remote_addr_len(sizeof(sockaddr_storage)) {
     std::memset(&_remote_addr, 0, sizeof(_remote_addr));
 }
 

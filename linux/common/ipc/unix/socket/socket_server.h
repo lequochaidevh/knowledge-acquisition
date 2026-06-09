@@ -10,10 +10,12 @@ class SocketServer : public UnixSocket {
     std::vector<sockaddr_storage> _connected_clients;  // Tracks active client addresses for Broadcasting
 
     // Registers unique endpoints into our delivery table during incoming Datagram operations
-    void add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len);
+    void              add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len);
+    const Ipc::Server _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose, (server Broadcast)
 
  public:
-    SocketServer(int address_families, int type, uint8_t modes) : UnixSocket(address_families, type, modes) {}
+    SocketServer(int address_families, int type, Ipc::Server modes)
+        : UnixSocket(address_families, type), _modes(modes) {}
 
     virtual ~SocketServer() {
         if (_client_fd != -1) close(_client_fd);
@@ -38,7 +40,7 @@ class SocketServer : public UnixSocket {
         uint32_t current_seq = _sequence_counter++;
 
         // DYNAMIC CHECK: Is the CheckLose bit active?
-        if (_modes & IPC_SERVER_CHECK_LOSE) {
+        if (_modes & Ipc::Server::CheckLose) {
             std::lock_guard<std::mutex> lock(_map_mutex);
             _sent_packets[current_seq] = get_current_timestamp_ms();
         }
@@ -46,7 +48,7 @@ class SocketServer : public UnixSocket {
         // Pass 'current_seq' safely down to the base sender
         bool success = base_send(fd, type, data, current_seq);
 
-        if (!success && (_modes & IPC_SERVER_CHECK_LOSE)) {
+        if (!success && (_modes & Ipc::Server::CheckLose)) {
             std::lock_guard<std::mutex> lock(_map_mutex);
             _sent_packets.erase(current_seq);
         }
@@ -61,7 +63,7 @@ class SocketServer : public UnixSocket {
     // =========================================================================
     template <typename T>
     void broadcast_packet(DataType type, const T& data, uint32_t& seq_counter) {
-        if (!(_modes & IPC_SERVER_BROADCAST)) return;
+        if (!(_modes & Ipc::Server::Broadcast)) return;
 
         // Stream Profile: Direct communication pipeline to the actively accepted descriptor
         if (_type == SOCK_STREAM) {

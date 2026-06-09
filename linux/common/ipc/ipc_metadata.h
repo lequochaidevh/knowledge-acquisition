@@ -17,19 +17,35 @@ struct __attribute__((packed)) IPCRequestPayload {
     uint32_t command;        // Command: 1 = Register, 2 = Disconnect)
 };
 
-// Define Server behaviors as distinct binary bit fields
-enum IPC_SERVER_FLAGS : uint8_t {
-    IPC_SERVER_READ_ONLY  = 0x00,  // 0000 0000 -> Silent consumer
-    IPC_SERVER_FEEDBACK   = 0x01,  // 0000 0001 -> Mirrors incoming packets back
-    IPC_SERVER_CHECK_LOSE = 0x02,  // 0000 0100 -> Outbound packet sequence tracking
-    IPC_SERVER_BROADCAST  = 0x04   // 0000 0010 -> Sends to all discovered nodes
-};
+namespace Ipc {
+    // --- SERVER FLAGS ---
+    enum class Server : uint8_t { ReadOnly = 0x00, Feedback = 0x01, CheckLose = 0x02, Broadcast = 0x04 };
 
-// Define Client behaviors as distinct binary bit fields
-enum IPC_CLIENT_FLAGS : uint8_t {
-    IPC_CLIENT_SEND       = 0x00,  // 0000 0000 -> Pure low-overhead sender
-    IPC_CLIENT_FEEDBACK   = 0x01,  // 0000 0001 -> Mirrors server commands back
-    IPC_CLIENT_CHECK_LOSE = 0x02   // 0000 0010 -> Tracks its own sent sequences
-};
+    inline Server operator|(Server a, Server b) {
+        return static_cast<Server>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+    }
+
+    inline Server& operator|=(Server& a, Server b) {
+        a = a | b;
+        return a;
+    }
+
+    inline bool operator&(Server a, Server b) { return (static_cast<uint8_t>(a) & static_cast<uint8_t>(b)) != 0; }
+
+    // --- CLIENT FLAGS ---
+    enum class Client : uint8_t { Send = 0x00, Feedback = 0x10, CheckLose = 0x20 };
+
+    // OR
+    inline Client operator|(Client a, Client b) {
+        return static_cast<Client>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+    }
+    // |=
+    inline Client& operator|=(Client& a, Client b) {
+        a = a | b;
+        return a;
+    }
+
+    inline bool operator&(Client a, Client b) { return (static_cast<uint8_t>(a) & static_cast<uint8_t>(b)) != 0; }
+}  // namespace Ipc
 
 }  // namespace HarisLinux

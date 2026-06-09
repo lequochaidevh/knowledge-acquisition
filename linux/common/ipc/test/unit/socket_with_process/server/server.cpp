@@ -9,7 +9,7 @@ int main() {
     // Instantiate Server using UDS Datagram (AF_UNIX, SOCK_DGRAM)
     // Symmetrical design allows both sending and receiving without managing streams
     // Combine flags using '|'
-    uint8_t server_flags = IPC_SERVER_FEEDBACK | IPC_SERVER_CHECK_LOSE;
+    Ipc::Server server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
 
     SocketServer server(AF_UNIX, SOCK_DGRAM, server_flags);
 

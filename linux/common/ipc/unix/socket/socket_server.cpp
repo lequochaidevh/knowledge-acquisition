@@ -40,7 +40,7 @@ bool SocketServer::accept_connection() {
 }
 
 void SocketServer::process_loss_monitoring() {
-    if (!(_modes & IPC_SERVER_CHECK_LOSE)) return;
+    if (!(_modes & Ipc::Server::CheckLose)) return;
 
     uint64_t                    now = get_current_timestamp_ms();
     std::lock_guard<std::mutex> lock(_map_mutex);
@@ -68,13 +68,13 @@ bool SocketServer::receive_packet(PacketHeader& out_header, std::vector<uint8_t>
     }
 
     // DYNAMIC CHECK 1: Feedback bitmask execution
-    if (_modes & IPC_SERVER_FEEDBACK) {
+    if (_modes & Ipc::Server::Feedback) {
         std::string ack_tag = "ACK_SERVER";
         base_send(fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
     }
 
     // DYNAMIC CHECK 2: CheckLose bitmask execution
-    if ((_modes & IPC_SERVER_CHECK_LOSE) && out_header.type == DataType::Heartbeat) {
+    if ((_modes & Ipc::Server::CheckLose) && out_header.type == DataType::Heartbeat) {
         std::lock_guard<std::mutex> lock(_map_mutex);
         _sent_packets.erase(out_header.sequence_id);
     }

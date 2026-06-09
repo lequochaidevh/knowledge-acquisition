@@ -13,8 +13,6 @@ class UnixSocket {
     sockaddr_storage _remote_addr;       // Universal storage block large enough for any address family
     socklen_t        _remote_addr_len;   // Precise byte length of the active address structure
 
-    uint8_t _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose, (server Broadcast)
-
     uint32_t _sequence_counter;
     uint32_t _lost_packets_count;
 
@@ -25,7 +23,7 @@ class UnixSocket {
 
  public:
     // Forces explicit validation tracking variables upon configuration instantiation
-    UnixSocket(int address_families, int type, uint8_t modes);
+    UnixSocket(int address_families, int type);
 
     virtual ~UnixSocket() {
         if (_socket_fd != -1) {

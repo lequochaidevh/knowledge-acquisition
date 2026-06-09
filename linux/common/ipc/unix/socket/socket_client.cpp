@@ -12,7 +12,7 @@ bool SocketClient::connect_to_server(const std::string& target, int port) {
     };
 
     // Automatically configure local bind paths if client requires feedback or checking metrics
-    if (_address_families == AF_UNIX && (_modes & (IPC_CLIENT_CHECK_LOSE | IPC_CLIENT_FEEDBACK))) {
+    if (_address_families == AF_UNIX && (_modes & (Ipc::Client::CheckLose | Ipc::Client::Feedback))) {
         sockaddr_un client_addr;
         std::memset(&client_addr, 0, sizeof(client_addr));
         client_addr.sun_family = AF_UNIX;
@@ -34,10 +34,10 @@ bool SocketClient::connect_to_server(const std::string& target, int port) {
 bool SocketClient::receive_packet(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
     if (!base_receive(_socket_fd, out_header, out_payload)) return false;
 
-    if (_modes & IPC_CLIENT_FEEDBACK) {
+    if (_modes & Ipc::Client::Feedback) {
         std::string ack_tag = "ACK_CLIENT";
         base_send(_socket_fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
-    } else if ((_modes & IPC_CLIENT_CHECK_LOSE) && out_header.type == DataType::Heartbeat) {
+    } else if ((_modes & Ipc::Client::CheckLose) && out_header.type == DataType::Heartbeat) {
         std::lock_guard<std::mutex> lock(_map_mutex);
         _sent_packets.erase(out_header.sequence_id);
     }
@@ -46,7 +46,7 @@ bool SocketClient::receive_packet(PacketHeader& out_header, std::vector<uint8_t>
 }
 
 void SocketClient::process_loss_monitoring() {
-    if (!(_modes & IPC_CLIENT_CHECK_LOSE)) return;
+    if (!(_modes & Ipc::Client::CheckLose)) return;
 
     uint64_t                    now = get_current_timestamp_ms();
     std::lock_guard<std::mutex> lock(_map_mutex);

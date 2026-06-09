@@ -4,9 +4,13 @@
 namespace HarisLinux {
 
 class SocketClient : public UnixSocket {
+ private:
+    const Ipc::Client _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose
+
  public:
     // Explicitly chains base constructor bindings to pipe parameters down
-    SocketClient(int address_families, int type, uint8_t modes) : UnixSocket(address_families, type, modes) {}
+    SocketClient(int address_families, int type, Ipc::Client modes)
+        : UnixSocket(address_families, type), _modes(modes) {}
 
     // Add a custom destructor to your SocketClient class to clear file descriptors cleanly
     virtual ~SocketClient() {
@@ -23,14 +27,14 @@ class SocketClient : public UnixSocket {
     bool send_packet(DataType type, const T& data) {
         uint32_t current_seq = _sequence_counter++;
 
-        if (_modes & IPC_CLIENT_CHECK_LOSE) {
+        if (_modes & Ipc::Client::CheckLose) {
             std::lock_guard<std::mutex> lock(_map_mutex);
             _sent_packets[current_seq] = get_current_timestamp_ms();
         }
 
         bool success = base_send(_socket_fd, type, data, current_seq);
 
-        if (!success && (_modes & IPC_CLIENT_CHECK_LOSE)) {
+        if (!success && (_modes & Ipc::Client::CheckLose)) {
             std::lock_guard<std::mutex> lock(_map_mutex);
             _sent_packets.erase(current_seq);
         }
