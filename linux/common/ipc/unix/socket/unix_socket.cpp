@@ -2,7 +2,7 @@
 
 namespace HarisLinux {
 
-static auto logger = LogRegistry::getInstance().getLogger("UnixSocket");
+static auto logger = LogRegistry::getInstance().getLogger("UnixSocket<Modes>");
 
 class UnixLogDataPolicy : public DataHandlerPolicy {
  private:
@@ -48,23 +48,21 @@ UnixLogDataPolicy::UnixLogDataPolicy(/* args */) { logger->setLevel(LogLevel::Tr
 
 UnixLogDataPolicy::~UnixLogDataPolicy() {}
 
-uint64_t UnixSocket::get_current_timestamp_ms() {
+template <typename Modes>
+uint64_t UnixSocket<Modes>::get_current_timestamp_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }
 
-UnixSocket::UnixSocket(int address_families, int type)
-    : _socket_fd(-1), _address_families(address_families), _type(type), _remote_addr_len(sizeof(sockaddr_storage)) {
-    std::memset(&_remote_addr, 0, sizeof(_remote_addr));
-}
-
 // Opens an un-bound OS file descriptor matching target address_families topologies
-bool UnixSocket::initialize_socket() {
+template <typename Modes>
+bool UnixSocket<Modes>::initialize_socket() {
     _socket_fd = socket(_address_families, _type, 0);
     return _socket_fd != -1;
 }
 
-bool UnixSocket::configure_address(const std::string& target, int port) {
+template <typename Modes>
+bool UnixSocket<Modes>::configure_address(const std::string& target, int port) {
     std::memset(&_remote_addr, 0, sizeof(_remote_addr));
 
     if (_address_families == AF_UNIX) {
@@ -91,7 +89,8 @@ bool UnixSocket::configure_address(const std::string& target, int port) {
     return false;
 }
 
-bool UnixSocket::base_receive(int source_fd, PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
+template <typename Modes>
+bool UnixSocket<Modes>::base_receive(int source_fd, PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
     if (source_fd == -1) return false;
 
     PacketDispatcher<UnixLogDataPolicy> dispatcher;
@@ -129,4 +128,6 @@ bool UnixSocket::base_receive(int source_fd, PacketHeader& out_header, std::vect
     return true;
 }
 
+template class UnixSocket<Ipc::Server>;
+template class UnixSocket<Ipc::Client>;
 }  // namespace HarisLinux

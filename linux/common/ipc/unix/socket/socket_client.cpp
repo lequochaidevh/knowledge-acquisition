@@ -37,7 +37,9 @@ bool SocketClient::receive_packet(PacketHeader& out_header, std::vector<uint8_t>
     if (_modes & Ipc::Client::Feedback) {
         std::string ack_tag = "ACK_CLIENT";
         base_send(_socket_fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
-    } else if ((_modes & Ipc::Client::CheckLose) && out_header.type == DataType::Heartbeat) {
+    }
+
+    if ((_modes & Ipc::Client::CheckLose) && out_header.type == DataType::Heartbeat) {
         std::lock_guard<std::mutex> lock(_map_mutex);
         _sent_packets.erase(out_header.sequence_id);
     }

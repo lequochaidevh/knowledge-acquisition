@@ -5,6 +5,7 @@
 
 namespace HarisLinux {
 
+template <typename Modes>
 class UnixSocket {
  protected:
     int              _socket_fd;
@@ -21,9 +22,18 @@ class UnixSocket {
     std::mutex                   _map_mutex;
     std::map<uint32_t, uint64_t> _sent_packets;  // stored sequence_id and time to check timeout/lose
 
+    Ipc::Generic<Modes> _modes;
+
  public:
     // Forces explicit validation tracking variables upon configuration instantiation
-    UnixSocket(int address_families, int type);
+    UnixSocket(int address_families, int type, Ipc::Generic<Modes> modes)
+        : _socket_fd(-1),
+          _address_families(address_families),
+          _type(type),
+          _remote_addr_len(sizeof(sockaddr_storage)),
+          _modes(modes) {
+        std::memset(&_remote_addr, 0, sizeof(_remote_addr));
+    }
 
     virtual ~UnixSocket() {
         if (_socket_fd != -1) {

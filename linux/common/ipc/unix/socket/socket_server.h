@@ -3,19 +3,19 @@
 
 namespace HarisLinux {
 
-class SocketServer : public UnixSocket {
+class SocketServer : public UnixSocket<Ipc::Server> {
  private:
     int _client_fd = -1;  // Specific stream context channel (active only under SOCK_STREAM)
 
     std::vector<sockaddr_storage> _connected_clients;  // Tracks active client addresses for Broadcasting
 
     // Registers unique endpoints into our delivery table during incoming Datagram operations
-    void              add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len);
-    const Ipc::Server _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose, (server Broadcast)
+    void add_client_if_new(const sockaddr_storage& client_addr, socklen_t addr_len);
+    // Broadcast)
 
  public:
-    SocketServer(int address_families, int type, Ipc::Server modes)
-        : UnixSocket(address_families, type), _modes(modes) {}
+    SocketServer(int address_families, int type, Ipc::Generic<Ipc::Server> modes)
+        : UnixSocket<Ipc::Server>(address_families, type, modes) {}
 
     virtual ~SocketServer() {
         if (_client_fd != -1) close(_client_fd);

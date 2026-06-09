@@ -27,7 +27,8 @@ void async_feedback_listener(SocketClient* client, bool* keep_running) {
 
 int main() {
     // Instantiate matching UDS Datagram schema parameters
-    Ipc::Client client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose;
+    // Ipc::Client client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose; // OR:
+    Ipc::Generic client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose;
 
     SocketClient client(AF_UNIX, SOCK_DGRAM, client_flags);
     std::string  socket_path = "/tmp/uds_symmetrical.sock";

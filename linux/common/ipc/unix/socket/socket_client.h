@@ -3,14 +3,11 @@
 
 namespace HarisLinux {
 
-class SocketClient : public UnixSocket {
- private:
-    const Ipc::Client _modes;  // Re-integrated: Write/Read-Only, Feedback, Checklose
-
+class SocketClient : public UnixSocket<Ipc::Client> {
  public:
     // Explicitly chains base constructor bindings to pipe parameters down
-    SocketClient(int address_families, int type, Ipc::Client modes)
-        : UnixSocket(address_families, type), _modes(modes) {}
+    SocketClient(int address_families, int type, Ipc::Generic<Ipc::Client> modes)
+        : UnixSocket<Ipc::Client>(address_families, type, modes) {}
 
     // Add a custom destructor to your SocketClient class to clear file descriptors cleanly
     virtual ~SocketClient() {

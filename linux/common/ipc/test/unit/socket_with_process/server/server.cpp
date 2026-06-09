@@ -9,7 +9,7 @@ int main() {
     // Instantiate Server using UDS Datagram (AF_UNIX, SOCK_DGRAM)
     // Symmetrical design allows both sending and receiving without managing streams
     // Combine flags using '|'
-    Ipc::Server server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
+    Ipc::Generic server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
 
     SocketServer server(AF_UNIX, SOCK_DGRAM, server_flags);
 
@@ -28,7 +28,7 @@ int main() {
     }
 
     // For SOCK_DGRAM, accept_connection immediately returns true bypassively
-    server.accept_connection();
+    if (!server.accept_connection()) return 1;
     std::cout << "[Server] Active. Listening for inbound packets...\n";
 
     PacketHeader                        header;
