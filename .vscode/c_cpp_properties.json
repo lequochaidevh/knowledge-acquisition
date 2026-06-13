@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/linux/common/logging/**",
+                "${workspaceFolder}/linux/common/ipc/**",
                 "${workspaceFolder}/linux/common/**"
             ],
             "compilerPath": "/usr/bin/gcc",

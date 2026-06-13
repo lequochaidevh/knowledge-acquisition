@@ -45,8 +45,10 @@
 #include <atomic>
 
 #include <dlfcn.h>  // dloader
-
+#include <sys/uio.h>
 #include <cstdint>
+#include <sys/wait.h>
+
 // Unix socket
 #include <sys/socket.h>
 #include <netinet/in.h>
