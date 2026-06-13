@@ -44,24 +44,38 @@ class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
     explicit DgramReceiver(int source_fd) { this->_fd = source_fd; }
 
     bool read_impl(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
-        // FIXED: Unix Datagram boundaries must read the full message atomically.
-        // We use a large, reusable stack buffer to fetch the packet in one single kernel hop.
-        static constexpr size_t MAX_DGRAM_BUFFER = 65535;
-        std::vector<uint8_t>    buffer(MAX_DGRAM_BUFFER);
-
         addr_len = sizeof(remote_addr);
-        ssize_t received_bytes =
-            recvfrom(this->_fd, buffer.data(), buffer.size(), 0, reinterpret_cast<sockaddr*>(&remote_addr), &addr_len);
 
-        if (received_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) return false;
+        // Step 1: PEEK at incoming packet data within Kernel space to extract payload size
+        PacketHeader peek_header;
+        ssize_t      peek_bytes = ::recvfrom(this->_fd, &peek_header, sizeof(PacketHeader), MSG_PEEK,
+                                        reinterpret_cast<sockaddr*>(&remote_addr), &addr_len);
 
-        std::memcpy(&out_header, buffer.data(), sizeof(PacketHeader));
+        if (peek_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) return false;
 
-        if (out_header.payload_size > 0) {
-            out_payload.resize(out_header.payload_size);
-            std::memcpy(out_payload.data(), buffer.data() + sizeof(PacketHeader), out_header.payload_size);
-        }
-        return true;
+        // Step 2: Resize out_payload container (0 CPU allocation cycle if old capacity fits)
+        out_payload.resize(peek_header.payload_size);
+
+        // Step 3: Zero-Copy Scatter-Gather binding
+        struct iovec iov[2];
+        // Stream directly into the user's out_header reference
+        iov[0].iov_base = &out_header;
+        iov[0].iov_len  = sizeof(PacketHeader);
+        // Stream payload raw data directly into C++ vector's inner address space
+        iov[1].iov_base = out_payload.data();
+        iov[1].iov_len  = peek_header.payload_size;
+
+        struct msghdr msg {};
+        msg.msg_name    = &remote_addr;
+        msg.msg_namelen = addr_len;
+        msg.msg_iov     = iov;
+        msg.msg_iovlen  = (peek_header.payload_size > 0) ? 2 : 1;
+
+        // Step 4: Execute kernel retrieval. Data copies from NIC/Kernel direct to memory targets.
+        size_t  total_expected = sizeof(PacketHeader) + peek_header.payload_size;
+        ssize_t received_bytes = ::recvmsg(this->_fd, &msg, 0);
+
+        return received_bytes == static_cast<ssize_t>(total_expected);
     }
 };
 

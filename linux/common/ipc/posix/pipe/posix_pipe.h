@@ -8,18 +8,30 @@
 
 namespace HarisLinux {
 
+template <typename Modes>
 class PosixPipe : public StreamSender, public StreamReceiver {
  protected:
+    int         _read_fd  = -1;
+    int         _write_fd = -1;
     std::string _pipe_path_main;
     std::string _pipe_path_fb;  // feedback pipe
 
+    Ipc::Generic<Modes> _modes;
+
  public:
-    PosixPipe(const std::string& path)
-        : StreamSender(-1), StreamReceiver(-1), _pipe_path_main(path), _pipe_path_fb(path + "_fb") {}
+    PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
+        : StreamSender(-1),
+          StreamReceiver(-1),  // send and receive
+          _pipe_path_main(path),
+          _pipe_path_fb(path + "_fb"),
+          _modes(modes) {}
 
     virtual ~PosixPipe() {
         if (StreamReceiver::_fd != -1) ::close(StreamReceiver::_fd);
         if (StreamSender::_fd != -1) ::close(StreamSender::_fd);
+
+        if (_read_fd != -1) close(_read_fd);
+        if (_write_fd != -1) close(_write_fd);
     }
 
     void set_read_fd(int r_fd) { StreamReceiver::_fd = r_fd; }

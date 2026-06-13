@@ -65,7 +65,10 @@ namespace Ipc {
         // operator AND (&) Valid: Return new Generic with same type
         bool operator&(T flag) const { return (static_cast<uint8_t>(value) & static_cast<uint8_t>(flag)) != 0; }
 
-        // --- operator INVALID (data type diffirence) -> Break out at COMPILE-TIME ERROR ---
+        // Add this inside struct Generic<T>
+        bool has(T flag) const { return (*this & flag); }
+
+        bool missing(T flag) const { return !has(flag); }
 
         template <typename U>
         Generic<T> operator|(U flag) const = delete;
