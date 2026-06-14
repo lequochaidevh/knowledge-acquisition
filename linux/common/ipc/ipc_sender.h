@@ -1,6 +1,9 @@
 #pragma once
 #include "ipc_metadata.h"
 
+class IPCSenderTest;
+#define FRIEND_SENDER_TESTER friend class ::IPCSenderTest;
+
 namespace HarisLinux {
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
 template <typename Derived>
@@ -56,20 +59,18 @@ class IPCSenderBase {
 
 class StreamSender : public IPCSenderBase<StreamSender> {
     friend class IPCSenderBase<StreamSender>;
+    FRIEND_SENDER_TESTER
+ public:
+    explicit StreamSender(int target_fd) { this->_fd = target_fd; }
 
  protected:
-    explicit StreamSender(int target_fd) { this->_fd = target_fd; }
     ssize_t write_impl(const struct iovec* iov) const { return writev(this->_fd, iov, 2); }
 };
 
 class DgramSender : public IPCSenderBase<DgramSender> {
     friend class IPCSenderBase<DgramSender>;
-
- private:
-    sockaddr_un remote_addr{};
-    socklen_t   addr_len = 0;
-
- protected:
+    FRIEND_SENDER_TESTER
+ public:
     DgramSender(int target_fd, const std::string& target_path) {
         this->_fd = target_fd;
         std::memset(&remote_addr, 0, sizeof(remote_addr));
@@ -77,6 +78,12 @@ class DgramSender : public IPCSenderBase<DgramSender> {
         std::strncpy(remote_addr.sun_path, target_path.c_str(), sizeof(remote_addr.sun_path) - 1);
         addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
     }
+
+ private:
+    sockaddr_un remote_addr{};
+    socklen_t   addr_len = 0;
+
+ protected:
     ssize_t write_impl(const struct iovec* iov) const {
         struct msghdr msg {};
         msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));

@@ -11,6 +11,43 @@ struct DeviceConfig {
     const std::string_view status_code;
 };
 
+enum class ModeIPCTest { Stream, Dgram };
+
+class IPCReceiverTest {
+ private:
+    ModeIPCTest    _mode;
+    StreamReceiver _stream_receiver;
+    DgramReceiver  _dgram_receiver;
+
+ public:
+    IPCReceiverTest(ModeIPCTest m, int pipe_read_fd)
+        : _mode(m), _stream_receiver(pipe_read_fd), _dgram_receiver(pipe_read_fd){};
+
+    bool receive_fw(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
+        if (_mode == ModeIPCTest::Stream) return _stream_receiver.receive(out_header, out_payload);
+
+        return _dgram_receiver.receive(out_header, out_payload);
+    }
+};
+
+class IPCSenderTest {
+ private:
+    ModeIPCTest  _mode;
+    StreamSender _stream_sender;
+    DgramSender  _dgram_sender;
+
+ public:
+    IPCSenderTest(ModeIPCTest m, int pipe_read_fd, const std::string& target_path)
+        : _mode(m), _stream_sender(pipe_read_fd), _dgram_sender(pipe_read_fd, target_path){};
+
+    template <typename T>
+    bool send_fw(DataType data_type, const T& data, const uint32_t& seq = 0) {
+        if (_mode == ModeIPCTest::Stream) return _stream_sender.send(data_type, data, seq);
+
+        return _dgram_sender.send(data_type, data, seq);
+    }
+};
+
 void run_receiver_logic(int pipe_read_fd, int dgram_socket_fd) {
     std::cout << "[RECEIVER] The reciver available ...\n\n";
 
@@ -21,10 +58,10 @@ void run_receiver_logic(int pipe_read_fd, int dgram_socket_fd) {
     // -------------------------------------------------------------------------
     // TEST 1: PIPE (StreamReceiver)
     // -------------------------------------------------------------------------
-    StreamReceiver pipe_receiver(pipe_read_fd);
-    std::cout << "[RECEIVER] --- Started PIPE Stream ---\n";
 
-    if (pipe_receiver.receive(header, payload)) {
+    std::cout << "[RECEIVER] --- Started PIPE Stream ---\n";
+    IPCReceiverTest stream_receiver(ModeIPCTest::Stream, pipe_read_fd);
+    if (stream_receiver.receive_fw(header, payload)) {
         assert(header.type == DataType::Number);
         int received_val = *reinterpret_cast<int*>(payload.data());
         std::cout << "[RECEIVER][PIPE] Test case 1.1 - Data type is Number: " << received_val << " (PASSED)\n";
@@ -32,7 +69,7 @@ void run_receiver_logic(int pipe_read_fd, int dgram_socket_fd) {
         std::cerr << "[RECEIVER][PIPE] Test case 1.1 FAILED\n";
     }
 
-    if (pipe_receiver.receive(header, payload)) {
+    if (stream_receiver.receive_fw(header, payload)) {
         assert(header.type == DataType::Text);
         std::string received_str(reinterpret_cast<char*>(payload.data()), header.payload_size);
         std::cout << "[RECEIVER][PIPE] Test case 1.2 - Data type is Text: \"" << received_str << "\" (PASSED)\n";
@@ -43,10 +80,11 @@ void run_receiver_logic(int pipe_read_fd, int dgram_socket_fd) {
     // -------------------------------------------------------------------------
     // TEST 2: UNIX Socket Datagram (DgramReceiver)
     // -------------------------------------------------------------------------
-    DgramReceiver dgram_receiver(dgram_socket_fd);
+
+    IPCReceiverTest dgram_receiver(ModeIPCTest::Dgram, dgram_socket_fd);
     std::cout << "\n[RECEIVER] --- Started UNIX Datagram ---\n";
 
-    if (dgram_receiver.receive(header, payload)) {
+    if (dgram_receiver.receive_fw(header, payload)) {
         assert(header.type == DataType::Media);
         std::cout << "[RECEIVER][DGRAM] Test case 2.1 - Data type is Media, size: " << header.payload_size
                   << " bytes (PASSED)\n";
@@ -55,7 +93,7 @@ void run_receiver_logic(int pipe_read_fd, int dgram_socket_fd) {
         std::cerr << "[RECEIVER][DGRAM] Test case 2.1 FAILED\n";
     }
 
-    if (dgram_receiver.receive(header, payload)) {
+    if (dgram_receiver.receive_fw(header, payload)) {
         assert(header.type == DataType::Custom);
         DeviceConfig* config = reinterpret_cast<DeviceConfig*>(payload.data());
         std::cout << "[RECEIVER][DGRAM] Test case 2.2 - Data type is Custom (Struct) (PASSED)\n";
@@ -77,25 +115,25 @@ void run_sender_logic(int pipe_write_fd, int dgram_socket_fd) {
     std::cout << "[SENDER] Sender is available ...\n";
 
     // 1. PIPE
-    StreamSender pipe_sender(pipe_write_fd);
-    uint32_t     test_int = 756799112;
-    pipe_sender.send(DataType::Number, test_int, 101);
+    IPCSenderTest pipe_sender(ModeIPCTest::Stream, pipe_write_fd, SOCK_PATH);
+    uint32_t      test_int = 756799112;
+    pipe_sender.send_fw<uint32_t>(DataType::Number, test_int, 101);
 
     std::string test_str = "IPC system is optimized by CRTP";
-    pipe_sender.send(DataType::Text, test_str, 102);
+    pipe_sender.send_fw(DataType::Text, test_str, 102);
 
     // 2. UNIX Datagram
-    DgramSender dgram_sender(dgram_socket_fd, SOCK_PATH);
+    IPCSenderTest dgram_sender(ModeIPCTest::Dgram, dgram_socket_fd, SOCK_PATH);
 
     std::vector<uint8_t> mock_image(2048, 0x00);
     mock_image[0]                     = 0xAA;
     mock_image[mock_image.size() - 1] = 0xBB;
-    dgram_sender.send(DataType::Media, mock_image, 201);
+    dgram_sender.send_fw(DataType::Media, mock_image, 201);
 
     DeviceConfig         config{9999, 44100.0f, "Hello"};
     std::vector<uint8_t> struct_buffer(sizeof(DeviceConfig));
     std::memcpy(struct_buffer.data(), &config, sizeof(DeviceConfig));
-    dgram_sender.send(DataType::Custom, struct_buffer, 202);
+    dgram_sender.send_fw(DataType::Custom, struct_buffer, 202);
 
     std::cout << "[SENDER] Send all test data package. Exit.\n";
 }

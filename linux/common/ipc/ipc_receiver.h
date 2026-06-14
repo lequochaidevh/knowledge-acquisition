@@ -1,17 +1,19 @@
 #pragma once
 #include "ipc_metadata.h"
 
+class IPCReceiverTest;
+#define FRIEND_RECEIVE_TESTER friend class ::IPCReceiverTest;
+
 namespace HarisLinux {
 template <typename Derived>
 class IPCReceiverBase {
- public:
+ protected:
     int  _fd = -1;
     bool receive(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
         if (_fd == -1) return false;
         return static_cast<Derived*>(this)->read_impl(out_header, out_payload);
     }
 
- protected:
     bool read_all(int target_fd, void* buffer, size_t length) {
         size_t   total_read = 0;
         uint8_t* ptr        = reinterpret_cast<uint8_t*>(buffer);
@@ -25,8 +27,12 @@ class IPCReceiverBase {
 };
 
 class StreamReceiver : public IPCReceiverBase<StreamReceiver> {
+    friend class IPCReceiverBase<StreamReceiver>;
+    FRIEND_RECEIVE_TESTER
  public:
     explicit StreamReceiver(int source_fd) { this->_fd = source_fd; }
+
+ protected:
     bool read_impl(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
         if (!this->read_all(this->_fd, &out_header, sizeof(PacketHeader))) return false;
         if (out_header.payload_size > 0) {
@@ -38,10 +44,14 @@ class StreamReceiver : public IPCReceiverBase<StreamReceiver> {
 };
 
 class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
+    friend class IPCReceiverBase<DgramReceiver>;
+    FRIEND_RECEIVE_TESTER
  public:
+    explicit DgramReceiver(int source_fd) { this->_fd = source_fd; }
+
+ protected:
     sockaddr_storage remote_addr{};
     socklen_t        addr_len = sizeof(remote_addr);
-    explicit DgramReceiver(int source_fd) { this->_fd = source_fd; }
 
     bool read_impl(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
         addr_len = sizeof(remote_addr);
