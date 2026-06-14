@@ -6,17 +6,37 @@ namespace HarisLinux {
 
 class PipeServer : public PosixPipe<Ipc::Server> {
  private:
-    std::map<std::string, std::pair<int, int>> _active_clients;
-    std::mutex                                 _active_clients_mutex;
+    DECLARE_LOGGER;
 
-    // calc hz
-    uint64_t _last_time = 0;
-    uint32_t _pkt_count = 0;
+    std::map<std::string, std::pair<int, int>> _client_registry;
+    std::mutex                                 _client_registry_mutex;
 
-    void calculate_hz(uint64_t current_ms);
+    /* Metrics & Performance Monitoring counters */
+    uint64_t _last_metrics_timestamp_ms = 0;  ///< Epoch time of the last throughput evaluation.
+    uint32_t _accumulated_packet_count  = 0;  ///< Total packets processed in the current window.
 
+    /** @brief Helper support cast data type of message. */
+    PacketDispatcher<DataHandlerPolicy> _dispatcher{"PipeServer"};
+
+    /**
+     * @brief Computes and logs the operational throughput (packets per second).
+     * @param current_time_ms The current system monotonic clock in milliseconds.
+     */
+    void monitor_throughput(uint64_t current_time_ms);
+
+    /**
+     * @brief Handshakes and establishes connection with a newly requesting client.
+     * @return true If the client was successfully authorized and registered.
+     * @return false If connection setup failed or encountered an error.
+     */
     bool accept_client();
 
+    /**
+     * @brief Dispatches and handles a single incoming packet from a specific client channel.
+     * @param client_id Unique identifier of the targeting client.
+     * @param read_fd The data source descriptor.
+     * @param write_fd The data destination feedback descriptor.
+     */
     void process_client_packet(const std::string& client_id, int read_fd, int write_fd);
 
  public:
@@ -24,7 +44,7 @@ class PipeServer : public PosixPipe<Ipc::Server> {
 
     ~PipeServer();
 
-    void poll_all_clients();
+    void dispatch_events();
 };
 
 }  // namespace HarisLinux

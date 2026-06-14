@@ -5,7 +5,7 @@ namespace HarisLinux {
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
 template <typename Derived>
 class IPCSenderBase {
- public:
+ protected:
     int _fd = -1;
 
     template <typename T>
@@ -14,6 +14,8 @@ class IPCSenderBase {
 
         const uint8_t* payload_ptr  = nullptr;
         uint32_t       payload_size = 0;
+
+        using CleanedType = std::decay_t<T>;
 
         if constexpr (std::is_arithmetic_v<T>) {
             // TRUE Stack Allocation: Evaluated entirely at compile-time (Zero Heap Overhead)
@@ -24,9 +26,17 @@ class IPCSenderBase {
             // payload_ptr  = local_stack_buffer;
             payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
             payload_size = static_cast<uint32_t>(sizeof(T));
-        } else {
+        } else if constexpr (std::is_same_v<CleanedType, std::string> ||
+                             std::is_same_v<CleanedType, std::vector<uint8_t>> ||
+                             std::is_same_v<CleanedType, std::string_view>) {
+            // Vector & String
             payload_ptr  = reinterpret_cast<const uint8_t*>(data.data());
             payload_size = static_cast<uint32_t>(data.size() * sizeof(typename T::value_type));
+        } else if constexpr (std::is_same_v<CleanedType, IPCRequestPayload>) {
+            payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
+            payload_size = static_cast<uint32_t>(sizeof(T));
+        } else {
+            static_assert(sizeof(T) == 0, "Unsupported compile-time type execution for IPC Sender!");
         }
 
         PacketHeader header{data_type, payload_size, get_current_timestamp_ms(), seq};
@@ -45,17 +55,21 @@ class IPCSenderBase {
 };
 
 class StreamSender : public IPCSenderBase<StreamSender> {
- public:
+    friend class IPCSenderBase<StreamSender>;
+
+ protected:
     explicit StreamSender(int target_fd) { this->_fd = target_fd; }
     ssize_t write_impl(const struct iovec* iov) const { return writev(this->_fd, iov, 2); }
 };
 
 class DgramSender : public IPCSenderBase<DgramSender> {
+    friend class IPCSenderBase<DgramSender>;
+
  private:
     sockaddr_un remote_addr{};
     socklen_t   addr_len = 0;
 
- public:
+ protected:
     DgramSender(int target_fd, const std::string& target_path) {
         this->_fd = target_fd;
         std::memset(&remote_addr, 0, sizeof(remote_addr));

@@ -3,11 +3,11 @@
 namespace HarisLinux {
 
 template <typename Modes>
-bool PosixPipe<Modes>::receive_packet(int fd, PacketHeader& header, std::vector<uint8_t>& payload) {
-    if (fd == -1) return false;
+bool PosixPipe<Modes>::receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload) {
+    if (read_fd == -1) return false;
 
     int old_fd          = StreamReceiver::_fd;
-    StreamReceiver::_fd = fd;
+    StreamReceiver::_fd = read_fd;
 
     bool result = StreamReceiver::receive(header, payload);
 

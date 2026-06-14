@@ -2,13 +2,14 @@
 
 namespace HarisLinux {
 
-static auto logger = LogRegistry::getInstance().getLogger("PipeClient");
+// static auto logger = LogRegistry::getInstance().getLogger("PipeClient");
 
 PipeClient::PipeClient(const std::string& request_path, const std::string& id, Ipc::Generic<Ipc::Client> modes)
     :  //
       PosixPipe<Ipc::Client>(request_path, modes),
-      _old_pipe_path_main(request_path),
+      _old_upstream_path(request_path),
       _client_id(id) {
+    INIT_LOGGER("PipeClient");
     logger->setLevel(LogLevel::Trace);
 }
 
@@ -31,24 +32,14 @@ void PipeClient::check_feedback() {
                 "Got: {}",
                 _current_seq, static_cast<uint32_t>(fb_header.sequence_id));
         } else {
-            switch (fb_header.type) {
-                case DataType::Command: {
-                    for (size_t i = 0; i < std::min(fb_data.size(), size_t(16)); ++i) {
-                        printf("%02X ", fb_data[i]);
-                    }
-                    break;
-                }
-                default:
-                    HARIS_LOG_WARN("Unknown Data Type");
-                    break;
-            }
+            _dispatcher.dispatch(fb_header, fb_data);
         }
     }
 }
 
 bool PipeClient::request_and_switch_main_pipe() {
-    _pipe_path_main = _old_pipe_path_main;
-    _pipe_path_fb   = _old_pipe_path_main + "_fb";
+    _upstream_path   = _old_upstream_path;
+    _downstream_path = _old_upstream_path + "_fb";
     if (_write_fd != -1) close(_write_fd);
     if (_read_fd != -1) close(_read_fd);
 
@@ -56,7 +47,7 @@ bool PipeClient::request_and_switch_main_pipe() {
         "Request with old main pipe: "
         "Send: {}",
         "Read: {}",  //
-        _pipe_path_main, _pipe_path_fb);
+        _upstream_path, _downstream_path);
 
     request_and_switch_pipe(2);
     return true;
@@ -67,9 +58,9 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         "The client id: [{}] "
         "have connected to Request Pipe ...",
         _client_id);
-    _write_fd = open(_pipe_path_main.c_str(), O_WRONLY);
+    _write_fd = open(_upstream_path.c_str(), O_WRONLY);
     if (_modes & Ipc::Client::CheckLose) {
-        _read_fd = open(_pipe_path_fb.c_str(), O_RDONLY);
+        _read_fd = open(_downstream_path.c_str(), O_RDONLY);
     }
 
     // Prepare Payload
@@ -113,12 +104,12 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                 if (_read_fd != -1) close(_read_fd);
 
                 // Update to new pipe
-                _pipe_path_main = "/tmp/pipe_" + _client_id;
-                _pipe_path_fb   = _pipe_path_main + "_fb";
+                _upstream_path   = "/tmp/pipe_" + _client_id;
+                _downstream_path = _upstream_path + "_fb";
 
                 // Connect to new pipe
-                _write_fd = open(_pipe_path_main.c_str(), O_WRONLY | O_NONBLOCK);
-                _read_fd  = open(_pipe_path_fb.c_str(), O_RDONLY);
+                _write_fd = open(_upstream_path.c_str(), O_WRONLY | O_NONBLOCK);
+                _read_fd  = open(_downstream_path.c_str(), O_RDONLY);
                 HARIS_LOG_DEBUG(
                     "The client id: [{}] "
                     "Switch to new pipe successfully!",

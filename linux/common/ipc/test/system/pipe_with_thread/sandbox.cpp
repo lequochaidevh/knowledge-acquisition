@@ -13,7 +13,7 @@ int main() {
         // Init Server
         Ipc::Generic server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
         PipeServer   server(request_pipe_path, server_flags);
-        server.poll_all_clients();
+        server.dispatch_events();
         std::cout << "[Server] Done task. Close Server thread. \n" << std::endl;
     });
     // Wait 20ms to Server have created FIFO file before client connecting.

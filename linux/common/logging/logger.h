@@ -59,6 +59,13 @@ class LogRegistry {
 };
 
 // Macros designed to use a local or module-specific logger variable named 'logger'
+
+#define DECLARE_LOGGER inline static std::shared_ptr<Logger> logger
+#define INIT_LOGGER(module)                                    \
+    if (!logger) {                                             \
+        logger = LogRegistry::getInstance().getLogger(module); \
+    }
+
 #define HARIS_LOG_TRACE(fmt, ...) logger->log(LogLevel::Trace, __FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
 #define HARIS_LOG_DEBUG(fmt, ...) logger->log(LogLevel::Debug, __FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
 #define HARIS_LOG_INFO(fmt, ...)  logger->log(LogLevel::Info, __FILE__, __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__)
