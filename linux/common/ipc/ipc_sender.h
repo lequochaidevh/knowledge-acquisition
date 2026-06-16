@@ -1,9 +1,6 @@
 #pragma once
 #include "ipc_metadata.h"
 
-class IPCSenderTest;
-#define FRIEND_SENDER_TESTER friend class ::IPCSenderTest;
-
 namespace HarisLinux {
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
 template <typename Derived>
@@ -59,7 +56,7 @@ class IPCSenderBase {
 
 class StreamSender : public IPCSenderBase<StreamSender> {
     friend class IPCSenderBase<StreamSender>;
-    FRIEND_SENDER_TESTER
+
  public:
     explicit StreamSender(int target_fd) { this->_fd = target_fd; }
 
@@ -69,7 +66,7 @@ class StreamSender : public IPCSenderBase<StreamSender> {
 
 class DgramSender : public IPCSenderBase<DgramSender> {
     friend class IPCSenderBase<DgramSender>;
-    FRIEND_SENDER_TESTER
+
  public:
     DgramSender(int target_fd, const std::string& target_path) {
         this->_fd = target_fd;

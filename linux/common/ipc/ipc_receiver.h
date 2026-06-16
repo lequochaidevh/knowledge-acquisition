@@ -1,9 +1,6 @@
 #pragma once
 #include "ipc_metadata.h"
 
-class IPCReceiverTest;
-#define FRIEND_RECEIVE_TESTER friend class ::IPCReceiverTest;
-
 namespace HarisLinux {
 template <typename Derived>
 class IPCReceiverBase {
@@ -28,7 +25,7 @@ class IPCReceiverBase {
 
 class StreamReceiver : public IPCReceiverBase<StreamReceiver> {
     friend class IPCReceiverBase<StreamReceiver>;
-    FRIEND_RECEIVE_TESTER
+
  public:
     explicit StreamReceiver(int source_fd) { this->_fd = source_fd; }
 
@@ -45,7 +42,7 @@ class StreamReceiver : public IPCReceiverBase<StreamReceiver> {
 
 class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
     friend class IPCReceiverBase<DgramReceiver>;
-    FRIEND_RECEIVE_TESTER
+
  public:
     explicit DgramReceiver(int source_fd) { this->_fd = source_fd; }
 
