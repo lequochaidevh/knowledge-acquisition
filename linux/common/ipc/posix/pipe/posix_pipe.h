@@ -11,6 +11,10 @@ namespace HarisLinux {
 
 template <typename Modes>
 class PosixPipe : public StreamSender, public StreamReceiver {
+ public:
+    int get_read_fd() const { return StreamReceiver::_fd; }
+    int get_write_fd() const { return StreamSender::_fd; }
+
  private:
     DECLARE_LOGGER;
 
@@ -57,9 +61,6 @@ class PosixPipe : public StreamSender, public StreamReceiver {
 
     void set_read_fd(int r_fd) { StreamReceiver::_fd = r_fd; }
     void set_write_fd(int w_fd) { StreamSender::_fd = w_fd; }
-
-    int get_read_fd() const { return StreamReceiver::_fd; }
-    int get_write_fd() const { return StreamSender::_fd; }
 
     /**
      * @brief Transmits a structured data packet through a specific file descriptor.

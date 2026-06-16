@@ -40,7 +40,7 @@ class DataHandlerPolicy {
 
     void on_packet(int num) { HARIS_LOG_DEBUG("Data: [Int] {}", num); }
 
-    void on_packet(const std::vector<uint8_t>& media) {
+    void on_packet(const std::vector<uint8_t>& media, const std::string& data_type_string = "") {
         HARIS_LOG_DEBUG("Media Buffer Size: {} bytes", media.size());
 
         if (logger->getLevel() != LogLevel::Trace) return;
@@ -57,9 +57,7 @@ class DataHandlerPolicy {
                 fmt::format_to(std::back_inserter(out), "{:02X} X ", b);
             }
 
-            // HARIS_LOG_TRACE("HEX: {}", fmt::to_string(out));
-
-            std::cout << fmt::to_string(out) << std::endl;
+            HARIS_LOG_DEBUG("\n\tData type: {} \n\tHEX: {}", data_type_string, fmt::to_string(out));
         }
     }
 
@@ -96,6 +94,10 @@ class PacketDispatcher {
                 break;
             }
             case DataType::Media: {
+                _handler.on_packet(IpcUtils::unpack<std::vector<uint8_t>>(payload));
+                break;
+            }
+            case DataType::Custom: {
                 _handler.on_packet(IpcUtils::unpack<std::vector<uint8_t>>(payload));
                 break;
             }
