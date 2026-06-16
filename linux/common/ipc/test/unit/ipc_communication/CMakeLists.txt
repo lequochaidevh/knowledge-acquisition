@@ -13,11 +13,8 @@ enable_testing()
 register_gtest_target(sandbox
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/*.cpp"
     INCLUDES
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/"
         "${BASE_SOURCE_PATH}/ipc/"
-        "${BASE_SOURCE_PATH}"
     LIBRARIES
         Threads::Threads
         fmt::fmt
