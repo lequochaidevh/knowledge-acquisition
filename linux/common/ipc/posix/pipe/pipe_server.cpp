@@ -45,7 +45,9 @@ bool PipeServer::accept_client() {
     HARIS_LOG_INFO("Open Request Pipe, wait any client request");
 
     // Block wait command from client
-    int req_read_fd  = open(_upstream_path.c_str(), O_RDONLY);
+    int req_read_fd = open(_upstream_path.c_str(), O_RDONLY);
+    HARIS_LOG_INFO("Get req_read_fd : {} ", req_read_fd);
+
     int req_write_fd = -1;
     if (_modes & Ipc::Server::Feedback) {
         req_write_fd = open(_downstream_path.c_str(), O_WRONLY);
@@ -53,9 +55,10 @@ bool PipeServer::accept_client() {
 
     PacketHeader         header;
     std::vector<uint8_t> data;
+    bool                 is_new = receive_packet(req_read_fd, header, data);
 
     // Read data from client request
-    if (receive_packet(req_read_fd, header, data)) {
+    if (is_new) {
         if (header.type == DataType::Command && data.size() == sizeof(IPCRequestPayload)) {
             IPCRequestPayload req;
             std::memcpy(&req, data.data(), sizeof(IPCRequestPayload));
@@ -98,7 +101,7 @@ bool PipeServer::accept_client() {
                         // Clean up Request Pipe of this command.
                         close(req_read_fd);
                         if (req_write_fd != -1) close(req_write_fd);
-                        return false;  // todo: remove delay
+                        return false;
                     }
                     // =================================================================
 
@@ -160,29 +163,51 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
     PacketHeader         header;
     std::vector<uint8_t> data;
 
-    // 1. Get pack
-    if (receive_packet(read_fd, header, data)) {
-        monitor_throughput(header.timestamp_ms);
+    // --- HIGH-PRECISION TIMEOUT HANDLING USING SELECT (MICROSECONDS) ---
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(read_fd, &read_fds);  // Add read_fd to the monitoring set
 
-        HARIS_LOG_DEBUG("[{}] === New Packet Received === ", client_id);
-        HARIS_LOG_DEBUG("Type: {} - Size: {} bytes - Seq {} ",       // format data debug
-                        static_cast<int>(header.type),               // type
-                        static_cast<uint32_t>(header.payload_size),  // size of payload
-                        static_cast<uint32_t>(header.sequence_id));  // id
+    // Set timeout duration in microseconds (e.g., 500,000 µs = 500 ms = 0.5 seconds)
+    struct timeval timeout;
+    timeout.tv_sec  = 0;    // Seconds
+    timeout.tv_usec = 888;  // Microseconds (µs)
 
-        // 2. Check
-        if (data.empty()) {
-            HARIS_LOG_DEBUG("Data: [Empty payload]");
-        } else {
-            // 3. Implement with data type
-            _dispatcher.dispatch(header, data);
-        }
+    // Block efficiently until data arrives or timeout expires (0% CPU usage)
+    // First argument must be (highest fd + 1)
+    int ret = select(read_fd + 1, &read_fds, NULL, NULL, &timeout);
 
-        // 4. Feedback ACK
-        if (_modes & Ipc::Server::Feedback) {
-            IPCRequestPayload reqaaa{"client_id", 33};
+    if (ret < 0) {
+        // System error occurred during select execution
+        if (errno == EINTR) return;  // Interrupted by system signal, safe to skip
+        HARIS_LOG_ERROR("Select error: {}", errno);
+        return;
+    } else if (ret == 0) {
+        // Timeout expired with no incoming data
+        return;  // Exit to prevent blocking on read operations
+    }
 
-            send_packet(write_fd, DataType::Command, reqaaa, header.sequence_id);
+    // Data is ready to be read from the file descriptor
+    if (FD_ISSET(read_fd, &read_fds)) {
+        HARIS_LOG_DEBUG("=== read_fd === [{}] ", read_fd);
+
+        // 1. Extract packet header and payload
+        if (receive_packet(read_fd, header, data)) {
+            monitor_throughput(header.timestamp_ms);
+
+            // 2. Validate payload size
+            if (data.empty()) {
+                HARIS_LOG_DEBUG("Data: [Empty payload]");
+            } else {
+                // 3. Forward data to the corresponding handler
+                _dispatcher.dispatch(header, data);
+            }
+
+            // 4. Send acknowledgment feedback if required
+            if (_modes & Ipc::Server::Feedback) {
+                IPCRequestPayload reqaaa{"client_id", 33};
+                send_packet(write_fd, DataType::Command, reqaaa, header.sequence_id);
+            }
         }
     }
 }
@@ -194,7 +219,7 @@ void PipeServer::dispatch_events() {
             // auto block to wait new client, and add it to <_client_registry> container
             if (!accept_client())
                 // wait OS clean up
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     });
     acceptor_thread.detach();  // Trigger thread

@@ -10,12 +10,16 @@ bool PosixPipe<Modes>::receive_packet(int read_fd, PacketHeader& header, std::ve
 
     bool result = StreamReceiver::receive(header, payload);
 
+    StreamReceiver::_fd = old_fd;
+
+    if (!result) {
+        HARIS_LOG_WARN("Can not receive data {}", static_cast<int>(header.type));
+        return result;
+    }
     /** @brief Helper support cast data type of message. */
     PacketDispatcher<DataHandlerPolicy> dispatcher{"PosixPipe"};
     // Inspect the inner content payload variations
     dispatcher.dispatch(header, payload);
-
-    StreamReceiver::_fd = old_fd;
     return result;
 }
 

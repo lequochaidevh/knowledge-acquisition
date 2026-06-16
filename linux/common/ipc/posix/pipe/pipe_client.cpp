@@ -73,8 +73,8 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         "Send request to pipe ...",
         _client_id);
     _current_seq++;
-    std::string_view req_view(reinterpret_cast<const char*>(&req), sizeof(IPCRequestPayload));
-    send_packet(_write_fd, DataType::Command, req_view, _current_seq);
+
+    send_packet(_write_fd, DataType::Command, req, _current_seq);
 
     // Wait Server to accept and feedback ACK.
     if (_modes & Ipc::Client::CheckLose) {

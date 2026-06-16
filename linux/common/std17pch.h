@@ -48,6 +48,8 @@
 #include <sys/uio.h>
 #include <cstdint>
 #include <sys/wait.h>
+#include <poll.h>
+#include <errno.h>
 
 // Unix socket
 #include <sys/socket.h>
