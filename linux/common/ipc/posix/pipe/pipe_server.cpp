@@ -163,85 +163,107 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
     PacketHeader         header;
     std::vector<uint8_t> data;
 
-    // --- HIGH-PRECISION TIMEOUT HANDLING USING SELECT (MICROSECONDS) ---
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(read_fd, &read_fds);  // Add read_fd to the monitoring set
+    HARIS_LOG_DEBUG("=== read_fd === [{}] ", read_fd);
 
-    // Set timeout duration in microseconds (e.g., 500,000 µs = 500 ms = 0.5 seconds)
-    struct timeval timeout;
-    timeout.tv_sec  = 0;    // Seconds
-    timeout.tv_usec = 888;  // Microseconds (µs)
+    // 1. Extract packet header and payload
+    if (receive_packet(read_fd, header, data)) {
+        monitor_throughput(header.timestamp_ms);
 
-    // Block efficiently until data arrives or timeout expires (0% CPU usage)
-    // First argument must be (highest fd + 1)
-    int ret = select(read_fd + 1, &read_fds, NULL, NULL, &timeout);
+        // 2. Validate payload size
+        if (data.empty()) {
+            HARIS_LOG_DEBUG("Data: [Empty payload]");
+        } else {
+            // 3. Forward data to the corresponding handler
+            _dispatcher.dispatch(header, data);
+        }
 
-    if (ret < 0) {
-        // System error occurred during select execution
-        if (errno == EINTR) return;  // Interrupted by system signal, safe to skip
-        HARIS_LOG_ERROR("Select error: {}", errno);
-        return;
-    } else if (ret == 0) {
-        // Timeout expired with no incoming data
-        return;  // Exit to prevent blocking on read operations
-    }
-
-    // Data is ready to be read from the file descriptor
-    if (FD_ISSET(read_fd, &read_fds)) {
-        HARIS_LOG_DEBUG("=== read_fd === [{}] ", read_fd);
-
-        // 1. Extract packet header and payload
-        if (receive_packet(read_fd, header, data)) {
-            monitor_throughput(header.timestamp_ms);
-
-            // 2. Validate payload size
-            if (data.empty()) {
-                HARIS_LOG_DEBUG("Data: [Empty payload]");
-            } else {
-                // 3. Forward data to the corresponding handler
-                _dispatcher.dispatch(header, data);
-            }
-
-            // 4. Send acknowledgment feedback if required
-            if (_modes & Ipc::Server::Feedback) {
-                IPCRequestPayload reqaaa{"client_id", 33};
-                send_packet(write_fd, DataType::Command, reqaaa, header.sequence_id);
-            }
+        // 4. Send acknowledgment feedback if required
+        if (_modes & Ipc::Server::Feedback) {
+            IPCRequestPayload reqaaa{"client_id", 33};
+            send_packet(write_fd, DataType::Command, reqaaa, header.sequence_id);
         }
     }
 }
 
 void PipeServer::dispatch_events() {
-    // Create thread because it will block at open pipe
+    // 1. Acceptor thread remains unchanged
     std::thread acceptor_thread([this]() {
         while (true) {
-            // auto block to wait new client, and add it to <_client_registry> container
-            if (!accept_client())
-                // wait OS clean up
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (!accept_client()) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     });
-    acceptor_thread.detach();  // Trigger thread
+    acceptor_thread.detach();
 
-    // polling all client connected but non-block read
+    // 2. Efficient polling using OS poll()
     while (true) {
-        // Loop all element in map: _client_registry
-        // Key: client_id, Value: std::pair<int, int> contain {read_fd, write_fd}
+        std::vector<struct pollfd> poll_fds;
+        std::vector<std::string>   client_ids;  // Map back poll index to client_id
+
+        // Lock registry only to take a snapshot of active file descriptors
         {
             std::lock_guard<std::mutex> lock(_client_registry_mutex);
             for (const auto& [client_id, fds] : _client_registry) {
-                int read_fd  = fds.first;
-                int write_fd = fds.second;
-
-                // check fd existing
+                int read_fd = fds.first;
                 if (read_fd != -1) {
-                    process_client_packet(client_id, read_fd, write_fd);
+                    struct pollfd pfd;
+                    pfd.fd      = read_fd;
+                    pfd.events  = POLLIN;  // Monitor read events
+                    pfd.revents = 0;
+
+                    poll_fds.push_back(pfd);
+                    client_ids.push_back(client_id);
                 }
             }
         }
-        // Save CPU resource
-        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+        // If no clients are connected, sleep briefly to save CPU and retry
+        if (poll_fds.empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
+        // Wait up to 100ms for ANY client to send data (OS manages this, 0% CPU overhead)
+        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1);
+
+        if (poll_ret > 0) {
+            // Data is available! Loop through and process ONLY active clients
+            for (std::size_t i = 0; i < poll_fds.size(); ++i) {
+                if (poll_fds[i].revents & POLLIN) {
+                    std::string client_id = client_ids[i];
+                    int         read_fd   = poll_fds[i].fd;
+                    int         write_fd  = -1;
+
+                    // Retrieve write_fd safely from registry
+                    {
+                        std::lock_guard<std::mutex> lock(_client_registry_mutex);
+                        if (_client_registry.find(client_id) != _client_registry.end()) {
+                            write_fd = _client_registry[client_id].second;
+                        }
+                    }
+
+                    // Process packet (this read won't block because OS guaranteed data is ready)
+                    if (write_fd != -1) {
+                        static uint32_t counter = 0;
+                        counter++;
+                        HARIS_LOG_TRACE("Client ID: {} - counter {} ", client_id, counter);
+                        process_client_packet(client_id, read_fd, write_fd);
+                    }
+                }
+
+                // Optional: Handle disconnected clients if poll returns POLLHUP / POLLERR
+                if (poll_fds[i].revents & (POLLHUP | POLLERR)) {
+                    // Handle client disconnection logic here if needed
+                }
+            }
+        } else if (poll_ret < 0) {
+            // Handle poll error (except interrupted system call EINTR)
+            if (errno != EINTR) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+
+        // No need to sleep_for(3ms) anymore because poll() naturally blocks
+        // without consuming CPU when there's no data.
     }
 }
 

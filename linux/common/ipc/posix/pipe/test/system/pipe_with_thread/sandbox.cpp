@@ -90,7 +90,7 @@ void RunClient02() {
     client.check_feedback();
 
     // Reduced iteration count from 500 to 5 to prevent test hanging
-    int cnt = 5;
+    int cnt = 20;
     while (cnt--) {
         // --- TEST 1: Send text data ---
         std::string text_msg = "----02----";
@@ -98,7 +98,7 @@ void RunClient02() {
         client.push_data(DataType::Text, text_msg);
 
         // Check for data loss from Server
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced delay
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));  // Reduced delay
         client.check_feedback();
     }
 }
