@@ -126,5 +126,40 @@ find_once_file_contain() {
     echo "$(ls | grep "$KEYWORK_FILE_NAME" | head -n 1)"
 }
 
+get_back_work_path() {
+  if [ -z "$1" ]; then
+    echo "$(dirname "$PWD")"
+    return 0
+  fi
+
+  local target="$1"
+  local current_dir="$PWD"
+
+  while [ "$current_dir" != "/" ]; do
+    if [ "$(basename "$current_dir")" = "$target" ]; then
+      echo "Success: Found path." >&2
+      echo "$current_dir" # This is the "return" value
+      return 0
+    fi
+
+    if [ -d "$current_dir/$target" ]; then
+      echo "Success: Found path." >&2
+      echo "$current_dir/$target" # This is the "return" value
+      return 0
+    fi
+
+    current_dir=$(dirname "$current_dir")
+  done
+
+  echo "Error: Directory '$target' not found." >&2
+  return 1
+}
+
+# SCRIPT_ROOT_PATH=$(get_back_work_path "script_root")
+# echo $?
+# echo $SCRIPT_ROOT_PATH
+
+
+
 # TODO:
 # create_if_not_exist()
