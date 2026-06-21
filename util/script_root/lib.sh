@@ -155,11 +155,20 @@ get_back_work_path() {
   return 1
 }
 
+create_if_not_exist() {
+    local dir_path="$1"
+    if [ -z "$dir_path" ]; then
+        LOG_ERROR "Variable 'dir_path' is not set. Please run create_if_not_exist <folder name>"
+        return 1
+    fi
+    if [ ! -d "$dir_path" ]; then
+        mkdir -p "$dir_path"
+        LOG_INFO "No '$FILE_PATH' be created before, create it"
+    else
+        LOG_WARN "'$FILE_PATH' be created before, non touch it"
+    fi
+}
+
 # SCRIPT_ROOT_PATH=$(get_back_work_path "script_root")
 # echo $?
 # echo $SCRIPT_ROOT_PATH
-
-
-
-# TODO:
-# create_if_not_exist()

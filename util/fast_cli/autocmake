@@ -1,0 +1,74 @@
+#!/bin/bash -e
+
+# Define logic enum
+E_ENABLE=1
+E_DISABLE=0
+
+CONFIG_FILE_TXT="wizard_tool_configuration.txt"
+
+DES_COPPY=$(cat  /usr/local/bin/${CONFIG_FILE_TXT})
+
+. "$HARIS_UTILS/script_root/lib.sh"
+
+HAVE_RUN_BIN=0
+HAVE_VERBOSE=0
+HAVE_INSTALL=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -d|--dir)
+            # Check if the next argument exists and is not another option
+            if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                TARGET_DIR="$2"
+                shift 2  # Shift past key and value
+            else
+                LOG_ERROR "Error: Argument for $1 is missing." >&2
+                exit 1
+            fi
+            ;;
+        -r|--run)
+            HAVE_RUN_BIN=1
+            shift 1  # Shift past the flag
+            ;;
+        -i|--install)
+            HAVE_INSTALL=1
+            shift 1  # Shift past the flag
+            ;;
+        -v|--verbose)
+            HAVE_VERBOSE=1
+            shift 1  # Shift past the flag
+            ;;
+        -h|--help)
+            LOG_INFO "Usage: $0 [-d|--dir <path>] [-v|--verbose] [-h|--help]"
+            exit 0
+            ;;
+        *)
+            LOG_ERROR "Error: Invalid option '$1'" >&2
+            exit 1
+            ;;
+    esac
+done
+
+
+
+SRC_PATH=$(pwd)
+BUILD_PATH=$SRC_PATH/build
+
+cd $SRC_PATH
+create_if_not_exist build
+
+cd $BUILD_PATH
+cmake .. "$@"
+
+if [ "$HAVE_VERBOSE" -eq $E_DISABLE ]; then
+    make
+else
+    make --verbose
+fi
+
+if [ "$HAVE_RUN_BIN" -eq $E_DISABLE ]; then
+    LOG_INFO "Build done"
+    make install
+else
+    ./sandbox
+fi

@@ -13,3 +13,8 @@ export CMAKE_UTIL_PATH=$(pwd)
 echo "CMake utils path: $CMAKE_UTIL_PATH"
 cd $SETUP_ENV_SCRIPT_PATH
 
+cd util/script_root/
+export SRIPT_ROOT=$(pwd)
+echo "CMake utils path: $SRIPT_ROOT"
+cd $SETUP_ENV_SCRIPT_PATH
+
