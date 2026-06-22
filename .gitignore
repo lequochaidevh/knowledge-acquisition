@@ -3,3 +3,5 @@ user_bashrc_export
 *.ignore
 local_minor_root/
 internal_root/
+__pycache__/
+**/quickstart/media/
