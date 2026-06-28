@@ -37,21 +37,26 @@ class PipeServerTest : public ::testing::Test {
 // THE ACTUAL LIFECYCLE TEST CASE
 // ==============================================================================
 TEST_F(PipeServerTest, VerifyServerInitializationAndEventLoopLifecycle) {
-    // Flag to verify that the server execution block processed successfully
+    // 1. Flag to verify that the server execution block processed successfully
     bool thread_executed = false;
-
-    // 1. Initialize the Server inside an explicit asynchronous background execution scope
-    // std::thread server_thread([&thread_executed]() { thread_executed = true; });
 
     Ipc::Generic server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
 
-    // Use our public wrapper derived instance
+    // 2. Use our public wrapper derived instance
     TestPipeServer server(TEST_PIPE_PATH, server_flags);
+
+    // Check stop server signal
+    thread_executed = server.is_server_running();
+    // 3. Structural Assertions to ensure the routine exited successfully
+    EXPECT_TRUE(thread_executed) << "Server event loop available.";
+
     // Trigger the blocking listener loop
     server.dispatch_events();
 
-    // 3. Structural Assertions to ensure the routine exited successfully
-    EXPECT_TRUE(thread_executed) << "Server event loop did not shut down or execute cleanly.";
+    // Check stop server signal
+    thread_executed = server.is_server_running();
+    // 4. Structural Assertions to ensure the routine exited successfully
+    EXPECT_FALSE(thread_executed) << "Server event loop did not shut down or execute cleanly.";
 }
 
 // ==============================================================================

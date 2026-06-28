@@ -14,6 +14,7 @@ class PosixPipe : public StreamSender, public StreamReceiver {
  private:
     DECLARE_LOGGER;
 
+    std::mutex _send_packet_mutex;
     std::mutex _read_packet_mutex;
 
  public:
@@ -77,6 +78,8 @@ class PosixPipe : public StreamSender, public StreamReceiver {
     template <typename T>
     bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) {
         if (write_fd < 0) return false;
+
+        std::lock_guard<std::mutex> lock(_send_packet_mutex);
 
         /* Step 1: store main write fd before */
         UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);

@@ -9,13 +9,13 @@ inline void clean_up_fd_resource(int fd, FileType type, const std::string& file_
 
     switch (type) {
         case FileType::NetworkSocket:
-            ::shutdown(fd, SHUT_RDWR);
+            ::shutdown(fd, SHUT_RDWR);  ///< Disconnect socket interface
             ::close(fd);
             break;
 
         case FileType::UnixSocket:
             ::shutdown(fd, SHUT_RDWR);
-            [[fallthrough]];  // C++17 Attribute
+            [[fallthrough]];  ///< C++17 attribute: Safely bypass compiler implicit-fallthrough warnings
 
         case FileType::Pipe:
             ::close(fd);
@@ -32,7 +32,7 @@ inline void clean_up_fd_resource(int fd, FileType type, const std::string& file_
             break;
     }
 
-    std::cout << "-------------------------- UNLINK fd: " << fd << "--------------------------\n";
+    // std::cout << "-------------------------- UNLINK fd: " << fd << "--------------------------\n";
 }
 
 class UniqueFileDescriptor {
@@ -42,29 +42,31 @@ class UniqueFileDescriptor {
     std::string _file_path = "";
 
  public:
+    /// @brief Default constructor creating an empty, invalid management envelope.
     UniqueFileDescriptor() noexcept : _fd(-1), _type(FileType::Generic), _file_path("") {}
 
+    /// @brief Explicit value constructor binding a live descriptor and tracking properties.
     explicit UniqueFileDescriptor(int fd, FileType type = FileType::Generic, std::string path = "") noexcept
         : _fd(fd), _type(type), _file_path(std::move(path)) {}
 
-    // Destructor: Automatically closes the file descriptor when leaving stack scope
+    /// @brief Destructor triggering type-safe automated cleanup when exiting stack context.
     ~UniqueFileDescriptor() {
         if (_fd >= 0) {
             clean_up_fd_resource(_fd, _type, _file_path);
         }
     }
 
-    // Force move-only semantics at compile-time to prevent duplicate close calls
+    /// @brief Delete copy semantics to eliminate process-level double-close security vulnerabilities.
     UniqueFileDescriptor(const UniqueFileDescriptor&) = delete;
     UniqueFileDescriptor& operator=(const UniqueFileDescriptor&) = delete;
 
-    // Move constructor:
+    /// @brief Move constructor extracting assets from temporary source targets.
     UniqueFileDescriptor(UniqueFileDescriptor&& other) noexcept
         : _fd(other._fd), _type(other._type), _file_path(std::move(other._file_path)) {
         other._fd = -1;  // Reset source to an invalid state
     }
 
-    // Move assignment operator: Delete constexpr because ::close()
+    /// @brief Move assignment operator recycling internal assets before acquiring new controls.
     UniqueFileDescriptor& operator=(UniqueFileDescriptor&& other) noexcept {
         if (this != &other) {
             if (_fd >= 0) ::close(_fd);  // Release existing resource
@@ -76,17 +78,40 @@ class UniqueFileDescriptor {
         return *this;
     }
 
-    // Inline accessors optimized for compile-time execution
+    /// @brief Inline accessors optimized for compile-time execution.
     [[nodiscard]] constexpr int  get() const noexcept { return _fd; }
     [[nodiscard]] constexpr bool is_valid() const noexcept { return _fd >= 0; }
     [[nodiscard]] FileType       get_type() const noexcept { return _type; }
     const std::string&           get_path() const noexcept { return _file_path; }
 
-    // Releases ownership without closing the underlying file descriptor
+    /// @brief Releases ownership without closing the underlying file descriptor.
     constexpr int release() noexcept {
         int tmp = _fd;
         _fd     = -1;
         return tmp;
+    }
+
+    static bool create_fifo_direction(const std::string& path) noexcept {
+        ::unlink(path.c_str());  ///< Evict preexisting legacy node safely from path index
+
+        if (::mkfifo(path.c_str(), 0666) < 0) {
+            return false;  ///< Return invalid envelope on filesystem system initialization failures
+        }
+
+        ::access(path.c_str(), F_OK);
+
+        return true;
+    }
+
+    /**
+     * @brief Advanced RAII Resource Factory handling full initialization sequence for Linux FIFOs.
+     * @return Fully configured UniqueFileDescriptor envelope controlling a live stream.
+     */
+
+    static UniqueFileDescriptor create_fifo_fd(const std::string& path, int open_flags) noexcept {
+        int raw_fd = ::open(path.c_str(), open_flags);
+
+        return UniqueFileDescriptor(raw_fd, FileType::Pipe, path);
     }
 };
 

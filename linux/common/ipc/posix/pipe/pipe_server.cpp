@@ -6,30 +6,15 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
       PosixPipe<Ipc::Server>(path, modes) {
     INIT_LOGGER("PipeServer");
     logger->setLevel(LogLevel::Trace);
-    HARIS_LOG_INFO("Listen request at Request Pipe: {} with mkfifo: {}", path, 666);
-    unlink(_upstream_path.c_str());
-    unlink(_downstream_path.c_str());
-    mkfifo(_upstream_path.c_str(), 0666);
-    access(_upstream_path.c_str(), F_OK);
+
+    UniqueFileDescriptor::create_fifo_direction(_upstream_path);
     if (_modes & Ipc::Server::Feedback) {
-        mkfifo(_downstream_path.c_str(), 0666);
-        access(_downstream_path.c_str(), F_OK);
+        UniqueFileDescriptor::create_fifo_direction(_downstream_path);
     }
     HARIS_LOG_INFO("Request Pipe available...");
 }
 
-PipeServer::~PipeServer() {
-    // for (auto& [id, fds] : _client_registry) {
-    //     if (fds.first != -1) close(fds.first);
-    //     if (fds.second != -1) close(fds.second);
-    //     std::string dynamic_main_path = "/tmp/pipe_" + id;
-    //     std::string dynamic_fb_path   = dynamic_main_path + "_fb";
-    //     unlink(dynamic_main_path.c_str());
-    //     HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_main_path);
-    //     unlink(dynamic_fb_path.c_str());
-    //     HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_fb_path);
-    // }
-}
+PipeServer::~PipeServer() {}
 
 void PipeServer::monitor_throughput(uint64_t current_ms) {
     _accumulated_packet_count++;
@@ -102,14 +87,13 @@ bool PipeServer::accept_client() {
                     return false;
                 }
             }
+
             // 1. Get ID and Create pipe for that client.
             std::string dynamic_main_path = "/tmp/pipe_" + client_id;
             std::string dynamic_fb_path   = dynamic_main_path + "_fb";
 
-            unlink(dynamic_main_path.c_str());
-            unlink(dynamic_fb_path.c_str());
-            mkfifo(dynamic_main_path.c_str(), 0666);
-            mkfifo(dynamic_fb_path.c_str(), 0666);
+            UniqueFileDescriptor::create_fifo_direction(dynamic_main_path);
+            UniqueFileDescriptor::create_fifo_direction(dynamic_fb_path);
 
             // 2. Send ACK to notify for the client "the pipe have been created successfully"
             if (_modes & Ipc::Server::Feedback && req_write_smart.is_valid()) {
@@ -117,23 +101,32 @@ bool PipeServer::accept_client() {
                 send_packet(req_write_smart.get(), DataType::Command, ack_msg, header.sequence_id);
             }
 
-            // Refesh soon
-            // req_read_smart  = HarisLinux::UniqueFileDescriptor();
-            // req_write_smart = HarisLinux::UniqueFileDescriptor();
+            // Acquire client dedicated stream assets securely using our automated factory methods
+            UniqueFileDescriptor smart_read_fd =  //
+                UniqueFileDescriptor::create_fifo_fd(dynamic_main_path, O_RDONLY | O_NONBLOCK);
+            // block
+            UniqueFileDescriptor smart_write_fd =  //
+                UniqueFileDescriptor::create_fifo_fd(dynamic_fb_path, O_WRONLY);
+
+            // Explicit Resource Refresh: Assign empty envelopes to trigger instant cleanup of request channels
+            req_read_smart  = UniqueFileDescriptor();
+            req_write_smart = UniqueFileDescriptor();
 
             // 4. Open new pipe (server - client_id)
             HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
-            int dyn_read_fd = open(dynamic_main_path.c_str(), O_RDONLY | O_NONBLOCK);
-            // block
-            int dyn_write_fd = open(dynamic_fb_path.c_str(), O_WRONLY);
             {
                 std::lock_guard<std::mutex> lock(_client_registry_mutex);
-                // Store the pair File Descriptors for that Client ID to monitor data.
-                UniqueFileDescriptor smart_read_fd(dyn_read_fd, FileType::Pipe, dynamic_main_path);
-                UniqueFileDescriptor smart_write_fd(dyn_write_fd, FileType::Pipe, dynamic_fb_path);
-                _client_registry[client_id] = std::make_pair(std::move(smart_read_fd), std::move(smart_write_fd));
+                // Package and move the live smart objects directly into the database container safely
+                _client_registry[client_id] =  //
+                    std::make_pair(std::move(smart_read_fd), std::move(smart_write_fd));
             }
             HARIS_LOG_DEBUG("Connected to client successfully: {} ", client_id);
+
+            // Test stop server signal
+            if (client_id == "client_alpha_9999") {
+                HARIS_LOG_INFO("Stop server when meet client {} ", client_id);
+                _server_running = false;
+            }
             return true;
         }
     }
@@ -170,14 +163,14 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
 void PipeServer::dispatch_events() {
     // 1. Acceptor thread remains unchanged
     std::thread acceptor_thread([this]() {
-        while (true) {
+        while (_server_running) {
             if (!accept_client()) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     });
     acceptor_thread.detach();
 
     // 2. Efficient polling using OS poll()
-    while (true) {
+    while (_server_running) {
         std::vector<struct pollfd> poll_fds;
         std::vector<std::string>   client_ids;  // Map back poll index to client_id
 

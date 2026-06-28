@@ -9,8 +9,11 @@ class PipeServer : public PosixPipe<Ipc::Server> {
     DECLARE_LOGGER;
 
     std::map<std::string, std::pair<UniqueFileDescriptor, UniqueFileDescriptor>>  //
-               _client_registry;
+        _client_registry;
+
     std::mutex _client_registry_mutex;
+
+    bool _server_running = true;
 
     /* Metrics & Performance Monitoring counters */
     uint64_t _last_metrics_timestamp_ms = 0;  ///< Epoch time of the last throughput evaluation.
@@ -44,6 +47,8 @@ class PipeServer : public PosixPipe<Ipc::Server> {
     PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes);
 
     ~PipeServer();
+
+    bool is_server_running() { return _server_running; }
 
     void dispatch_events();
 };
