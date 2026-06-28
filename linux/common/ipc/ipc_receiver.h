@@ -5,9 +5,13 @@ namespace HarisLinux {
 template <typename Derived>
 class IPCReceiverBase {
  protected:
-    int  _fd = -1;
+    UniqueFileDescriptor _unique_fd;
+
+    IPCReceiverBase() noexcept {}
+
     bool receive(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
-        if (_fd == -1) return false;
+        if (!_unique_fd.is_valid()) return false;
+
         return static_cast<Derived*>(this)->read_impl(out_header, out_payload);
     }
 
@@ -27,14 +31,14 @@ class StreamReceiver : public IPCReceiverBase<StreamReceiver> {
     friend class IPCReceiverBase<StreamReceiver>;
 
  public:
-    explicit StreamReceiver(int source_fd) { this->_fd = source_fd; }
+    explicit StreamReceiver(UniqueFileDescriptor source_fd) { this->_unique_fd = std::move(source_fd); }
 
  protected:
     bool read_impl(PacketHeader& out_header, std::vector<uint8_t>& out_payload) {
-        if (!this->read_all(this->_fd, &out_header, sizeof(PacketHeader))) return false;
+        if (!this->read_all(this->_unique_fd.get(), &out_header, sizeof(PacketHeader))) return false;
         if (out_header.payload_size > 0) {
             out_payload.resize(out_header.payload_size);
-            return this->read_all(this->_fd, out_payload.data(), out_header.payload_size);
+            return this->read_all(this->_unique_fd.get(), out_payload.data(), out_header.payload_size);
         }
         return true;
     }
@@ -44,7 +48,7 @@ class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
     friend class IPCReceiverBase<DgramReceiver>;
 
  public:
-    explicit DgramReceiver(int source_fd) { this->_fd = source_fd; }
+    explicit DgramReceiver(UniqueFileDescriptor source_fd) { this->_unique_fd = std::move(source_fd); }
 
  protected:
     sockaddr_storage remote_addr{};
@@ -55,7 +59,7 @@ class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
 
         // Step 1: PEEK at incoming packet data within Kernel space to extract payload size
         PacketHeader peek_header;
-        ssize_t      peek_bytes = ::recvfrom(this->_fd, &peek_header, sizeof(PacketHeader), MSG_PEEK,
+        ssize_t      peek_bytes = ::recvfrom(this->_unique_fd.get(), &peek_header, sizeof(PacketHeader), MSG_PEEK,
                                         reinterpret_cast<sockaddr*>(&remote_addr), &addr_len);
 
         if (peek_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) return false;
@@ -80,7 +84,7 @@ class DgramReceiver : public IPCReceiverBase<DgramReceiver> {
 
         // Step 4: Execute kernel retrieval. Data copies from NIC/Kernel direct to memory targets.
         size_t  total_expected = sizeof(PacketHeader) + peek_header.payload_size;
-        ssize_t received_bytes = ::recvmsg(this->_fd, &msg, 0);
+        ssize_t received_bytes = ::recvmsg(this->_unique_fd.get(), &msg, 0);
 
         return received_bytes == static_cast<ssize_t>(total_expected);
     }

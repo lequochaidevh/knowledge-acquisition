@@ -17,6 +17,7 @@ register_gtest_target(sandbox
     INCLUDES
         "${BASE_SOURCE_PATH}/ipc/"
         "${BASE_SOURCE_PATH}/ipc/posix/pipe/"
+        "${BASE_SOURCE_PATH}/"
     LIBRARIES
         Threads::Threads
         fmt::fmt

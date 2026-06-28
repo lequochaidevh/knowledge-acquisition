@@ -11,17 +11,15 @@ namespace HarisLinux {
 
 template <typename Modes>
 class PosixPipe : public StreamSender, public StreamReceiver {
- public:
-    int get_read_fd() const { return StreamReceiver::_fd; }
-    int get_write_fd() const { return StreamSender::_fd; }
-
  private:
     DECLARE_LOGGER;
 
- protected:
-    int _read_fd  = -1;
-    int _write_fd = -1;
+ public:
+    /** @brief Get fd with int for Linux API*/
+    int get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
+    int get_write_fd() const { return StreamSender::_unique_fd.get(); }
 
+ protected:
     /** @brief File system path for the pipe.
      * Data with transmit from client to server */
     std::string _upstream_path;
@@ -42,8 +40,8 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @param modes Operational modes for this IPC instance.
      */
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
-        : StreamSender(-1),
-          StreamReceiver(-1),
+        : StreamSender(UniqueFileDescriptor(-1, FileType::Pipe)),
+          StreamReceiver(UniqueFileDescriptor(-1, FileType::Pipe)),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
@@ -51,23 +49,13 @@ class PosixPipe : public StreamSender, public StreamReceiver {
         logger->setLevel(LogLevel::Trace);
     }
 
-    virtual ~PosixPipe() {
-        if (StreamReceiver::_fd != -1) ::close(StreamReceiver::_fd);
-        if (StreamSender::_fd != -1) ::close(StreamSender::_fd);
-
-        if (_read_fd != -1) close(_read_fd);
-        if (_write_fd != -1) close(_write_fd);
-    }
-
-    void set_read_fd(int r_fd) { StreamReceiver::_fd = r_fd; }
-    void set_write_fd(int w_fd) { StreamSender::_fd = w_fd; }
+    virtual ~PosixPipe() {}
 
     /**
      * @brief Transmits a structured data packet through a specific file descriptor.
      * @note Temporarily overrides the default sender FD to ensure zero-copy/atomic write operations.
      *
      * @tparam T The payload data type.
-     * @param write_fd The destination file descriptor to write to.
      * @param type The categorization type of the data packet.
      * @param data The reference to the data structure being sent.
      * @param seq Optional sequence number for packet ordering and tracking.
@@ -75,16 +63,32 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @return false If the write operation failed.
      */
     template <typename T>
-    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) {
-        // core logic writev
-        int old_fd        = StreamSender::_fd;
-        StreamSender::_fd = write_fd;
-
+    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) {
         // (Zero-copy / Atomic)
         bool result = StreamSender::send(type, data, seq);
         HARIS_LOG_DEBUG("------------ Derived Send Data ------------");
+        return result;
+    }
 
-        StreamSender::_fd = old_fd;
+    // Adapt function : todo remove it
+    // Todo:
+    template <typename T>
+    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) {
+        if (write_fd < 0) return false;
+
+        /* Step 1: store main write fd before */
+        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);
+
+        /* Step 2: Covert raw fd to smart fd */
+        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
+        StreamSender::_unique_fd = std::move(unique_fd);
+
+        /* Step 3: Send data with smart fd */
+        bool result = this->template send_packet<T>(type, data, seq);
+
+        /* Step 4: Release to not ::close raw write_fd */
+        write_fd                 = StreamSender::_unique_fd.release();
+        StreamSender::_unique_fd = std::move(store_main_fd);
 
         return result;
     }
@@ -92,13 +96,34 @@ class PosixPipe : public StreamSender, public StreamReceiver {
     /**
      * @brief Receives and parses an incoming packet from the specified channel.
      *
-     * @param read_fd The source file descriptor to read from.
      * @param[out] header Output structure to store the parsed packet header metadata.
      * @param[out] payload Output byte vector to store the raw packet payload.
      * @return true If a valid packet was successfully read and decoded.
      * @return false If a read error occurred or the packet was corrupted.
      */
-    bool receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload);
+    bool receive_packet(PacketHeader& header, std::vector<uint8_t>& payload);
+
+    // Adapt function : todo remove it
+    bool receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload) {
+        if (read_fd < 0) return false;
+
+        /* Step 1: store main write fd before */
+        UniqueFileDescriptor store_main_fd = std::move(StreamReceiver::_unique_fd);
+
+        /* Step 2: Covert raw fd to smart fd */
+        UniqueFileDescriptor unique_fd(read_fd, FileType::Pipe);
+        StreamReceiver::_unique_fd = std::move(unique_fd);
+
+        /* Step 3: Send data with smart fd */
+        bool result = receive_packet(header, payload);
+        std::cout << "result: " << result << "\n";
+
+        /* Step 4: Release to not ::close raw read_fd */
+        read_fd                    = StreamReceiver::_unique_fd.release();
+        StreamReceiver::_unique_fd = std::move(store_main_fd);
+
+        return result;
+    }
 };
 
 }  // namespace HarisLinux

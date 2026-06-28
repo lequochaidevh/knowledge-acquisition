@@ -163,9 +163,9 @@ create_if_not_exist() {
     fi
     if [ ! -d "$dir_path" ]; then
         mkdir -p "$dir_path"
-        LOG_INFO "No '$FILE_PATH' be created before, create it"
+        LOG_INFO "No '$dir_path' be created before, create it"
     else
-        LOG_WARN "'$FILE_PATH' be created before, non touch it"
+        LOG_WARN "'$dir_path' be created before, non touch it"
     fi
 }
 

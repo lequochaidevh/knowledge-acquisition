@@ -24,8 +24,32 @@ class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
         : HarisLinux::PosixPipe<Modes>(path, modes) {}
 
     // Pull the protected modifier methods into public scope
-    using HarisLinux::PosixPipe<Modes>::set_read_fd;
-    using HarisLinux::PosixPipe<Modes>::set_write_fd;
+    UniqueFileDescriptor test_set_read_fd(int read_fd) {
+        // if (read_fd < 0) return;
+
+        /* Step 1: store main write fd before */
+        UniqueFileDescriptor store_main_fd = std::move(StreamReceiver::_unique_fd);
+
+        /* Step 2: Covert raw fd to smart fd */
+        UniqueFileDescriptor unique_fd(read_fd, FileType::Pipe);
+        StreamReceiver::_unique_fd = std::move(unique_fd);
+
+        /* Step 3: store smart fd */
+        return std::move(store_main_fd);
+    }
+    UniqueFileDescriptor test_set_write_fd(int write_fd) {
+        // if (write_fd < 0) return;
+
+        /* Step 1: store main write fd before */
+        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);
+
+        /* Step 2: Covert raw fd to smart fd */
+        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
+        StreamSender::_unique_fd = std::move(unique_fd);
+
+        /* Step 3: store smart fd */
+        return std::move(store_main_fd);
+    }
 
     // Pull the protected data transmission methods into public scope
     using HarisLinux::PosixPipe<Modes>::send_packet;
@@ -80,7 +104,7 @@ class IPCPosixPipeTest : public ::testing::Test {
 
         // Use the public wrapper class instead of the raw protected class
         TestPosixPipe<Ipc::Client> pipe_sender(MAIN_PIPE_PATH, client_flags);
-        pipe_sender.set_write_fd(write_fd);
+        pipe_sender.test_set_write_fd(write_fd);
 
         // Test case 1: Dispatch an integer primitive
         int system_code = 2026;
@@ -120,7 +144,7 @@ TEST_F(IPCPosixPipeTest, VerifyNamedPipeTransmissionE2E) {
     // Initialize the main reading pipeline configuration using the Test Wrapper
     Ipc::Generic<Ipc::Server>  server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
     TestPosixPipe<Ipc::Server> pipe_receiver(MAIN_PIPE_PATH, server_flags);
-    pipe_receiver.set_read_fd(read_fd);
+    pipe_receiver.test_set_read_fd(read_fd);
 
     PacketHeader         header;
     std::vector<uint8_t> payload;

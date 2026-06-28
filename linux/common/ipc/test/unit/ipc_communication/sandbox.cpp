@@ -68,10 +68,6 @@ class IPCSystemTest : public ::testing::Test {
     }
 
     void TearDown() override {
-        if (pipe_fds[0] >= 0) close(pipe_fds[0]);
-        if (pipe_fds[1] >= 0) close(pipe_fds[1]);
-        if (dgram_fd >= 0) close(dgram_fd);
-
         if (pid > 0) {
             int   status;
             pid_t return_pid = waitpid(pid, &status, WNOHANG);
@@ -87,15 +83,18 @@ class IPCSystemTest : public ::testing::Test {
         usleep(10000);  // Tiny wait to let receiver warm up
 
         // 1. Send via PIPE Stream using Derived Test Class
-        TestStreamSender pipe_sender(pipe_fds[1]);
-        uint32_t         test_int = 756799112;
+        HarisLinux::UniqueFileDescriptor write_fd(pipe_fds[1], HarisLinux::FileType::Pipe);
+        TestStreamSender                 pipe_sender(std::move(write_fd));
+
+        uint32_t test_int = 756799112;
         pipe_sender.send(DataType::Number, test_int, 101);
 
         std::string test_str = "IPC system is optimized by CRTP";
         pipe_sender.send(DataType::Text, test_str, 102);
 
         // 2. Send via UNIX Datagram using Derived Test Class
-        TestDgramSender dgram_sender(dgram_fd, SOCK_PATH);
+        HarisLinux::UniqueFileDescriptor dgram_write_fd(dgram_fd, HarisLinux::FileType::UnixSocket);
+        TestDgramSender                  dgram_sender(std::move(dgram_write_fd), SOCK_PATH);
 
         std::vector<uint8_t> mock_image(2048, 0x00);
         mock_image[0]                     = 0xAA;
@@ -134,7 +133,8 @@ TEST_F(IPCSystemTest, VerifyCombinedPipeAndDatagramE2E) {
     // -------------------------------------------------------------------------
     // 1. Verify PIPE (StreamReceiver Paths)
     // -------------------------------------------------------------------------
-    TestStreamReceiver stream_receiver(pipe_fds[0]);
+    HarisLinux::UniqueFileDescriptor read_fd(pipe_fds[0], HarisLinux::FileType::Pipe);
+    TestStreamReceiver               stream_receiver(std::move(read_fd));
 
     // Test case 1.1: Data type is Number
     ASSERT_TRUE(stream_receiver.receive(header, payload));
@@ -150,7 +150,8 @@ TEST_F(IPCSystemTest, VerifyCombinedPipeAndDatagramE2E) {
     // -------------------------------------------------------------------------
     // 2. Verify UNIX Socket Datagram (DgramReceiver Paths)
     // -------------------------------------------------------------------------
-    TestDgramReceiver dgram_receiver(dgram_fd);
+    HarisLinux::UniqueFileDescriptor dgram_read_fd(dgram_fd, HarisLinux::FileType::UnixSocket);
+    TestDgramReceiver                dgram_receiver(std::move(dgram_read_fd));
 
     // Test case 2.1: Data type is Media
     ASSERT_TRUE(dgram_receiver.receive(header, payload));

@@ -10,6 +10,10 @@ class PipeClient : public PosixPipe<Ipc::Client> {
     uint32_t _current_seq = 0;
     uint32_t _lost_count  = 0;
 
+    // todo remove
+    int _write_fd = -1;
+    int _read_fd  = -1;
+
     std::string _client_id;
     std::string _old_upstream_path;
 

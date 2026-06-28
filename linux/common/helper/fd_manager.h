@@ -38,7 +38,7 @@ class UniqueFileDescriptor {
     std::string _file_path = "";
 
  public:
-    constexpr UniqueFileDescriptor() noexcept = default;
+    UniqueFileDescriptor() noexcept : _fd(-1), _type(FileType::Generic), _file_path("") {}
 
     explicit UniqueFileDescriptor(int fd, FileType type = FileType::Generic, std::string path = "") noexcept
         : _fd(fd), _type(type), _file_path(std::move(path)) {}
@@ -152,7 +152,10 @@ class ShareFileDescriptor {
 
     // Move Semantics to container (not changed ref_count)
     ShareFileDescriptor(ShareFileDescriptor&& other) noexcept
-        : _fd(other._fd), _ref_count(other._ref_count), _type(other._type), _file_path(std::move(other._file_path)) {
+        : _fd(other._fd),
+          _ref_count(other._ref_count),
+          _type(other._type),  //
+          _file_path(std::move(other._file_path)) {
         other._fd        = -1;
         other._ref_count = nullptr;
     }

@@ -15,14 +15,14 @@ export PROJECT_TYPE="TEST FUNCTION"
 source setup_enviroment.sh
 
 # export SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export DOCS_DIR=$(realpath "$HARIS_UTILS/fast_helper/")
+export DOCS_DIR=$(realpath "$HARIS_UTILS/fast_cli/")
 LOG_INFO "\tParam Supported:"
 ls $DOCS_DIR
 LOG_SUCCESS "Declare docs path: $DOCS_DIR"
 echo ""
 
 # create file log tag
-export INSTALL_DIR=$(realpath "$HARIS_UTILS/fast_helper/")
+export INSTALL_DIR=$(realpath "$HARIS_UTILS/fast_cli/")
 echo "$DOCS_DIR" > $INSTALL_DIR/$CONFIG_FILE_TXT
 cd $INSTALL_DIR
 sudo ln -sfv $(pwd)/$CONFIG_FILE_TXT /usr/local/bin/

@@ -15,6 +15,7 @@ register_gtest_target(sandbox
         "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
     INCLUDES
         "${BASE_SOURCE_PATH}/ipc/"
+        "${BASE_SOURCE_PATH}/"
     LIBRARIES
         Threads::Threads
         fmt::fmt

@@ -3,14 +3,8 @@
 namespace HarisLinux {
 
 template <typename Modes>
-bool PosixPipe<Modes>::receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload) {
-    if (read_fd == -1) return false;
-    int old_fd          = StreamReceiver::_fd;
-    StreamReceiver::_fd = read_fd;
-
+bool PosixPipe<Modes>::receive_packet(PacketHeader& header, std::vector<uint8_t>& payload) {
     bool result = StreamReceiver::receive(header, payload);
-
-    StreamReceiver::_fd = old_fd;
 
     if (!result) {
         HARIS_LOG_WARN("Can not receive data {}", static_cast<int>(header.type));
