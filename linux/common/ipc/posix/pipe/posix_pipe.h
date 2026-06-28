@@ -14,6 +14,8 @@ class PosixPipe : public StreamSender, public StreamReceiver {
  private:
     DECLARE_LOGGER;
 
+    std::mutex _read_packet_mutex;
+
  public:
     /** @brief Get fd with int for Linux API*/
     int get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
@@ -107,6 +109,8 @@ class PosixPipe : public StreamSender, public StreamReceiver {
     bool receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload) {
         if (read_fd < 0) return false;
 
+        std::lock_guard<std::mutex> lock(_read_packet_mutex);
+
         /* Step 1: store main write fd before */
         UniqueFileDescriptor store_main_fd = std::move(StreamReceiver::_unique_fd);
 
@@ -116,8 +120,7 @@ class PosixPipe : public StreamSender, public StreamReceiver {
 
         /* Step 3: Send data with smart fd */
         bool result = receive_packet(header, payload);
-        std::cout << "result: " << result << "\n";
-
+        if (!result) HARIS_LOG_ERROR("Got packet failed");
         /* Step 4: Release to not ::close raw read_fd */
         read_fd                    = StreamReceiver::_unique_fd.release();
         StreamReceiver::_unique_fd = std::move(store_main_fd);

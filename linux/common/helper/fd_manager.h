@@ -15,6 +15,9 @@ inline void clean_up_fd_resource(int fd, FileType type, const std::string& file_
 
         case FileType::UnixSocket:
             ::shutdown(fd, SHUT_RDWR);
+            [[fallthrough]];  // C++17 Attribute
+
+        case FileType::Pipe:
             ::close(fd);
             if (!file_path.empty()) {
                 ::unlink(file_path.c_str());
@@ -22,13 +25,14 @@ inline void clean_up_fd_resource(int fd, FileType type, const std::string& file_
             break;
 
         case FileType::Generic:
-        case FileType::Pipe:
         case FileType::Epoll:
         case FileType::EventFd:
         default:
             ::close(fd);
             break;
     }
+
+    std::cout << "-------------------------- UNLINK fd: " << fd << "--------------------------\n";
 }
 
 class UniqueFileDescriptor {

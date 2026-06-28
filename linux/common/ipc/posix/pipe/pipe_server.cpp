@@ -19,16 +19,16 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
 }
 
 PipeServer::~PipeServer() {
-    for (auto& [id, fds] : _client_registry) {
-        if (fds.first != -1) close(fds.first);
-        if (fds.second != -1) close(fds.second);
-        std::string dynamic_main_path = "/tmp/pipe_" + id;
-        std::string dynamic_fb_path   = dynamic_main_path + "_fb";
-        unlink(dynamic_main_path.c_str());
-        HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_main_path);
-        unlink(dynamic_fb_path.c_str());
-        HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_fb_path);
-    }
+    // for (auto& [id, fds] : _client_registry) {
+    //     if (fds.first != -1) close(fds.first);
+    //     if (fds.second != -1) close(fds.second);
+    //     std::string dynamic_main_path = "/tmp/pipe_" + id;
+    //     std::string dynamic_fb_path   = dynamic_main_path + "_fb";
+    //     unlink(dynamic_main_path.c_str());
+    //     HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_main_path);
+    //     unlink(dynamic_fb_path.c_str());
+    //     HARIS_LOG_DEBUG("Removed client pipe: {} ", dynamic_fb_path);
+    // }
 }
 
 void PipeServer::monitor_throughput(uint64_t current_ms) {
@@ -45,17 +45,17 @@ bool PipeServer::accept_client() {
     HARIS_LOG_INFO("Open Request Pipe, wait any client request");
 
     // Block wait command from client
-    int req_read_fd = open(_upstream_path.c_str(), O_RDONLY);
-    HARIS_LOG_INFO("Get req_read_fd : {} ", req_read_fd);
+    UniqueFileDescriptor req_read_smart(open(_upstream_path.c_str(), O_RDONLY), FileType::Generic);
+    HARIS_LOG_INFO("Get req_read_fd : {} ", req_read_smart.get());
 
-    int req_write_fd = -1;
+    UniqueFileDescriptor req_write_smart;
     if (_modes & Ipc::Server::Feedback) {
-        req_write_fd = open(_downstream_path.c_str(), O_WRONLY);
+        req_write_smart = UniqueFileDescriptor(open(_downstream_path.c_str(), O_WRONLY), FileType::Generic);
     }
 
     PacketHeader         header;
     std::vector<uint8_t> data;
-    bool                 is_new = receive_packet(req_read_fd, header, data);
+    bool                 is_new = receive_packet(req_read_smart.get(), header, data);
 
     // Read data from client request
     if (is_new) {
@@ -76,31 +76,16 @@ bool PipeServer::accept_client() {
                     if (req.command == 2) {
                         HARIS_LOG_DEBUG("Get REMOVE (command = 2) request from client: {} ", client_id);
 
-                        if (_modes & Ipc::Server::Feedback && req_write_fd != -1) {
+                        if (_modes & Ipc::Server::Feedback && req_write_smart.is_valid()) {
                             std::string_view reject_msg = "REMOVED";
-                            send_packet(req_write_fd, DataType::Command, reject_msg, header.sequence_id);
+                            send_packet(req_write_smart.get(), DataType::Command, reject_msg, header.sequence_id);
                         }
 
                         // 1. Close all File Descriptors for this remove request for this Client
-                        int dyn_read_fd  = _client_registry[client_id].first;
-                        int dyn_write_fd = _client_registry[client_id].second;
-
-                        if (dyn_read_fd != -1) close(dyn_read_fd);
-                        if (dyn_write_fd != -1) close(dyn_write_fd);
-
-                        // 2. Remove all FIFO file in the OS.
-                        std::string dynamic_main_path = "/tmp/pipe_" + client_id;
-                        std::string dynamic_fb_path   = dynamic_main_path + "_fb";
-                        unlink(dynamic_main_path.c_str());
-                        unlink(dynamic_fb_path.c_str());
-
-                        // 3. Remove element of the map.
                         _client_registry.erase(client_id);
+
                         HARIS_LOG_DEBUG("Removed successfully Client");
 
-                        // Clean up Request Pipe of this command.
-                        close(req_read_fd);
-                        if (req_write_fd != -1) close(req_write_fd);
                         return false;
                     }
                     // =================================================================
@@ -109,13 +94,11 @@ bool PipeServer::accept_client() {
                     HARIS_LOG_ERROR("REJECT new Client: {} ", client_id);
 
                     // If The request dupplicated a id (REJECTED) for Client
-                    if (_modes & Ipc::Server::Feedback && req_write_fd != -1) {
+                    if (_modes & Ipc::Server::Feedback && req_write_smart.is_valid()) {
                         std::string_view reject_msg = "REJECTED";
-                        send_packet(req_write_fd, DataType::Command, reject_msg, header.sequence_id);
+                        send_packet(req_write_smart.get(), DataType::Command, reject_msg, header.sequence_id);
                     }
 
-                    close(req_read_fd);
-                    if (req_write_fd != -1) close(req_write_fd);
                     return false;
                 }
             }
@@ -129,14 +112,14 @@ bool PipeServer::accept_client() {
             mkfifo(dynamic_fb_path.c_str(), 0666);
 
             // 2. Send ACK to notify for the client "the pipe have been created successfully"
-            if (_modes & Ipc::Server::Feedback && req_write_fd != -1) {
+            if (_modes & Ipc::Server::Feedback && req_write_smart.is_valid()) {
                 std::string_view ack_msg = "OPENED";
-                send_packet(req_write_fd, DataType::Command, ack_msg, header.sequence_id);
+                send_packet(req_write_smart.get(), DataType::Command, ack_msg, header.sequence_id);
             }
 
-            // 3. Close Request Pipe (and Refresh that).
-            close(req_read_fd);
-            if (req_write_fd != -1) close(req_write_fd);
+            // Refesh soon
+            // req_read_smart  = HarisLinux::UniqueFileDescriptor();
+            // req_write_smart = HarisLinux::UniqueFileDescriptor();
 
             // 4. Open new pipe (server - client_id)
             HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
@@ -146,16 +129,15 @@ bool PipeServer::accept_client() {
             {
                 std::lock_guard<std::mutex> lock(_client_registry_mutex);
                 // Store the pair File Descriptors for that Client ID to monitor data.
-                _client_registry[client_id] = {dyn_read_fd, dyn_write_fd};
+                UniqueFileDescriptor smart_read_fd(dyn_read_fd, FileType::Pipe, dynamic_main_path);
+                UniqueFileDescriptor smart_write_fd(dyn_write_fd, FileType::Pipe, dynamic_fb_path);
+                _client_registry[client_id] = std::make_pair(std::move(smart_read_fd), std::move(smart_write_fd));
             }
             HARIS_LOG_DEBUG("Connected to client successfully: {} ", client_id);
             return true;
         }
     }
 
-    // Close fd and clean up if appear err
-    close(req_read_fd);
-    if (req_write_fd != -1) close(req_write_fd);
     return false;
 }
 
@@ -171,7 +153,7 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
 
         // 2. Validate payload size
         if (data.empty()) {
-            HARIS_LOG_DEBUG("Data: [Empty payload]");
+            HARIS_LOG_ERROR("Data: [Empty payload]");
         } else {
             // 3. Forward data to the corresponding handler
             _dispatcher.dispatch(header, data);
@@ -179,8 +161,8 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
 
         // 4. Send acknowledgment feedback if required
         if (_modes & Ipc::Server::Feedback) {
-            IPCRequestPayload reqaaa{"client_id", 33};
-            send_packet(write_fd, DataType::Command, reqaaa, header.sequence_id);
+            IPCRequestPayload fb_payload{"client_id", 33};
+            send_packet(write_fd, DataType::Command, fb_payload, header.sequence_id);
         }
     }
 }
@@ -203,7 +185,7 @@ void PipeServer::dispatch_events() {
         {
             std::lock_guard<std::mutex> lock(_client_registry_mutex);
             for (const auto& [client_id, fds] : _client_registry) {
-                int read_fd = fds.first;
+                int read_fd = fds.first.get();
                 if (read_fd != -1) {
                     struct pollfd pfd;
                     pfd.fd      = read_fd;
@@ -237,7 +219,7 @@ void PipeServer::dispatch_events() {
                     {
                         std::lock_guard<std::mutex> lock(_client_registry_mutex);
                         if (_client_registry.find(client_id) != _client_registry.end()) {
-                            write_fd = _client_registry[client_id].second;
+                            write_fd = _client_registry[client_id].second.get();
                         }
                     }
 

@@ -8,8 +8,9 @@ class PipeServer : public PosixPipe<Ipc::Server> {
  private:
     DECLARE_LOGGER;
 
-    std::map<std::string, std::pair<int, int>> _client_registry;
-    std::mutex                                 _client_registry_mutex;
+    std::map<std::string, std::pair<UniqueFileDescriptor, UniqueFileDescriptor>>  //
+               _client_registry;
+    std::mutex _client_registry_mutex;
 
     /* Metrics & Performance Monitoring counters */
     uint64_t _last_metrics_timestamp_ms = 0;  ///< Epoch time of the last throughput evaluation.
