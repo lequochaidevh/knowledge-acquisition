@@ -61,7 +61,7 @@ class StreamSender : public IPCSenderBase<StreamSender> {
     friend class IPCSenderBase<StreamSender>;
 
  public:
-    explicit StreamSender(UniqueFileDescriptor target_fd) : IPCSenderBase() { this->_unique_fd = std::move(target_fd); }
+    explicit StreamSender(UniqueFileDescriptor target_fd) { this->_unique_fd = std::move(target_fd); }
 
  protected:
     ssize_t write_impl(const struct iovec* iov) const { return writev(this->_unique_fd.get(), iov, 2); }

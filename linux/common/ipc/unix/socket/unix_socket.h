@@ -31,9 +31,21 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
     // 2. Factory method helper to instantiate the chosen Sender engine safely at compile time
     static constexpr SenderBase make_sender_base() {
         if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
-            return StreamSender(-1);  // Constructs Stream variant
+            return StreamSender(  // Constructs Stream variant
+                UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
-            return DgramSender(-1, "/tmp/UnixSocket.sock");  // Constructs Dgram variant
+            return DgramSender(  // Constructs Dgram variant
+                UniqueFileDescriptor(-1, FileType::NetworkSocket, "/tmp/UnixSocket.sock"), "/tmp/UnixSocket.sock");
+        }
+    }
+
+    static constexpr ReceiverBase make_receiver_base() {
+        if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
+            return StreamReceiver(  // Constructs Stream variant
+                UniqueFileDescriptor(-1, FileType::UnixSocket));
+        } else {
+            return DgramReceiver(  // Constructs Dgram variant
+                UniqueFileDescriptor(-1, FileType::NetworkSocket));
         }
     }
 
@@ -60,8 +72,8 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
      * @note Completely bypasses direct naming constraints to ensure zero compilation drops.
      */
     UnixSocket(int address_families, int type, Ipc::Generic<Modes> modes)
-        : SenderBase(make_sender_base()),  // Perfect forwarding execution via compile-time factory
-          ReceiverBase(-1),                // Safely satisfies both StreamReceiver(-1) and DgramReceiver(-1)
+        : SenderBase(make_sender_base()),      // Perfect forwarding execution via compile-time factory
+          ReceiverBase(make_receiver_base()),  // Safely satisfies both StreamReceiver(-1) and DgramReceiver(-1)
           _address_families(address_families),
           _type(type),
           _remote_addr_len(sizeof(sockaddr_storage)),
@@ -75,12 +87,12 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
      * @brief Destroys the socket object, safely releasing file descriptors.
      */
     virtual ~UnixSocket() {
-        if (ReceiverBase::_fd != -1) ::close(ReceiverBase::_fd);
-        if (SenderBase::_fd != -1) ::close(SenderBase::_fd);
+        // if (ReceiverBase::_fd != -1) ::close(ReceiverBase::_fd);
+        // if (SenderBase::_fd != -1) ::close(SenderBase::_fd);
 
-        if (_socket_fd != -1) {
-            ::close(_socket_fd);
-        }
+        // if (_socket_fd != -1) {
+        //     ::close(_socket_fd);
+        // }
     }
 
     bool initialize_socket();
@@ -110,18 +122,27 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
     bool send_packet(int write_fd, DataType type, const T& data, uint32_t seq) {
         if (write_fd == -1) return false;
 
-        int old_fd      = SenderBase::_fd;
-        SenderBase::_fd = write_fd;
+        // std::lock_guard<std::mutex> lock(_send_packet_mutex);
+
+        /* Step 1: store main write fd before */
+        UniqueFileDescriptor store_main_fd = std::move(SenderBase::_unique_fd);
+
+        /* Step 2: Covert raw fd to smart fd */
+        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
+        SenderBase::_unique_fd = std::move(unique_fd);
 
         bool result = SenderBase::send(type, data, seq);
 
+        /* Step 3: Send data with smart fd */
         if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
             HARIS_LOG_DEBUG("------------ Socket Stream Send Data ------------");
         } else {
             HARIS_LOG_DEBUG("------------ Socket Dgram Send Data ------------");
         }
 
-        SenderBase::_fd = old_fd;
+        /* Step 4: Release to not ::close raw write_fd */
+        write_fd               = SenderBase::_unique_fd.release();
+        SenderBase::_unique_fd = std::move(store_main_fd);
         return result;
     }
 

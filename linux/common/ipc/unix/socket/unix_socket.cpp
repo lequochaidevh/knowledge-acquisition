@@ -50,12 +50,20 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
                                                   std::vector<uint8_t>& out_payload) {
     if (source_fd == -1) return false;
 
+    // std::lock_guard<std::mutex> lock(_read_packet_mutex);
+
     // Hot-swap the base class FD using compile-time selection
-    int old_fd        = ReceiverBase::_fd;
-    ReceiverBase::_fd = source_fd;
+    /* Step 1: store main write fd before */
+    UniqueFileDescriptor store_main_fd = std::move(ReceiverBase::_unique_fd);
+
+    /* Step 2: Covert raw fd to smart fd */
+    UniqueFileDescriptor unique_fd(source_fd, FileType::Pipe);
+    ReceiverBase::_unique_fd = std::move(unique_fd);
 
     // Evaluated entirely at compile-time
+    /* Step 3: Send data with smart fd */
     bool result = ReceiverBase::receive(out_header, out_payload);
+    if (!result) HARIS_LOG_ERROR("Got packet failed");
 
     if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
         HARIS_LOG_DEBUG("------------ Socket Stream Send Data ------------");
@@ -63,7 +71,9 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
         HARIS_LOG_DEBUG("------------ Socket Dgram Send Data ------------");
     }
 
-    ReceiverBase::_fd = old_fd;
+    /* Step 4: Release to not ::close raw read_fd */
+    source_fd                = ReceiverBase::_unique_fd.release();
+    ReceiverBase::_unique_fd = std::move(store_main_fd);
 
     /** @brief Helper support cast data type of message. */
     PacketDispatcher<DataHandlerPolicy> dispatcher{"UnixSocket"};
