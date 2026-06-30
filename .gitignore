@@ -6,3 +6,4 @@ internal_root/
 __pycache__/
 **/quickstart/media/
 my_manim_project/
+*.webm
