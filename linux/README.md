@@ -1,4 +1,4 @@
-# How to intergrate googletest to the system.
+# How to intergrate linux module.
 
 ## Description
 Project Technical Description Project Title: Ultra-Lightweight Modern C++ Embedded Linux System Abstraction Layer (SAL) High-Level Overview. This project delivers a highly optimized, modern C++ framework designed to encapsulate low-level Linux system domains into a clean, modular Application Programming Interface (API). Engineered specifically for resource-constrained embedded systems, the architecture utilizes modern C++ design patterns (RAII, smart pointers, and move semantics) to eliminate memory leaks and guarantee deterministic behavior. By decoupling the underlying OS primitives from the application layer, this framework provides a future-proof, easily extensible, and highly maintainable foundation for modern embedded applications.
@@ -44,7 +44,9 @@ To meet the demands of modern edge AI, computer vision, and high-throughput data
 
 *   **Zero-Copy Unified Memory Management:** Wrappers around Unified Memory architectures (e.g., NVIDIA CUDA Managed Memory, OpenCL Shared Virtual Memory) using custom-deleter smart pointers. This ensures zero-copy overhead when sharing data buffers between the Linux CPU host and the GPU device.
 *   **Hardware-Accelerated Pipeline Abstraction:** A modular API layer that encapsulates low-level GPU compute pipelines (CUDA Streams, Vulkan Compute Shaders, or OpenCL Contexts). It allows the application layer to easily submit parallel processing kernels (e.g., for matrix multiplication, signal processing, or image manipulation) without managing raw driver handles.
+
 ***TODO:***
+
 *   **Asynchronous GPU Event Synchronization:** Integration of GPU execution fences and streams into the existing `epoll`-driven Event Engine. This allows the application to yield CPU execution until the GPU finishes hardware tasks, maximizing overall deterministic system efficiency.
 *   **Edge AI Inference Runtime Wrapper:** A lightweight abstraction for loading and executing quantized deep learning models (via ONNX Runtime, todo TensorRT, or OpenVINO) targeting specialized embedded NPU/GPU hardware.
 
@@ -59,6 +61,34 @@ To meet the demands of modern edge AI, computer vision, and high-throughput data
 
 💡 Note: The quality and frame rate of this demo have been reduced to optimize file size for the repository.
 ![App Demo](../document/preview/__HarisEngine_GPU_Processing.gif)
+
+```mermaid
+graph TD
+    subgraph App [Modern Application Layer]
+        A[IPC Engine<br>Sockets / Queues]
+        B[Hardware I/O<br>GPIO / I2C / SPI]
+        C[Event/Task Engine<br>epoll / Thread Pool]
+        GPU_App[Vision / AI Core<br>Parallel Compute]
+    end
+
+    subgraph Wrapper [System Abstraction Layer / Your Framework]
+        SAL_Core[Smart Ptr OS Wrappers]
+        SAL_GPU[Unified Memory & GPU Stream Manager]
+    end
+    
+    subgraph Hardware [Linux Kernel & Hardware Primitives]
+        D[Kernel Drivers / VFS]
+        E[GPU / NPU Accelerator<br>CUDA / Vulkan / OpenCL]
+    end
+
+    A --> SAL_Core
+    B --> SAL_Core
+    C --> SAL_Core
+    GPU_App --> SAL_GPU
+
+    SAL_Core --> D
+    SAL_GPU --> E
+```
 
 ## Build and Install system project.
 
