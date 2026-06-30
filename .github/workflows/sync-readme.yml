@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # Change to master if your repo default branch is master
+      - feat/bot_sync_readme
     paths:
       - '**/README.md'
       - '.github-readme-template.md'
