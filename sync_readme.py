@@ -1,18 +1,18 @@
 import os
 import re
 
-def fix_links_and_images(content, folder_path):
-    pattern = r'(!?)\[([^\]]+)\]\(([^)]+)\)'
-    def replace_match(match):
-        is_img = match.group(1)
-        text = match.group(2)
-        path = match.group(3)
-        if path.startswith(('http://', 'https://', '#', '/')):
-            return f'{is_img}[{text}]({path})'
-        combined_path = os.path.normpath(os.path.join(folder_path, path))
-        normalized_path = combined_path.replace(os.sep, '/')
-        return f'{is_img}[{text}](/{normalized_path})'
-    return re.sub(pattern, replace_match, content)
+def fix_backwork_document_paths(content):
+    # 1. Convert all HTML tags containing src="../" or src="../../../" back to src="./"
+    # Example: src="../document/img.png" -> src="./document/img.png"
+    content = re.sub(r'src=["\'](?:\.\./)+(document/[^"\']+)["\']', r'src="./\1"', content)
+    
+    # 2. Fix all Markdown links ending with ]( that contain multi-level parent directory paths like ../, ../../..
+    # This flattens all nested traversal paths to point directly from the root directory level `./`
+    # Example: guide](../third-party/guide.md) -> guide](./third-party/guide.md)
+    # Example: [Doc](../../../../document/guide.md) -> [Doc](./document/guide.md)
+    content = re.sub(r'(\]\]?\()(?:\.\./)+', r'\1./', content)
+    
+    return content
 
 def main():
     template_file = '.github-readme-template.md'
@@ -27,8 +27,11 @@ def main():
     if os.path.exists(linux_readme_path):
         with open(linux_readme_path, 'r', encoding='utf-8') as f:
             linux_raw_content = f.read()
-        processed_content = fix_links_and_images(linux_raw_content, 'linux')
-        doc_block = f'<details open>\n  <summary><b>📂 System Documentation: LINUX</b></summary>\n  \n  {processed_content}\n  \n</details>'
+            
+        # Execute the absolute regex path replacement here
+        processed_content = fix_backwork_document_paths(linux_raw_content)
+        
+        doc_block = f'<details open>\n  <summary><b> 📂 System Documentation: LINUX</b></summary>\n  \n  {processed_content}\n  \n</details>'
     else:
         doc_block = '> *Warning: linux/README.md file was not found during execution.*'
 
@@ -36,7 +39,8 @@ def main():
 
     with open('README.md', 'w', encoding='utf-8') as f:
         f.write(output_content)
-    print('README.md combined and optimized successfully!')
+    print('README.md combined and document paths resolved successfully!')
 
 if __name__ == '__main__':
     main()
+
