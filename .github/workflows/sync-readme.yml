@@ -1,15 +1,9 @@
-name: Auto Sync Sub-Directory Readmes
+name: Sync Linux Readme to Root
 
 on:
   push:
     branches:
-      - main  # Change to master if your repo default branch is master
-      - feat/bot_sync_readme
-    paths:
-      - '**/README.md'
-      - '.github-readme-template.md'
-      - '!.github-readme-template.md'
-      - '!README.md'
+      - "**"
 
 jobs:
   sync-readme:
@@ -23,99 +17,56 @@ jobs:
       with:
         python-version: '3.x'
 
-    - name: Scan directories and normalize relative asset paths
+    - name: Process paths and merge markdown contents
       run: |
         python -c "
         import os
         import re
 
         def fix_links_and_images(content, folder_path):
-            # Regex pattern to match both regular markdown links [text](path) and images ![text](path)
             pattern = r'(!?)\[([^\]]+)\]\(([^)]+)\)'
-            
             def replace_match(match):
-                is_img = match.group(1)   # Contains '!' if it is an image markup, otherwise empty
-                text = match.group(2)     # Alt text or visible link label
-                path = match.group(3)     # The extracted raw relative path
-                
-                # Skip mutations if the link is absolute (http), an internal anchor (#), or root-relative (/)
+                is_img = match.group(1)
+                text = match.group(2)
+                path = match.group(3)
                 if path.startswith(('http://', 'https://', '#', '/')):
                     return f'{is_img}[{text}]({path})'
-                
-                # Calculate the accurate target path from the project root to resolve relative breaks like '../'
                 combined_path = os.path.normpath(os.path.join(folder_path, path))
-                
-                # Normalize system separators to match web URL standards (converts Windows \\ to /)
                 normalized_path = combined_path.replace(os.sep, '/')
-                
-                # Return root-relative absolute path maps tailored for GitHub interfaces
                 return f'{is_img}[{text}](/{normalized_path})'
-            
             return re.sub(pattern, replace_match, content)
 
-        all_docs_html = []
-        exclude_dirs = ['.git', '.github', 'build']
-
-        # 1. Automatically traverse through the repository directory tree
-        for root, dirs, files in os.walk('.'):
-            # Prune and filter system/build folders out of the processing pipeline
-            dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')]
-            
-            if 'README.md' in files:
-                # Discard processing root README.md or matching configurations templates
-                if root == '.' or 'template' in root:
-                    continue
-                
-                clean_root = root.lstrip('./').lstrip('.\\')
-                readme_path = os.path.join(root, 'README.md')
-                
-                with open(readme_path, 'r', encoding='utf-8') as f:
-                    raw_content = f.read()
-                
-                # Process broken references (handles up-tier levels like ../document/visual/)
-                processed_content = fix_links_and_images(raw_content, clean_root)
-                
-                # Wrap target documentation snippets into clean collapsible UI disclosure panels
-                folder_name = os.path.basename(root).upper()
-                doc_block = f'''
-        <details open>
-          <summary><b>📂 Component: {folder_name}</b> (Location: <a href=\"/{clean_root}\">/{clean_root}</a>)</summary>
-          
-          {processed_content}
-          
-        </details>
-        <br/>
-        '''
-                all_docs_html.append(doc_block)
-
-        # 2. Extract base file template architecture 
         template_file = '.github-readme-template.md'
-        if os.path.exists(template_file):
-            with open(template_file, 'r', encoding='utf-8') as f:
-                template = f.read()
-            
-            # 3. Inject compiled and normalized documentation snippets into the designated hook location
-            final_docs_string = '\n'.join(all_docs_html)
-            output_content = template.replace('<!-- AUTO_GENERATED_DOCS -->', final_docs_string)
-            
-            # 4. Overwrite compiled updates to primary root-level target README file
-            with open('README.md', 'w', encoding='utf-8') as f:
-                f.write(output_content)
-            print('README.md synchronized successfully!')
-        else:
+        if not os.path.exists(template_file):
             print('ERROR: Target file .github-readme-template.md was not located.')
+            exit(1)
+            
+        with open(template_file, 'r', encoding='utf-8') as f:
+            template = f.read()
+
+        linux_readme_path = 'linux/README.md'
+        if os.path.exists(linux_readme_path):
+            with open(linux_readme_path, 'r', encoding='utf-8') as f:
+                linux_raw_content = f.read()
+            processed_content = fix_links_and_images(linux_raw_content, 'linux')
+            doc_block = f'<details open>\n  <summary><b>📂 System Documentation: LINUX</b></summary>\n  \n  {processed_content}\n  \n</details>'
+        else:
+            doc_block = '> *Warning: linux/README.md file was not found during execution.*'
+
+        output_content = template.replace('<!-- AUTO_GENERATED_DOCS -->', doc_block)
+
+        with open('README.md', 'w', encoding='utf-8') as f:
+            f.write(output_content)
+        print('README.md combined and optimized successfully!')
         "
 
     - name: Commit and Push synchronized files to GitHub
       run: |
         git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@://github.com'
-        
-        # Verify if modifications exist inside real track target parameters
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         if ! git diff --exit-code README.md; then
           git add README.md
-          # Include [skip ci] within message payload to prevent infinite cyclical action execution chains
-          git commit -m "docs: auto-sync child directory readme contents [skip ci]"
+          git commit -m "docs: sync linux documentation and fix asset paths [skip ci]"
           git push
         else
           echo "No documentation variations caught. Passing deployment phase."
