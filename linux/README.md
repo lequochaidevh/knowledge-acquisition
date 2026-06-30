@@ -5,6 +5,7 @@ Project Technical Description Project Title: Ultra-Lightweight Modern C++ Embedd
 
 ## Core Architectural Pillars
 
+### Linux Common
 ### 1. Encapsulated Linux Domains (Implemented)
  Modern Inter-Process Communication (IPC) Wrapper: Object-oriented abstraction of Linux IPC mechanisms (POSIX/System V Message Queues, Shared Memory, and Unix Domain Sockets) managed via std::unique_ptr and std::shared_ptr to ensure safe lifecycle management.Production-Ready Blueprints: A comprehensive suite of minimal-overhead implementation samples demonstrating zero-copy data transfer and lock-free synchronization techniques.
 
@@ -50,7 +51,8 @@ To meet the demands of modern edge AI, computer vision, and high-throughput data
 *   **Asynchronous GPU Event Synchronization:** Integration of GPU execution fences and streams into the existing `epoll`-driven Event Engine. This allows the application to yield CPU execution until the GPU finishes hardware tasks, maximizing overall deterministic system efficiency.
 *   **Edge AI Inference Runtime Wrapper:** A lightweight abstraction for loading and executing quantized deep learning models (via ONNX Runtime, todo TensorRT, or OpenVINO) targeting specialized embedded NPU/GPU hardware.
 
-### Sub-Repo source (Contact):
+### Linux Private Libraries
+#### Sub-Repo source (Contact):
 **Contact Info**
 * **Email:** [lequochaidevh@gmail.com](mailto:lequochaidevh@gmail.com)
 * **Phone:** [+84 (084)2013829](tel:+0842013829)
