@@ -1,0 +1,8 @@
+Step 3: Grant GitHub Action Permissions (Crucial 🔑)
+By default, GitHub blocks Actions from pushing code back into your repo. You must unlock this on the GitHub Web interface:
+
+Open your repository page on GitHub.
+Click on Settings (the gear icon on the top tab bar).
+On the left sidebar, click Actions → General.
+Scroll down to the bottom section called Workflow permissions.
+Switch the radio button to Read and write permissions.Click the Save button.
