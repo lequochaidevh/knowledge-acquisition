@@ -5,21 +5,21 @@ A minimalist repository tracking my journey in Embedded Systems, AI, and Linux .
 ```sh
 source setup_environment.sh
 ```
-# Linux Integration
-```sh
-cd linux/
-```
 ---
 
-<!-- Auto-generated - Do not edit directly -->
+## Architecture & Submodules Documentation
 
-# How to intergrate linux module.
+<details open>
+  <summary><b> 📂 System Documentation: LINUX</b></summary>
+  
+  # How to intergrate linux module.
 
 ## Description
 Project Technical Description Project Title: Ultra-Lightweight Modern C++ Embedded Linux System Abstraction Layer (SAL) High-Level Overview. This project delivers a highly optimized, modern C++ framework designed to encapsulate low-level Linux system domains into a clean, modular Application Programming Interface (API). Engineered specifically for resource-constrained embedded systems, the architecture utilizes modern C++ design patterns (RAII, smart pointers, and move semantics) to eliminate memory leaks and guarantee deterministic behavior. By decoupling the underlying OS primitives from the application layer, this framework provides a future-proof, easily extensible, and highly maintainable foundation for modern embedded applications.
 
 ## Core Architectural Pillars
 
+### Linux Common
 ### 1. Encapsulated Linux Domains (Implemented)
  Modern Inter-Process Communication (IPC) Wrapper: Object-oriented abstraction of Linux IPC mechanisms (POSIX/System V Message Queues, Shared Memory, and Unix Domain Sockets) managed via std::unique_ptr and std::shared_ptr to ensure safe lifecycle management.Production-Ready Blueprints: A comprehensive suite of minimal-overhead implementation samples demonstrating zero-copy data transfer and lock-free synchronization techniques.
 
@@ -65,7 +65,8 @@ To meet the demands of modern edge AI, computer vision, and high-throughput data
 *   **Asynchronous GPU Event Synchronization:** Integration of GPU execution fences and streams into the existing `epoll`-driven Event Engine. This allows the application to yield CPU execution until the GPU finishes hardware tasks, maximizing overall deterministic system efficiency.
 *   **Edge AI Inference Runtime Wrapper:** A lightweight abstraction for loading and executing quantized deep learning models (via ONNX Runtime, todo TensorRT, or OpenVINO) targeting specialized embedded NPU/GPU hardware.
 
-### Sub-Repo source (Contact):
+### Linux Private Libraries
+#### Sub-Repo source (Contact):
 **Contact Info**
 * **Email:** [lequochaidevh@gmail.com](mailto:lequochaidevh@gmail.com)
 * **Phone:** [+84 (084)2013829](tel:+0842013829)
@@ -148,3 +149,6 @@ make install
 ### Linux Embedded (todo)
 
 ### Linux Ubuntu (todo)
+
+  
+</details>
