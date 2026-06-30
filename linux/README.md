@@ -60,34 +60,42 @@ To meet the demands of modern edge AI, computer vision, and high-throughput data
 </p>
 
 💡 Note: The quality and frame rate of this demo have been reduced to optimize file size for the repository.
-![App Demo](../document/preview/__HarisEngine_GPU_Processing.gif)
+<p align="center">
+  <img src="../document/preview/__HarisEngine_GPU_Processing.gif" alt="Haris Engine" width="1000">
+</p>
 
 ```mermaid
 graph TD
     subgraph App [Modern Application Layer]
-        A[IPC Engine<br>Sockets / Queues]
-        B[Hardware I/O<br>GPIO / I2C / SPI]
-        C[Event/Task Engine<br>epoll / Thread Pool]
+        A[Hardware <br> Window ]
+        B[Hardware I/O<br> Keyboard / Mouse ]
+        C[Event/Task Engine<br> Thread Pool / Subscriber Callback ]
         GPU_App[Vision / AI Core<br>Parallel Compute]
     end
 
-    subgraph Wrapper [System Abstraction Layer / Your Framework]
-        SAL_Core[Smart Ptr OS Wrappers]
-        SAL_GPU[Unified Memory & GPU Stream Manager]
-    end
+    Wrapper_note[System Abstraction Layer / Wrappers / Libs]
+    style Wrapper_note fill:none,stroke:none,font-weight:none,color:#000000
     
-    subgraph Hardware [Linux Kernel & Hardware Primitives]
-        D[Kernel Drivers / VFS]
-        E[GPU / NPU Accelerator<br>CUDA / Vulkan / OpenCL]
+    subgraph Wrapper [" "]
+        SAL_Core[Your Framework<br> GLFW / glm / imgui / ...]
+        SAL_GPU[Unified Memory & GPU Stream Manager]
+        Wrapper_note
     end
 
-    A --> SAL_Core
+    subgraph Hardware [Linux Kernel & Hardware Primitives]
+        D[Kernel Drivers / VFS]
+        E[GPU / NPU Accelerator<br> Vulkan / OpenCL / ... ]
+    end
+
+
+    A <--> SAL_Core
     B --> SAL_Core
     C --> SAL_Core
     GPU_App --> SAL_GPU
 
-    SAL_Core --> D
+    SAL_Core <--> D
     SAL_GPU --> E
+    E <--> D
 ```
 
 ## Build and Install system project.
