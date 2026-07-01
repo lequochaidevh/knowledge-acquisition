@@ -29,3 +29,8 @@ git submodule add https://github.com/<owner_name>/<repo_name>.git
 ```sh
 git reset --soft HEAD~1
 ```
+
+```sh
+# fix conflict with remote
+git pull origin <branch> --no-rebase
+```
