@@ -19,19 +19,19 @@ bool SocketClient<Transport>::connect_to_server(const std::string& target, int p
         client_addr.sun_family = AF_UNIX;
 
         std::string client_path = "/tmp/uds_client_" + std::to_string(getpid()) + ".sock";
-        unlink(client_path.c_str());
+        ::unlink(client_path.c_str());
 
         std::strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
-        if (bind(this->_socket_fd, reinterpret_cast<sockaddr*>(&client_addr), sizeof(sockaddr_un)) < 0) return false;
+        if (::bind(this->_socket_fd, reinterpret_cast<sockaddr*>(&client_addr), sizeof(sockaddr_un)) < 0) return false;
     }
 
     if (!this->configure_address(target, port)) return false;
-    if (this->_type == SOCK_STREAM) {
-        if (connect(this->_socket_fd,                                  //
-                    reinterpret_cast<sockaddr*>(&this->_remote_addr),  //
-                    this->_remote_addr_len) < 0)
-            return false;
-    }
+
+    if (connect(this->_socket_fd,                                  //
+                reinterpret_cast<sockaddr*>(&this->_remote_addr),  //
+                this->_remote_addr_len) < 0)
+        return false;
+
     return true;
 }
 
@@ -45,7 +45,6 @@ bool SocketClient<Transport>::pull_data(PacketHeader& out_header, std::vector<ui
     }
 
     if ((this->_modes & Ipc::Client::CheckLose) && out_header.type == DataType::Heartbeat) {
-        std::lock_guard<std::mutex> lock(this->_map_mutex);
         this->_sent_packets.erase(out_header.sequence_id);
     }
 
@@ -112,9 +111,6 @@ void SocketClient<Transport>::check_lose_from_feedback() {
 }
 
 // =================================================================
-// template class UnixSocket<Ipc::Client, IIpc::StreamTag>;
-// template class UnixSocket<Ipc::Client, IIpc::DgramTag>;
-
 template class SocketClient<IIpc::StreamTag>;
 template class SocketClient<IIpc::DgramTag>;
 

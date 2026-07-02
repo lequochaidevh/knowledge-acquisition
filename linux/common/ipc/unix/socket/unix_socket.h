@@ -28,6 +28,9 @@ class UnixSocket
  private:
     DECLARE_LOGGER;
 
+    std::mutex _send_packet_mutex;
+    std::mutex _read_packet_mutex;
+
     // 2. Factory method helper to instantiate the chosen Sender engine safely at compile time
     static constexpr SenderBase make_sender_base() {
         if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
@@ -35,7 +38,7 @@ class UnixSocket
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
             return DgramSender(  // Constructs Dgram variant
-                UniqueFileDescriptor(-1, FileType::NetworkSocket, "/tmp/UnixSocket.sock"), "/tmp/UnixSocket.sock");
+                UniqueFileDescriptor(-1, FileType::UnixSocket, "/tmp/UnixSocket.sock"), "/tmp/UnixSocket.sock");
         }
     }
 
@@ -45,7 +48,7 @@ class UnixSocket
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
             return DgramReceiver(  // Constructs Dgram variant
-                UniqueFileDescriptor(-1, FileType::NetworkSocket));
+                UniqueFileDescriptor(-1, FileType::UnixSocket));
         }
     }
 
@@ -81,6 +84,7 @@ class UnixSocket
         std::memset(&_remote_addr, 0, sizeof(_remote_addr));
         INIT_LOGGER("UnixSocket");
         logger->setLevel(LogLevel::Trace);
+        _sequence_counter = 0;
     }
 
     /**
@@ -90,9 +94,9 @@ class UnixSocket
         // if (ReceiverBase::_fd != -1) ::close(ReceiverBase::_fd);
         // if (SenderBase::_fd != -1) ::close(SenderBase::_fd);
 
-        // if (_socket_fd != -1) {
-        //     ::close(_socket_fd);
-        // }
+        if (_socket_fd != -1) {
+            ::close(_socket_fd);
+        }
     }
 
     bool initialize_socket();
@@ -122,22 +126,22 @@ class UnixSocket
     bool send_packet(int write_fd, DataType type, const T& data, uint32_t seq) {
         if (write_fd == -1) return false;
 
-        // std::lock_guard<std::mutex> lock(_send_packet_mutex);
+        std::lock_guard<std::mutex> lock(_send_packet_mutex);
 
         /* Step 1: store main write fd before */
         UniqueFileDescriptor store_main_fd = std::move(SenderBase::_unique_fd);
 
         /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
+        UniqueFileDescriptor unique_fd(write_fd, FileType::UnixSocket);
         SenderBase::_unique_fd = std::move(unique_fd);
 
         bool result = SenderBase::send(type, data, seq);
 
         /* Step 3: Send data with smart fd */
         if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
-            HARIS_LOG_DEBUG("------------ Socket Stream Send Data ------------");
+            HARIS_LOG_TRACE("------------ Socket Stream Send Data ------------");
         } else {
-            HARIS_LOG_DEBUG("------------ Socket Dgram Send Data ------------");
+            HARIS_LOG_TRACE("------------ Socket Dgram Send Data ------------");
         }
 
         /* Step 4: Release to not ::close raw write_fd */

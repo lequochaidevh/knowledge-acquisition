@@ -13,7 +13,7 @@ uint64_t UnixSocket<Modes, Transport>::get_current_timestamp_ms() {
 // Opens an un-bound OS file descriptor matching target address_families topologies
 template <typename Modes, typename Transport>
 bool UnixSocket<Modes, Transport>::initialize_socket() {
-    _socket_fd = socket(_address_families, _type, 0);
+    _socket_fd = ::socket(_address_families, _type, 0);
     return _socket_fd != -1;
 }
 
@@ -50,7 +50,7 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
                                                   std::vector<uint8_t>& out_payload) {
     if (source_fd == -1) return false;
 
-    // std::lock_guard<std::mutex> lock(_read_packet_mutex);
+    std::lock_guard<std::mutex> lock(_read_packet_mutex);
 
     // Hot-swap the base class FD using compile-time selection
     /* Step 1: store main write fd before */
@@ -66,9 +66,9 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
     if (!result) HARIS_LOG_ERROR("Got packet failed");
 
     if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
-        HARIS_LOG_DEBUG("------------ Socket Stream Send Data ------------");
+        HARIS_LOG_TRACE("------------ Socket Stream Send Data ------------");
     } else {
-        HARIS_LOG_DEBUG("------------ Socket Dgram Send Data ------------");
+        HARIS_LOG_TRACE("------------ Socket Dgram Send Data ------------");
     }
 
     /* Step 4: Release to not ::close raw read_fd */

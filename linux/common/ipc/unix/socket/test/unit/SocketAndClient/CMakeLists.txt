@@ -10,9 +10,9 @@ include(GTestSetup)
 # 2. Register your executable directly using industry-standard explicit parameters
 enable_testing()
 
-register_gtest_target(client
+register_gtest_target(sandbox
     SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
         "${BASE_SOURCE_PATH}/ipc/unix/socket/*.cpp"
     INCLUDES
         "${BASE_SOURCE_PATH}/"

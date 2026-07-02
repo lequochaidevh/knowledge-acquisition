@@ -22,13 +22,16 @@ bool SocketServer<Transport>::start_server(const std::string& target, int port) 
     if (!this->initialize_socket()) return false;
     if (!this->configure_address(target, port)) return false;
 
-    if (this->_address_families == AF_UNIX) unlink(target.c_str());
+    if (this->_address_families == AF_UNIX) ::unlink(target.c_str());
 
     int opt = 1;
-    setsockopt(this->_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    ::setsockopt(this->_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-    if (bind(this->_socket_fd, reinterpret_cast<sockaddr*>(&this->_remote_addr), this->_remote_addr_len) < 0)
+    if (::bind(this->_socket_fd,                                        //
+               reinterpret_cast<const sockaddr*>(&this->_remote_addr),  //
+               this->_remote_addr_len) == -1) {
         return false;
+    }
 
     if (this->_type == SOCK_STREAM) {
         if (listen(this->_socket_fd, 10) < 0) return false;
@@ -76,7 +79,7 @@ bool SocketServer<Transport>::pull_data(PacketHeader& out_header, std::vector<ui
     // DYNAMIC CHECK 1: Feedback bitmask execution
     if (this->_modes & Ipc::Server::Feedback) {
         std::string ack_tag = "ACK_SERVER";
-        this->send_packet(fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
+        this->send_packet(_client_fd, DataType::Heartbeat, ack_tag, out_header.sequence_id);
     }
 
     // DYNAMIC CHECK 2: CheckLose bitmask execution
@@ -89,9 +92,6 @@ bool SocketServer<Transport>::pull_data(PacketHeader& out_header, std::vector<ui
 }
 
 // =================================================================
-// template class UnixSocket<Ipc::Server, IIpc::StreamTag>;
-// template class UnixSocket<Ipc::Server, IIpc::DgramTag>;
-
 template class SocketServer<IIpc::StreamTag>;
 template class SocketServer<IIpc::DgramTag>;
 

@@ -22,7 +22,7 @@ class SocketClient : public UnixSocket<Ipc::Client, Transport> {
     virtual ~SocketClient() {
         // Unlink the custom temporary file system node to prevent polluting /tmp directory
         std::string client_path = "/tmp/uds_client_" + std::to_string(getpid()) + ".sock";
-        unlink(client_path.c_str());
+        ::unlink(client_path.c_str());
     }
 
     // Attaches the client endpoint node to target listeners
