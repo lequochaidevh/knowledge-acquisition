@@ -111,7 +111,7 @@ void SocketClient<Transport>::check_lose_from_feedback() {
 }
 
 // =================================================================
-template class SocketClient<IIpc::StreamTag>;
-template class SocketClient<IIpc::DgramTag>;
+template class SocketClient<SocketType::StreamTag>;
+template class SocketClient<SocketType::DgramTag>;
 
 }  // namespace HarisLinux

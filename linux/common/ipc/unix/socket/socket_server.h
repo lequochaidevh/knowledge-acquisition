@@ -3,7 +3,7 @@
 
 namespace HarisLinux {
 
-template <typename Transport = IIpc::StreamTag>
+template <typename Transport = SocketType::StreamTag>
 class SocketServer : public UnixSocket<Ipc::Server, Transport> {
  private:
     DECLARE_LOGGER;

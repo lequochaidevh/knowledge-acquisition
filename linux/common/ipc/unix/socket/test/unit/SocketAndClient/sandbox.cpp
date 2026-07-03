@@ -47,8 +47,8 @@ TEST(SocketSandboxTest, StreamSequentialTransmission) {
     std::string socket_path = "/tmp/sandbox_stream.sock";
 
     // 1. Initialize Stream-based Server and Client components
-    SocketServer<IIpc::StreamTag> server(AF_UNIX, SOCK_STREAM, server_flags);
-    SocketClient<IIpc::StreamTag> client(AF_UNIX, SOCK_STREAM, client_flags);
+    SocketServer<SocketType::StreamTag> server(AF_UNIX, SOCK_STREAM, server_flags);
+    SocketClient<SocketType::StreamTag> client(AF_UNIX, SOCK_STREAM, client_flags);
 
     // 2. Provision network bindings
     ASSERT_TRUE(server.start_server(socket_path)) << "Server failed to bind path.";
@@ -102,8 +102,8 @@ TEST(SocketSandboxTest, DatagramSequentialTransmission) {
     std::string socket_path = "/tmp/UnixSocket.sock";
 
     // Initialize Server and Client instances explicitly utilizing the DgramTag layout
-    SocketServer<IIpc::DgramTag> server(AF_UNIX, SOCK_DGRAM, server_flags);
-    SocketClient<IIpc::DgramTag> client(AF_UNIX, SOCK_DGRAM, client_flags);
+    SocketServer<SocketType::DgramTag> server(AF_UNIX, SOCK_DGRAM, server_flags);
+    SocketClient<SocketType::DgramTag> client(AF_UNIX, SOCK_DGRAM, client_flags);
 
     ASSERT_TRUE(server.start_server(socket_path)) << "Server DGRAM failed to start.";
     ASSERT_TRUE(server.accept_connection());
@@ -149,7 +149,7 @@ TEST(SocketSandboxTest, DatagramSequentialTransmission) {
 
 // Test fixture or direct wrapper classes to expose internal inherited fields
 // from your actual SocketClient and SocketServer implementation layouts.
-class TestSocketClient : public SocketClient<IIpc::StreamTag> {
+class TestSocketClient : public SocketClient<SocketType::StreamTag> {
  public:
     using SocketClient::_remote_addr;
     using SocketClient::_remote_addr_len;
@@ -157,7 +157,7 @@ class TestSocketClient : public SocketClient<IIpc::StreamTag> {
     using SocketClient::SocketClient;
 };
 
-class TestSocketServer : public SocketServer<IIpc::StreamTag> {
+class TestSocketServer : public SocketServer<SocketType::StreamTag> {
  public:
     using SocketServer::_remote_addr;
     using SocketServer::_remote_addr_len;
@@ -232,8 +232,8 @@ TEST(SocketAddressTest, IPv4ActualTransmissionLoopback) {
     int         network_port = 9091;  // Use an unassigned ephemeral port
 
     // 1. Instantiate true network wrappers using matching StreamTag rules
-    SocketServer<IIpc::StreamTag> server(AF_INET, SOCK_STREAM, server_flags);
-    SocketClient<IIpc::StreamTag> client(AF_INET, SOCK_STREAM, client_flags);
+    SocketServer<SocketType::StreamTag> server(AF_INET, SOCK_STREAM, server_flags);
+    SocketClient<SocketType::StreamTag> client(AF_INET, SOCK_STREAM, client_flags);
 
     // 2. Start network listener context on localhost interface
     ASSERT_TRUE(server.start_server(ip_address, network_port)) << "IPv4 Server failed to bind loopback adapter.";

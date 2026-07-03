@@ -65,7 +65,7 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
     bool result = ReceiverBase::receive(out_header, out_payload);
     if (!result) HARIS_LOG_ERROR("Got packet failed");
 
-    if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
+    if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
         HARIS_LOG_TRACE("------------ Socket Stream Send Data ------------");
     } else {
         HARIS_LOG_TRACE("------------ Socket Dgram Send Data ------------");
@@ -88,11 +88,11 @@ bool UnixSocket<Modes, Transport>::receive_packet(int source_fd, PacketHeader& o
 // =========================================================================
 
 // Generate machine code for the Stream variant (TCP Server)
-template class HarisLinux::UnixSocket<HarisLinux::Ipc::Server, HarisLinux::IIpc::StreamTag>;
-template class HarisLinux::UnixSocket<HarisLinux::Ipc::Server, HarisLinux::IIpc::DgramTag>;
+template class HarisLinux::UnixSocket<HarisLinux::Ipc::Server, HarisLinux::SocketType::StreamTag>;
+template class HarisLinux::UnixSocket<HarisLinux::Ipc::Server, HarisLinux::SocketType::DgramTag>;
 
 // Generate machine code for the Datagram variant (UDP Client)
-template class HarisLinux::UnixSocket<HarisLinux::Ipc::Client, HarisLinux::IIpc::StreamTag>;
-template class HarisLinux::UnixSocket<HarisLinux::Ipc::Client, HarisLinux::IIpc::DgramTag>;
+template class HarisLinux::UnixSocket<HarisLinux::Ipc::Client, HarisLinux::SocketType::StreamTag>;
+template class HarisLinux::UnixSocket<HarisLinux::Ipc::Client, HarisLinux::SocketType::DgramTag>;
 
 }  // namespace HarisLinux

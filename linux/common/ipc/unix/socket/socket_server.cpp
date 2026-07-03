@@ -92,7 +92,7 @@ bool SocketServer<Transport>::pull_data(PacketHeader& out_header, std::vector<ui
 }
 
 // =================================================================
-template class SocketServer<IIpc::StreamTag>;
-template class SocketServer<IIpc::DgramTag>;
+template class SocketServer<SocketType::StreamTag>;
+template class SocketServer<SocketType::DgramTag>;
 
 }  // namespace HarisLinux

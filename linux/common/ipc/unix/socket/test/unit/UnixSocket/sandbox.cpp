@@ -26,7 +26,7 @@ TEST(UnixSocketIntegrationTest, StreamSendReceiveLoop) {
     Ipc::Generic<Ipc::Server> server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
     uint32_t                  sample_seq   = 777;
 
-    HarisLinux::UnixSocket<Ipc::Server, IIpc::StreamTag> stream_socket(AF_UNIX, SOCK_STREAM, server_flags);
+    HarisLinux::UnixSocket<Ipc::Server, SocketType::StreamTag> stream_socket(AF_UNIX, SOCK_STREAM, server_flags);
 
     int pipe_fds[2];
     ASSERT_NE(::pipe(pipe_fds), -1) << "Failed to allocate OS pipe markers";
@@ -98,8 +98,8 @@ TEST(UnixSocketIntegrationTest, DatagramSendReceiveLoop) {
     }
 
     // 4. Initialize class framework instance
-    HarisLinux::UnixSocket<Ipc::Client, IIpc::DgramTag> dgram_socket(AF_UNIX, SOCK_DGRAM, client_flags);
-    std::string                                         dgram_tx_data = "HarisDgramDataPayload";
+    HarisLinux::UnixSocket<Ipc::Client, SocketType::DgramTag> dgram_socket(AF_UNIX, SOCK_DGRAM, client_flags);
+    std::string                                               dgram_tx_data = "HarisDgramDataPayload";
 
     // 5. Transmit through the connected client descriptor
     bool dgram_send_ok =

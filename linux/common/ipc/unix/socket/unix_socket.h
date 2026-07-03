@@ -8,22 +8,23 @@
 
 namespace HarisLinux {
 
-namespace IIpc {
+namespace SocketType {
     struct StreamTag {};  // Identifies TCP / Named Pipes / SOCK_STREAM
     struct DgramTag {};   // Identifies UDP / SOCK_DGRAM
-}  // namespace IIpc
+}  // namespace SocketType
 
 // Helper Type Traits to determine if the Mode is Stream or Dgram
-// (Adjust these structs to match your actual IIpc::Server/Client definitions)
+// (Adjust these structs to match your actual SocketType::Server/Client definitions)
 
-template <typename Modes, typename Transport = IIpc::StreamTag>
+template <typename Modes, typename Transport = SocketType::StreamTag>
 class UnixSocket
-    : public std::conditional_t<std::is_same_v<Transport, IIpc::StreamTag>, StreamSender, DgramSender>,
-      public std::conditional_t<std::is_same_v<Transport, IIpc::StreamTag>, StreamReceiver, DgramReceiver> {
+    : public std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamSender, DgramSender>,
+      public std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamReceiver, DgramReceiver> {
  protected:
     // 1. Establish clean compile-time parent aliases
-    using SenderBase   = std::conditional_t<std::is_same_v<Transport, IIpc::StreamTag>, StreamSender, DgramSender>;
-    using ReceiverBase = std::conditional_t<std::is_same_v<Transport, IIpc::StreamTag>, StreamReceiver, DgramReceiver>;
+    using SenderBase = std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamSender, DgramSender>;
+    using ReceiverBase =
+        std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamReceiver, DgramReceiver>;
 
  private:
     DECLARE_LOGGER;
@@ -33,7 +34,7 @@ class UnixSocket
 
     // 2. Factory method helper to instantiate the chosen Sender engine safely at compile time
     static constexpr SenderBase make_sender_base() {
-        if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
             return StreamSender(  // Constructs Stream variant
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
@@ -43,7 +44,7 @@ class UnixSocket
     }
 
     static constexpr ReceiverBase make_receiver_base() {
-        if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
             return StreamReceiver(  // Constructs Stream variant
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
@@ -138,7 +139,7 @@ class UnixSocket
         bool result = SenderBase::send(type, data, seq);
 
         /* Step 3: Send data with smart fd */
-        if constexpr (std::is_same_v<Transport, IIpc::StreamTag>) {
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
             HARIS_LOG_TRACE("------------ Socket Stream Send Data ------------");
         } else {
             HARIS_LOG_TRACE("------------ Socket Dgram Send Data ------------");
