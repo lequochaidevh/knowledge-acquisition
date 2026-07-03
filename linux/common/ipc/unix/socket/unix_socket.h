@@ -8,44 +8,48 @@
 
 namespace HarisLinux {
 
-namespace Ipc {
+namespace SocketType {
     struct StreamTag {};  // Identifies TCP / Named Pipes / SOCK_STREAM
     struct DgramTag {};   // Identifies UDP / SOCK_DGRAM
-}  // namespace Ipc
+}  // namespace SocketType
 
 // Helper Type Traits to determine if the Mode is Stream or Dgram
-// (Adjust these structs to match your actual Ipc::Server/Client definitions)
+// (Adjust these structs to match your actual SocketType::Server/Client definitions)
 
-template <typename Modes, typename Transport = Ipc::StreamTag>
-class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::StreamTag>, StreamSender, DgramSender>,
-                   public std::conditional_t<std::is_same_v<Transport, Ipc::StreamTag>, StreamReceiver, DgramReceiver> {
+template <typename Modes, typename Transport = SocketType::StreamTag>
+class UnixSocket
+    : public std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamSender, DgramSender>,
+      public std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamReceiver, DgramReceiver> {
  protected:
     // 1. Establish clean compile-time parent aliases
-    using SenderBase   = std::conditional_t<std::is_same_v<Transport, Ipc::StreamTag>, StreamSender, DgramSender>;
-    using ReceiverBase = std::conditional_t<std::is_same_v<Transport, Ipc::StreamTag>, StreamReceiver, DgramReceiver>;
+    using SenderBase = std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamSender, DgramSender>;
+    using ReceiverBase =
+        std::conditional_t<std::is_same_v<Transport, SocketType::StreamTag>, StreamReceiver, DgramReceiver>;
 
  private:
     DECLARE_LOGGER;
 
- private:
+    std::mutex _send_packet_mutex;
+    std::mutex _read_packet_mutex;
+
     // 2. Factory method helper to instantiate the chosen Sender engine safely at compile time
     static constexpr SenderBase make_sender_base() {
-        if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
             return StreamSender(  // Constructs Stream variant
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
             return DgramSender(  // Constructs Dgram variant
-                UniqueFileDescriptor(-1, FileType::NetworkSocket, "/tmp/UnixSocket.sock"), "/tmp/UnixSocket.sock");
+                UniqueFileDescriptor(-1, FileType::UnixSocket, "/tmp/UnixSocket.sock"), "/tmp/UnixSocket.sock");
         }
     }
 
     static constexpr ReceiverBase make_receiver_base() {
-        if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
             return StreamReceiver(  // Constructs Stream variant
                 UniqueFileDescriptor(-1, FileType::UnixSocket));
         } else {
             return DgramReceiver(  // Constructs Dgram variant
-                UniqueFileDescriptor(-1, FileType::NetworkSocket));
+                UniqueFileDescriptor(-1, FileType::UnixSocket));
         }
     }
 
@@ -81,6 +85,7 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
         std::memset(&_remote_addr, 0, sizeof(_remote_addr));
         INIT_LOGGER("UnixSocket");
         logger->setLevel(LogLevel::Trace);
+        _sequence_counter = 0;
     }
 
     /**
@@ -90,9 +95,9 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
         // if (ReceiverBase::_fd != -1) ::close(ReceiverBase::_fd);
         // if (SenderBase::_fd != -1) ::close(SenderBase::_fd);
 
-        // if (_socket_fd != -1) {
-        //     ::close(_socket_fd);
-        // }
+        if (_socket_fd != -1) {
+            ::close(_socket_fd);
+        }
     }
 
     bool initialize_socket();
@@ -122,22 +127,22 @@ class UnixSocket : public std::conditional_t<std::is_same_v<Transport, Ipc::Stre
     bool send_packet(int write_fd, DataType type, const T& data, uint32_t seq) {
         if (write_fd == -1) return false;
 
-        // std::lock_guard<std::mutex> lock(_send_packet_mutex);
+        std::lock_guard<std::mutex> lock(_send_packet_mutex);
 
         /* Step 1: store main write fd before */
         UniqueFileDescriptor store_main_fd = std::move(SenderBase::_unique_fd);
 
         /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
+        UniqueFileDescriptor unique_fd(write_fd, FileType::UnixSocket);
         SenderBase::_unique_fd = std::move(unique_fd);
 
         bool result = SenderBase::send(type, data, seq);
 
         /* Step 3: Send data with smart fd */
-        if constexpr (std::is_same_v<Transport, Ipc::StreamTag>) {
-            HARIS_LOG_DEBUG("------------ Socket Stream Send Data ------------");
+        if constexpr (std::is_same_v<Transport, SocketType::StreamTag>) {
+            HARIS_LOG_TRACE("------------ Socket Stream Send Data ------------");
         } else {
-            HARIS_LOG_DEBUG("------------ Socket Dgram Send Data ------------");
+            HARIS_LOG_TRACE("------------ Socket Dgram Send Data ------------");
         }
 
         /* Step 4: Release to not ::close raw write_fd */
