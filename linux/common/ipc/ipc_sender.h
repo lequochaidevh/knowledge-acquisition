@@ -6,14 +6,16 @@ namespace HarisLinux {
 template <typename Derived>
 class IPCSenderBase {
  protected:
-    UniqueFileDescriptor _unique_fd;
+    SmartFdManager<UniqueFileDescriptor, 2> _fd_list;
 
     IPCSenderBase() noexcept {}
-    explicit IPCSenderBase(UniqueFileDescriptor fd, std::string path) noexcept : _unique_fd(std::move(fd)) {}
+    explicit IPCSenderBase(UniqueFileDescriptor fd, std::string path) noexcept
+        : _fd_list(std::array<UniqueFileDescriptor, 2>  //
+                   {std::move(fd), UniqueFileDescriptor(-1, FileType::Pipe)}) {}
 
     template <typename T>
     bool send(DataType data_type, const T& data, const uint32_t& seq = 0) const {
-        if (!_unique_fd.is_valid()) return false;
+        if (!_fd_list.get_active_fd().is_valid()) return false;
 
         const uint8_t* payload_ptr  = nullptr;
         uint32_t       payload_size = 0;
@@ -61,10 +63,10 @@ class StreamSender : public IPCSenderBase<StreamSender> {
     friend class IPCSenderBase<StreamSender>;
 
  public:
-    explicit StreamSender(UniqueFileDescriptor target_fd) { this->_unique_fd = std::move(target_fd); }
+    explicit StreamSender(UniqueFileDescriptor target_fd) { this->_fd_list.reset_active_fd(std::move(target_fd)); }
 
  protected:
-    ssize_t write_impl(const struct iovec* iov) const { return writev(this->_unique_fd.get(), iov, 2); }
+    ssize_t write_impl(const struct iovec* iov) const { return writev(this->_fd_list.get_active_fd().get(), iov, 2); }
 };
 
 class DgramSender : public IPCSenderBase<DgramSender> {
@@ -72,7 +74,7 @@ class DgramSender : public IPCSenderBase<DgramSender> {
 
  public:
     DgramSender(UniqueFileDescriptor target_fd, const std::string& target_path) {
-        this->_unique_fd = std::move(target_fd);
+        this->_fd_list.reset_active_fd(std::move(target_fd));
         std::memset(&remote_addr, 0, sizeof(remote_addr));
         remote_addr.sun_family = AF_UNIX;
         std::strncpy(remote_addr.sun_path, target_path.c_str(), sizeof(remote_addr.sun_path) - 1);
@@ -90,7 +92,7 @@ class DgramSender : public IPCSenderBase<DgramSender> {
         msg.msg_namelen = addr_len;
         msg.msg_iov     = const_cast<struct iovec*>(iov);
         msg.msg_iovlen  = 2;
-        return sendmsg(this->_unique_fd.get(), &msg, 0);
+        return sendmsg(this->_fd_list.get_active_fd().get(), &msg, 0);
     }
 };
 

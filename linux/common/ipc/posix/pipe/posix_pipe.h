@@ -19,8 +19,8 @@ class PosixPipe : public StreamSender, public StreamReceiver {
 
  public:
     /** @brief Get fd with int for Linux API*/
-    int get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
-    int get_write_fd() const { return StreamSender::_unique_fd.get(); }
+    int const get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
+    int const get_write_fd() const { return StreamSender::_fd_list.get_active_fd().get(); }
 
  protected:
     /** @brief File system path for the pipe.
@@ -82,18 +82,19 @@ class PosixPipe : public StreamSender, public StreamReceiver {
         std::lock_guard<std::mutex> lock(_send_packet_mutex);
 
         /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);
+        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_fd_list.get_active_fd_ref());
 
         /* Step 2: Covert raw fd to smart fd */
         UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
-        StreamSender::_unique_fd = std::move(unique_fd);
+        StreamSender::_fd_list.reset_active_fd(std::move(unique_fd));
 
         /* Step 3: Send data with smart fd */
         bool result = this->template send_packet<T>(type, data, seq);
 
         /* Step 4: Release to not ::close raw write_fd */
-        write_fd                 = StreamSender::_unique_fd.release();
-        StreamSender::_unique_fd = std::move(store_main_fd);
+        write_fd = StreamSender::StreamSender::_fd_list.get_active_fd_ref().release();
+
+        StreamSender::_fd_list.get_active_fd_ref() = std::move(store_main_fd);
 
         return result;
     }
