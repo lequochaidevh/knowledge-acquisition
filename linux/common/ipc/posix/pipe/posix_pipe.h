@@ -10,7 +10,7 @@
 namespace HarisLinux {
 
 template <typename Modes>
-class PosixPipe : public StreamSender, public StreamReceiver {
+class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
  private:
     DECLARE_LOGGER;
 
@@ -19,8 +19,16 @@ class PosixPipe : public StreamSender, public StreamReceiver {
 
  public:
     /** @brief Get fd with int for Linux API*/
-    int get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
-    int get_write_fd() const { return StreamSender::_unique_fd.get(); }
+    int const get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
+
+    SharedFileDescription<PipePolicy> const get_write_sfd() const { return _shared_fd; }
+
+    bool set_write_sfd(int write_fd) {
+        SharedFileDescription<PipePolicy> shared_proxy;
+        shared_proxy                          = SharedFileDescription<PipePolicy>(write_fd);
+        IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
+        return true;
+    }
 
  protected:
     /** @brief File system path for the pipe.
@@ -43,7 +51,7 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @param modes Operational modes for this IPC instance.
      */
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
-        : StreamSender(UniqueFileDescriptor(-1, FileType::Pipe)),
+        : IPCSenderBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
           StreamReceiver(UniqueFileDescriptor(-1, FileType::Pipe)),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
@@ -66,35 +74,23 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @return false If the write operation failed.
      */
     template <typename T>
-    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) {
-        // (Zero-copy / Atomic)
-        bool result = StreamSender::send(type, data, seq);
+    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) const {
+        // Triggers the atomic zero-copy layout executed entirely on stack via IPCSender
         HARIS_LOG_DEBUG("------------ Derived Send Data ------------");
-        return result;
+        return IPCSenderBase<PipePolicy>::send(type, data, seq);
     }
 
-    // Adapt function : todo remove it
-    // Todo:
     template <typename T>
-    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) {
-        if (write_fd < 0) return false;
-
-        std::lock_guard<std::mutex> lock(_send_packet_mutex);
-
-        /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);
-
-        /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
-        StreamSender::_unique_fd = std::move(unique_fd);
-
-        /* Step 3: Send data with smart fd */
-        bool result = this->template send_packet<T>(type, data, seq);
-
-        /* Step 4: Release to not ::close raw write_fd */
-        write_fd                 = StreamSender::_unique_fd.release();
-        StreamSender::_unique_fd = std::move(store_main_fd);
-
+    bool send_packet(SharedFileDescription<PipePolicy>& shared_proxy_fd, DataType type, const T& data,
+                     const uint32_t& seq = 0) {
+        if (!shared_proxy_fd) {
+            HARIS_LOG_CRITICAL("Invalid share posix fd");
+            return false;
+        }
+        SharedFileDescription<PipePolicy> temporary = _shared_fd;
+        _shared_fd                                  = shared_proxy_fd;
+        bool result                                 = this->template send_packet<T>(type, data, seq);
+        _shared_fd                                  = temporary;
         return result;
     }
 
@@ -130,6 +126,6 @@ class PosixPipe : public StreamSender, public StreamReceiver {
 
         return result;
     }
-};
+};  // namespace HarisLinux
 
 }  // namespace HarisLinux

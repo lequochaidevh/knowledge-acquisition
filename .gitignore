@@ -7,3 +7,4 @@ __pycache__/
 **/quickstart/media/
 my_manim_project/
 *.webm
+*.backup

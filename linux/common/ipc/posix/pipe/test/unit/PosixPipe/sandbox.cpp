@@ -37,19 +37,7 @@ class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
         /* Step 3: store smart fd */
         return std::move(store_main_fd);
     }
-    UniqueFileDescriptor test_set_write_fd(int write_fd) {
-        // if (write_fd < 0) return;
-
-        /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_unique_fd);
-
-        /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
-        StreamSender::_unique_fd = std::move(unique_fd);
-
-        /* Step 3: store smart fd */
-        return std::move(store_main_fd);
-    }
+    bool test_set_write_sfd(int write_fd) { return this->set_write_sfd(write_fd); }
 
     // Pull the protected data transmission methods into public scope
     using HarisLinux::PosixPipe<Modes>::send_packet;
@@ -104,21 +92,23 @@ class IPCPosixPipeTest : public ::testing::Test {
 
         // Use the public wrapper class instead of the raw protected class
         TestPosixPipe<Ipc::Client> pipe_sender(MAIN_PIPE_PATH, client_flags);
-        pipe_sender.test_set_write_fd(write_fd);
+        pipe_sender.test_set_write_sfd(write_fd);
+
+        auto sender_base = pipe_sender.get_write_sfd();
 
         // Test case 1: Dispatch an integer primitive
         int system_code = 2026;
-        pipe_sender.send_packet(pipe_sender.get_write_fd(), DataType::Number, system_code, 1);
+        pipe_sender.send_packet(sender_base, DataType::Number, system_code, 1);
 
         // Test case 2: Dispatch a standard string container
         std::string alert_msg = "HarisLinux Pipe CRTP Engine Running!";
-        pipe_sender.send_packet(pipe_sender.get_write_fd(), DataType::Text, alert_msg, 2);
+        pipe_sender.send_packet(sender_base, DataType::Text, alert_msg, 2);
 
         // Test case 3: Dispatch a plain old data struct via a raw buffer
         SensorPayload        sensor_data{123456789, 36.5, 0};
         std::vector<uint8_t> struct_buffer(sizeof(SensorPayload));
         std::memcpy(struct_buffer.data(), &sensor_data, sizeof(SensorPayload));
-        pipe_sender.send_packet(pipe_sender.get_write_fd(), DataType::Custom, struct_buffer, 3);
+        pipe_sender.send_packet(sender_base, DataType::Custom, struct_buffer, 3);
 
         close(write_fd);
         std::exit(0);  // Explicitly terminate to prevent the child from entering the test harness loop

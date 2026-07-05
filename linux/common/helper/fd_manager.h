@@ -210,4 +210,83 @@ class ShareFileDescriptor {
     [[nodiscard]] FileType get_type() const noexcept { return _type; }
 };
 
+#include <stdexcept>
+
+/// @brief Manage smart fd list.
+template <typename SmartFdType, std::size_t NumberOfElements>
+class SmartFdManager {
+ private:
+    std::array<SmartFdType, NumberOfElements> _list{};
+    std::size_t                               _active_idx = 0;
+    mutable std::mutex                        _mutex;
+
+ public:
+    // Constructor support move-only type like UniqueFileDescriptor)
+    template <typename... Args>
+    explicit SmartFdManager(Args&&... args) : _list{std::forward<Args>(args)...} {
+        static_assert(std::is_same_v<SmartFdType, UniqueFileDescriptor> ||  //
+                          std::is_same_v<SmartFdType, ShareFileDescriptor>,
+                      "SmartFdType must be either UniqueFileDescriptor or ShareFileDescriptor.");
+
+        static_assert((std::is_same_v<std::decay_t<Args>, SmartFdType> && ...),
+                      "Args must be either UniqueFileDescriptor or ShareFileDescriptor.");
+    }
+
+    // Thread-safe access with bound checking exception handling
+    [[nodiscard]] const SmartFdType& get_active_fd() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        try {
+            return _list.at(_active_idx);
+        } catch (const std::out_of_range& e) {
+            // Handle or rethrow custom exception here
+            throw std::runtime_error("Active index is out of bounds.");
+        }
+    }
+    SmartFdType& get_active_fd_ref() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        try {
+            return _list.at(_active_idx);
+        } catch (const std::out_of_range& e) {
+            // Handle or rethrow custom exception here
+            throw std::runtime_error("Active index is out of bounds.");
+        }
+    }
+
+    SmartFdType& get_main_fd() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        try {
+            return _list.at(0);
+        } catch (const std::out_of_range& e) {
+            // Handle or rethrow custom exception here
+            throw std::runtime_error("Active index is out of bounds.");
+        }
+    }
+
+    void reset_active_fd(SmartFdType&& fd) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _list[_active_idx] = std::move(fd);
+    }
+
+    // Thread-safe index updates
+    void set_active_fd(std::size_t active) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (active >= NumberOfElements) {
+            throw std::out_of_range("Requested index exceeds array size.");
+        }
+        _active_idx = active;
+    }
+
+    // Thread-safe index updates
+    const std::size_t get_active_fd_idx() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _active_idx;
+    }
+
+    // Reset helper
+    void reset_main_fd() {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _active_idx = 0;  // 0 means main fd
+    }
+};
+
 }  // namespace HarisLinux
