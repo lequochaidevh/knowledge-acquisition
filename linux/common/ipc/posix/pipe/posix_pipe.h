@@ -10,7 +10,7 @@
 namespace HarisLinux {
 
 template <typename Modes>
-class PosixPipe : public StreamSender, public StreamReceiver {
+class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
  private:
     DECLARE_LOGGER;
 
@@ -20,7 +20,14 @@ class PosixPipe : public StreamSender, public StreamReceiver {
  public:
     /** @brief Get fd with int for Linux API*/
     int const get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
-    int const get_write_fd() const { return StreamSender::_fd_list.get_active_fd().get(); }
+    int const get_write_fd() const { return IPCSenderBase<PipePolicy>::_shared_fd.get(); }
+
+    bool set_write_fd(int write_fd) {
+        SharedFileDescription<PipePolicy> static_shared_proxy;
+        static_shared_proxy                   = SharedFileDescription<PipePolicy>(write_fd);
+        IPCSenderBase<PipePolicy>::_shared_fd = static_shared_proxy;
+        return true;
+    }
 
  protected:
     /** @brief File system path for the pipe.
@@ -43,7 +50,7 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @param modes Operational modes for this IPC instance.
      */
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
-        : StreamSender(UniqueFileDescriptor(-1, FileType::Pipe)),
+        : IPCSenderBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
           StreamReceiver(UniqueFileDescriptor(-1, FileType::Pipe)),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
@@ -66,9 +73,9 @@ class PosixPipe : public StreamSender, public StreamReceiver {
      * @return false If the write operation failed.
      */
     template <typename T>
-    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) {
-        // (Zero-copy / Atomic)
-        bool result = StreamSender::send(type, data, seq);
+    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) const {
+        // Triggers the atomic zero-copy layout executed entirely on stack via IPCSender
+        bool result = IPCSenderBase<PipePolicy>::send(type, data, seq);
         HARIS_LOG_DEBUG("------------ Derived Send Data ------------");
         return result;
     }
@@ -76,27 +83,57 @@ class PosixPipe : public StreamSender, public StreamReceiver {
     // Adapt function : todo remove it
     // Todo:
     template <typename T>
-    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) {
+    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) const {
         if (write_fd < 0) return false;
 
-        std::lock_guard<std::mutex> lock(_send_packet_mutex);
+        // Step 1: Process scatter-gather layout pointers natively on the execution stack frame
+        const uint8_t* payload_ptr  = nullptr;
+        uint32_t       payload_size = 0;
+        using CleanedType           = std::decay_t<T>;
 
-        /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamSender::_fd_list.get_active_fd_ref());
+        if constexpr (std::is_arithmetic_v<CleanedType>) {
+            payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
+            payload_size = static_cast<uint32_t>(sizeof(T));
+        } else if constexpr (std::is_same_v<CleanedType, std::string> ||
+                             std::is_same_v<CleanedType, std::vector<uint8_t>> ||
+                             std::is_same_v<CleanedType, std::string_view>) {
+            payload_ptr  = reinterpret_cast<const uint8_t*>(data.data());
+            payload_size = static_cast<uint32_t>(data.size() * sizeof(typename CleanedType::value_type));
+        } else if constexpr (std::is_same_v<CleanedType, IPCRequestPayload>) {
+            payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
+            payload_size = static_cast<uint32_t>(sizeof(T));
+        } else {
+            static_assert(sizeof(T) == 0, "Unsupported compile-time type execution for IPC Sender!");
+        }
 
-        /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
-        StreamSender::_fd_list.reset_active_fd(std::move(unique_fd));
+        PacketHeader header{type, payload_size, get_current_timestamp_ms(), seq};
 
-        /* Step 3: Send data with smart fd */
-        bool result = this->template send_packet<T>(type, data, seq);
+        struct iovec iov[2];
 
-        /* Step 4: Release to not ::close raw write_fd */
-        write_fd = StreamSender::StreamSender::_fd_list.get_active_fd_ref().release();
+        // Index 0 stores the packet header metadata block cleanly
+        iov[0].iov_base = const_cast<PacketHeader*>(&header);
+        iov[0].iov_len  = sizeof(PacketHeader);
 
-        StreamSender::_fd_list.get_active_fd_ref() = std::move(store_main_fd);
+        // Index 1 stores the variable length payload buffer block cleanly
+        iov[1].iov_base = const_cast<uint8_t*>(payload_ptr);
+        iov[1].iov_len  = payload_size;
 
-        return result;
+        size_t total_bytes = sizeof(PacketHeader) + payload_size;
+
+        // Static shared proxy entryway execution path
+        static SharedFileDescription<PipePolicy> static_shared_proxy;
+        static_shared_proxy = SharedFileDescription<PipePolicy>(write_fd);
+
+        auto session = static_shared_proxy.lock();
+
+        // Step 3: Execute the compiled vector write through the policy layer natively
+        ssize_t sent = PipePolicy::write_vector(session.get_fd(), iov, static_shared_proxy.get_context());
+
+        // STEP 4: CLEAN DISENGAGEMENT
+        // Safely unlinks from the registry and resets internal state to -1 for the next call
+        // SharedFileDescription<PipePolicy>::release(write_fd);
+
+        return sent == static_cast<ssize_t>(total_bytes);
     }
 
     /**

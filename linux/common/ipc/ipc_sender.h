@@ -3,19 +3,19 @@
 
 namespace HarisLinux {
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
-template <typename Derived>
+template <typename Policy>
 class IPCSenderBase {
  protected:
-    SmartFdManager<UniqueFileDescriptor, 2> _fd_list;
+    // Internal variable with a leading underscore tracking shared reference lifecycles
+    SharedFileDescription<Policy> _shared_fd{};
 
     IPCSenderBase() noexcept {}
-    explicit IPCSenderBase(UniqueFileDescriptor fd, std::string path) noexcept
-        : _fd_list(std::array<UniqueFileDescriptor, 2>  //
-                   {std::move(fd), UniqueFileDescriptor(-1, FileType::Pipe)}) {}
+    // Explicit constructor taking the ownership model from the outside
+    explicit IPCSenderBase(SharedFileDescription<Policy> fd_input) : _shared_fd(std::move(fd_input)) {}
 
     template <typename T>
     bool send(DataType data_type, const T& data, const uint32_t& seq = 0) const {
-        if (!_fd_list.get_active_fd().is_valid()) return false;
+        if (!_shared_fd) return false;
 
         const uint8_t* payload_ptr  = nullptr;
         uint32_t       payload_size = 0;
@@ -52,48 +52,57 @@ class IPCSenderBase {
         iov[1].iov_base = const_cast<uint8_t*>(payload_ptr);
         iov[1].iov_len  = payload_size;
 
-        size_t  total_bytes = sizeof(PacketHeader) + payload_size;
-        ssize_t sent        = static_cast<const Derived*>(this)->write_impl(iov);
+        // Secure session allocation under fine-grained registry lock protection
+        auto session = _shared_fd.lock();
+
+        size_t total_bytes = sizeof(PacketHeader) + payload_size;
+        // Execute the exact optimized system call at compile-time!
+        ssize_t sent = Policy::write_vector(session.get_fd(), iov, _shared_fd.get_context());
 
         return sent == static_cast<ssize_t>(total_bytes);
     }
 };
 
-class StreamSender : public IPCSenderBase<StreamSender> {
-    friend class IPCSenderBase<StreamSender>;
+// template <typename Policy>
+// class StreamSender : public IPCSenderBase<StreamSender<Policy>, Policy> {
+//     friend class IPCSenderBase<StreamSender>;
 
- public:
-    explicit StreamSender(UniqueFileDescriptor target_fd) { this->_fd_list.reset_active_fd(std::move(target_fd)); }
+//  public:
+//     explicit StreamSender(SharedFileDescription<Policy> target_fd)
+//         : IPCSenderBase<StreamSender<Policy>, Policy>(std::move(target_fd)) {}
 
- protected:
-    ssize_t write_impl(const struct iovec* iov) const { return writev(this->_fd_list.get_active_fd().get(), iov, 2); }
-};
+//  protected:
+//     // Handles continuous stream writing via writev natively across any streaming policy
+//     ssize_t write_impl(int active_fd, const struct iovec* iov) const { return ::writev(active_fd, iov, 2); }
+// };
 
-class DgramSender : public IPCSenderBase<DgramSender> {
-    friend class IPCSenderBase<DgramSender>;
+// template <typename Policy>
+// class DgramSender : public IPCSenderBase<DgramSender<Policy>, Policy> {
+//     friend class IPCSenderBase<DgramSender<Policy>, Policy>;
 
- public:
-    DgramSender(UniqueFileDescriptor target_fd, const std::string& target_path) {
-        this->_fd_list.reset_active_fd(std::move(target_fd));
-        std::memset(&remote_addr, 0, sizeof(remote_addr));
-        remote_addr.sun_family = AF_UNIX;
-        std::strncpy(remote_addr.sun_path, target_path.c_str(), sizeof(remote_addr.sun_path) - 1);
-        addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
-    }
+//  public:
+//     DgramSender(SharedFileDescription<Policy> target_fd, const std::string& target_path)
+//         : IPCSenderBase<DgramSender<Policy>, Policy>(std::move(target_fd)) {
+//         this->_fd_list.reset_active_fd(std::move(target_fd));
+//         std::memset(&remote_addr, 0, sizeof(remote_addr));
+//         remote_addr.sun_family = AF_UNIX;
+//         std::strncpy(remote_addr.sun_path, target_path.c_str(), sizeof(remote_addr.sun_path) - 1);
+//         addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
+//     }
 
- private:
-    sockaddr_un remote_addr{};
-    socklen_t   addr_len = 0;
+//  private:
+//     sockaddr_un remote_addr{};
+//     socklen_t   addr_len = 0;
 
- protected:
-    ssize_t write_impl(const struct iovec* iov) const {
-        struct msghdr msg {};
-        msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));
-        msg.msg_namelen = addr_len;
-        msg.msg_iov     = const_cast<struct iovec*>(iov);
-        msg.msg_iovlen  = 2;
-        return sendmsg(this->_fd_list.get_active_fd().get(), &msg, 0);
-    }
-};
+//  protected:
+//     ssize_t write_impl(int active_fd, const struct iovec* iov) const {
+//         struct msghdr msg {};
+//         msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));
+//         msg.msg_namelen = addr_len;
+//         msg.msg_iov     = const_cast<struct iovec*>(iov);
+//         msg.msg_iovlen  = 2;
+//         return sendmsg(active_fd, &msg, 0);
+//     }
+// };
 
 }  // namespace HarisLinux

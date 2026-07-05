@@ -37,14 +37,7 @@ class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
         /* Step 3: store smart fd */
         return std::move(store_main_fd);
     }
-    bool test_set_write_fd(int write_fd) {
-        StreamSender::_fd_list.set_active_fd(1);
-        /* Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(write_fd, FileType::Pipe);
-        StreamSender::_fd_list.reset_active_fd(std::move(unique_fd));
-
-        return true;
-    }
+    bool test_set_write_fd(int write_fd) { return this->set_write_fd(write_fd); }
 
     // Pull the protected data transmission methods into public scope
     using HarisLinux::PosixPipe<Modes>::send_packet;

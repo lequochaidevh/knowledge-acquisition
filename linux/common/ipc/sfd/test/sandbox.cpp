@@ -157,7 +157,7 @@ TEST_F(FileDescriptorTest, UniqueToSharedConversionLifecycle) {
 TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
     UnixDomainSocketContext ctx{"output/test_unix.sock"};
 
-    SharedFileDescription<UnixDomainSocketPolicy> server_sock(LinuxArgs{}, ctx, AF_UNIX, SOCK_STREAM, 0);
+    SharedFileDescription<UnixDomainStreamPolicy> server_sock(LinuxArgs{}, ctx, AF_UNIX, SOCK_STREAM, 0);
     ASSERT_TRUE(server_sock);
 
     struct sockaddr_un addr {};
@@ -172,10 +172,10 @@ TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
     std::thread client_thread([&ctx]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-        int client_raw_fd = UnixDomainSocketPolicy::open_transmitter(AF_UNIX, SOCK_STREAM, 0);
+        int client_raw_fd = UnixDomainStreamPolicy::open_transmitter(AF_UNIX, SOCK_STREAM, 0);
         if (client_raw_fd < 0) return;
 
-        SharedFileDescription<UnixDomainSocketPolicy> client_sock(client_raw_fd);
+        SharedFileDescription<UnixDomainStreamPolicy> client_sock(client_raw_fd);
         struct sockaddr_un                            client_addr {};
         client_addr.sun_family = AF_UNIX;
         std::strncpy(client_addr.sun_path, ctx.path.c_str(), sizeof(client_addr.sun_path) - 1);
@@ -193,7 +193,7 @@ TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
     int client_fd = ::accept(server_sock.get(), nullptr, nullptr);
     ASSERT_GE(client_fd, 0);
 
-    SharedFileDescription<UnixDomainSocketPolicy> accepted_session(client_fd);
+    SharedFileDescription<UnixDomainStreamPolicy> accepted_session(client_fd);
     {
         auto    session         = accepted_session.lock();
         char    read_buffer[10] = {0};  // Allocating buffer cleanly on stack

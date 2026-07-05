@@ -23,6 +23,9 @@ struct FilePolicy {
 
     static ssize_t write(int fd, const void* buf, size_t count) { return ::write(fd, buf, count); }
     static ssize_t read(int fd, void* buf, size_t count) { return ::read(fd, buf, count); }
+
+    // Works perfectly for regular files! Kernel flushes buffers in one shot
+    static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
 };
 
 // ============================================================================
@@ -57,10 +60,11 @@ struct SocketPolicy {
 // ============================================================================
 struct UnixDomainSocketContext {
     std::string path{};  // Dynamic or SSO-driven string container for clean code
+    bool        is_receiver = false;
 };
 
 // Unix Domain Socket Policy with clean up separation
-struct UnixDomainSocketPolicy {
+struct UnixDomainStreamPolicy {
     // Internal static tracking storage to handle server-side cleanup
     using Context = UnixDomainSocketContext;
 
@@ -100,6 +104,68 @@ struct UnixDomainSocketPolicy {
 
     static ssize_t write(int fd, const void* buf, size_t count) { return ::send(fd, buf, count, 0); }
     static ssize_t read(int fd, void* buf, size_t count) { return ::recv(fd, buf, count, 0); }
+
+    // Works perfectly for regular files! Kernel flushes buffers in one shot
+    static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
+};
+
+struct UnixDomainDgramPolicy {
+    using Context = UnixDomainSocketContext;
+
+    // API for Server-side instantiation (Performs critical unlink of old stale nodes)
+    template <typename... Args>
+    static int open_receiver(const Context& ctx, Args&&... args) {
+        ::unlink(ctx.path.c_str());  // Safely evict legacy files before binding
+        return ::socket(std::forward<Args>(args)...);
+    }
+
+    template <typename... Args>
+    static int open_receiver_with_forwarded_ctx(Context& internal_ctx, const Context& external_ctx, int domain,
+                                                int type, int protocol) {
+        internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
+
+        ::unlink(internal_ctx.path.c_str());
+        return ::socket(domain, type, protocol);  // Invokes the raw system call with 100% clean integer types
+    }
+
+    // API for Client-side instantiation (Does NOT unlink the target server path)
+    template <typename... Args>
+    static int open_transmitter(Args&&... args) {
+        return ::socket(std::forward<Args>(args)...);
+    }
+
+    static void close(int fd, Context& ctx) {
+        if (fd >= 0) {
+            ::shutdown(fd, SHUT_RDWR);
+            ::close(fd);
+            // Only clean up the file node if this instance was registered as the server owner
+            if (!ctx.path.empty()) {
+                ::unlink(ctx.path.c_str());
+                ctx.path.clear();
+            }
+        }
+    }
+
+    static ssize_t write(int fd, const void* buf, size_t count) { return ::send(fd, buf, count, 0); }
+    static ssize_t read(int fd, void* buf, size_t count) { return ::recv(fd, buf, count, 0); }
+
+    // Mapped directly to sendmsg because Datagrams require explicit target metadata packaging
+    static ssize_t write_vector(int fd, const struct iovec* iov, const Context& ctx) {
+        struct msghdr      msg {};
+        struct sockaddr_un remote_addr {};
+
+        std::memset(&remote_addr, 0, sizeof(remote_addr));
+        remote_addr.sun_family = AF_UNIX;
+        std::strncpy(remote_addr.sun_path, ctx.path.c_str(), sizeof(remote_addr.sun_path) - 1);
+        socklen_t addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
+
+        msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));
+        msg.msg_namelen = addr_len;
+        msg.msg_iov     = const_cast<struct iovec*>(iov);
+        msg.msg_iovlen  = 2;
+
+        return ::sendmsg(fd, &msg, 0);
+    }
 };
 
 // ============================================================================
@@ -175,6 +241,9 @@ struct PipePolicy {
 
     static ssize_t write(int fd, const void* buf, size_t count) { return ::write(fd, buf, count); }
     static ssize_t read(int fd, void* buf, size_t count) { return ::read(fd, buf, count); }
+
+    // Works perfectly for Pipes! Prevents pipe buffer fragmentation natively
+    static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
 };
 
 // ============================================================================

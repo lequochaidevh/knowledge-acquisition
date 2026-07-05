@@ -1,5 +1,6 @@
 #pragma once
 #include "std17pch.h"
+#include "sfd/smart_file_descriptor.h"
 #include "helper/fd_manager.h"
 
 namespace HarisLinux {

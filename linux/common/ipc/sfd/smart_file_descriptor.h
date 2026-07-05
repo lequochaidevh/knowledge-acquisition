@@ -7,20 +7,20 @@
 struct LinuxArgs {};
 
 template <typename Policy = FilePolicy>
-class UniqueFileDescriptor {
+class UniqueFileDescription {
  private:
     int                      _fd = -1;
     typename Policy::Context _ctx;  // Automatically infers the correct string/ip property pack
 
  public:
-    UniqueFileDescriptor() = default;
+    UniqueFileDescription() = default;
 
     // Traditional raw fd constructor
-    explicit UniqueFileDescriptor(int fd) : _fd(fd) {}
+    explicit UniqueFileDescription(int fd) : _fd(fd) {}
 
     // Variadic constructor triggered ONLY when LinuxArgs tag is passed first
     template <typename... Args>
-    explicit UniqueFileDescriptor(LinuxArgs, Args&&... args) {
+    explicit UniqueFileDescription(LinuxArgs, Args&&... args) {
         // Compile-time routing based strictly on the Policy type
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
@@ -29,21 +29,21 @@ class UniqueFileDescriptor {
         }
     }
 
-    ~UniqueFileDescriptor() { release(); }
+    ~UniqueFileDescription() { release(); }
 
     // Copying is prohibited to guarantee unique ownership
-    UniqueFileDescriptor(const UniqueFileDescriptor&) = delete;
-    UniqueFileDescriptor& operator=(const UniqueFileDescriptor&) = delete;
+    UniqueFileDescription(const UniqueFileDescription&) = delete;
+    UniqueFileDescription& operator=(const UniqueFileDescription&) = delete;
 
     // Move semantics transfer ownership safely on the stack
-    UniqueFileDescriptor(UniqueFileDescriptor&& other) noexcept  //
-        : _fd(other._fd),                                        //
-          _ctx(std::move(other._ctx))                            //
+    UniqueFileDescription(UniqueFileDescription&& other) noexcept  //
+        : _fd(other._fd),                                          //
+          _ctx(std::move(other._ctx))                              //
     {
         other._fd = -1;
     }
 
-    UniqueFileDescriptor& operator=(UniqueFileDescriptor&& other) noexcept {
+    UniqueFileDescription& operator=(UniqueFileDescription&& other) noexcept {
         if (this != &other) {
             release();
             _fd       = other._fd;
@@ -98,15 +98,15 @@ class SharedFileDescription {
         // Compile-time routing based strictly on the Policy type
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
-        } else if constexpr (std::is_same_v<Policy, UnixDomainSocketPolicy>) {
+        } else if constexpr (std::is_same_v<Policy, UnixDomainStreamPolicy>) {
             // FIXED: If the user mistakenly passed 'ctx' inside the variadic args pack,
             // we isolate and handle the raw system parameters directly to prevent forwarding objects to ::socket()
             if constexpr (sizeof...(args) == 4) {
                 // Scenario: (LinuxArgs{}, ctx, domain, type, protocol) -> Extract the system flags cleanly
-                _fd = UnixDomainSocketPolicy::open_receiver_with_forwarded_ctx(_ctx, std::forward<Args>(args)...);
+                _fd = UnixDomainStreamPolicy::open_receiver_with_forwarded_ctx(_ctx, std::forward<Args>(args)...);
             } else {
                 // Scenario: Standard inline construction (LinuxArgs{}, path, domain, type, protocol)
-                _fd = UnixDomainSocketPolicy::open_receiver(_ctx, std::forward<Args>(args)...);
+                _fd = UnixDomainStreamPolicy::open_receiver(_ctx, std::forward<Args>(args)...);
             }
         } else {
             _fd = Policy::open(std::forward<Args>(args)...);
@@ -115,7 +115,7 @@ class SharedFileDescription {
     }
 
     // Conversion constructor utilizes release_ownership() instead of pointer hacking
-    explicit SharedFileDescription(UniqueFileDescriptor<Policy>&& unique_file_desc)
+    explicit SharedFileDescription(UniqueFileDescription<Policy>&& unique_file_desc)
         : _fd(unique_file_desc.release_ownership()) {
         if (_fd >= 0) {
             Registry::retain(_fd);
@@ -163,6 +163,9 @@ class SharedFileDescription {
         // Fetches the dedicated fine-grained mutex for this fd and returns the active session
         return FileDescriptionSession<Policy>(_fd, Registry::get_mutex(_fd));
     }
+
+    // This allows seamless zero-overhead inspection of network IPs, ports, or FIFO paths.
+    const typename Policy::Context& get_context() const noexcept { return _ctx; }
 
     int      get() const { return _fd; }
     size_t   use_count() const { return Registry::get_count(_fd); }
