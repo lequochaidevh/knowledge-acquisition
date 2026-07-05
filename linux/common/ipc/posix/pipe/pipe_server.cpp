@@ -153,7 +153,7 @@ void PipeServer::process_client_packet(const std::string& client_id, int read_fd
             HARIS_LOG_ERROR("Data: [Empty payload]");
         } else {
             // 3. Forward data to the corresponding handler
-            _dispatcher.dispatch(header, data);
+            HARIS_LOG_INFO("Got data successfully");
         }
 
         // 4. Send acknowledgment feedback if required

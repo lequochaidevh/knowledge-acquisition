@@ -33,7 +33,8 @@ void RunClient01() {
     ASSERT_TRUE(client.request_and_switch_pipe()) << "Client 01 failed to request and switch pipe!";
 
     // Send the initial greeting message
-    client.push_data(DataType::Text, std::string("Private data Client Alpha_01 and Server!"));
+    std::string text_msg_private = "Private data Client Alpha_01 and Server!!";
+    client.push_data(DataType::Text, text_msg_private);
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     client.check_feedback();
 

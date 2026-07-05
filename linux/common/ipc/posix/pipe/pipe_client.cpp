@@ -76,7 +76,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         _client_id);
     _current_seq++;
 
-    if (send_packet(_write_share_fd, DataType::Command, req, _current_seq))  // Request to main pipe
+    if (!send_packet(_write_share_fd, DataType::Command, req, _current_seq))  // Request to main pipe
         HARIS_LOG_CRITICAL("Send packet failed");
 
     // Wait Server to accept and feedback ACK.
@@ -94,8 +94,10 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                 if (_read_fd != -1) close(_read_fd);
                 throw "Request failed";
                 // return false;
-            } else if (ack_status == "REMOVED")
+            } else if (ack_status == "REMOVED") {
+                HARIS_LOG_INFO("Removed pipe successfully");
                 return true;
+            }
             // If server accepted request
             if (fb_header.sequence_id == _current_seq) {
                 HARIS_LOG_DEBUG(

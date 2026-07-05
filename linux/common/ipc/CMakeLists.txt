@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(IPC_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
+add_subdirectory(sfd)
 add_subdirectory(posix/pipe)
 # add_subdirectory(unix/socket)
 
