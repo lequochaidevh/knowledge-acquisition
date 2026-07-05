@@ -159,13 +159,17 @@ class SharedFileDescription {
     }
 
     // Acquires a locked session proxy for exclusive read/write operations
-    FileDescriptionSession<Policy> lock() {
+    FileDescriptionSession<Policy> lock() const {
         // Fetches the dedicated fine-grained mutex for this fd and returns the active session
         return FileDescriptionSession<Policy>(_fd, Registry::get_mutex(_fd));
     }
 
     // This allows seamless zero-overhead inspection of network IPs, ports, or FIFO paths.
     const typename Policy::Context& get_context() const noexcept { return _ctx; }
+
+    static const bool prepare_context_asset(const typename Policy::Context& ctx) noexcept {
+        return Policy::prepare_context_asset(ctx);
+    }
 
     int      get() const { return _fd; }
     size_t   use_count() const { return Registry::get_count(_fd); }

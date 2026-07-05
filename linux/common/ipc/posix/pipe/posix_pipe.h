@@ -23,9 +23,9 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
     int const get_write_fd() const { return IPCSenderBase<PipePolicy>::_shared_fd.get(); }
 
     bool set_write_fd(int write_fd) {
-        SharedFileDescription<PipePolicy> static_shared_proxy;
-        static_shared_proxy                   = SharedFileDescription<PipePolicy>(write_fd);
-        IPCSenderBase<PipePolicy>::_shared_fd = static_shared_proxy;
+        SharedFileDescription<PipePolicy> shared_proxy;
+        shared_proxy                          = SharedFileDescription<PipePolicy>(write_fd);
+        IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
         return true;
     }
 
@@ -83,8 +83,9 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
     // Adapt function : todo remove it
     // Todo:
     template <typename T>
-    bool send_packet(int write_fd, DataType type, const T& data, const uint32_t& seq = 0) const {
-        if (write_fd < 0) return false;
+    bool send_packet(SharedFileDescription<PipePolicy>& shared_proxy_fd, DataType type, const T& data,
+                     const uint32_t& seq = 0) {
+        if (!shared_proxy_fd) return false;
 
         // Step 1: Process scatter-gather layout pointers natively on the execution stack frame
         const uint8_t* payload_ptr  = nullptr;
@@ -120,20 +121,21 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
 
         size_t total_bytes = sizeof(PacketHeader) + payload_size;
 
-        // Static shared proxy entryway execution path
-        static SharedFileDescription<PipePolicy> static_shared_proxy;
-        static_shared_proxy = SharedFileDescription<PipePolicy>(write_fd);
-
-        auto session = static_shared_proxy.lock();
+        auto session = shared_proxy_fd.lock();
 
         // Step 3: Execute the compiled vector write through the policy layer natively
-        ssize_t sent = PipePolicy::write_vector(session.get_fd(), iov, static_shared_proxy.get_context());
+        ssize_t sent = PipePolicy::write_vector(session.get_fd(), iov, shared_proxy_fd.get_context());
 
         // STEP 4: CLEAN DISENGAGEMENT
         // Safely unlinks from the registry and resets internal state to -1 for the next call
         // SharedFileDescription<PipePolicy>::release(write_fd);
 
         return sent == static_cast<ssize_t>(total_bytes);
+        // SharedFileDescription<PipePolicy> temporary = _shared_fd;
+        // _shared_fd                                  = shared_proxy_fd;
+        // bool result                                 = this->template send_packet<T>(type, data, seq);
+        // _shared_fd                                  = temporary;
+        // return result;
     }
 
     /**

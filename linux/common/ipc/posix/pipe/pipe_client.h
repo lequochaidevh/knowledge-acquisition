@@ -10,9 +10,9 @@ class PipeClient : public PosixPipe<Ipc::Client> {
     uint32_t _current_seq = 0;
     uint32_t _lost_count  = 0;
 
+    SharedFileDescription<PipePolicy> _write_share_fd;
     // todo remove
-    int _write_fd = -1;
-    int _read_fd  = -1;
+    int _read_fd = -1;
 
     std::string _client_id;
     std::string _old_upstream_path;
@@ -30,7 +30,7 @@ class PipeClient : public PosixPipe<Ipc::Client> {
     template <typename T>
     void push_data(DataType type, const T& data) {
         _current_seq++;
-        send_packet(_write_fd, type, data, _current_seq);  // call Send in base class
+        send_packet(_write_share_fd, type, data, _current_seq);  // call Send in base class
     }
 };
 

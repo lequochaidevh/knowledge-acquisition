@@ -26,6 +26,9 @@ struct FilePolicy {
 
     // Works perfectly for regular files! Kernel flushes buffers in one shot
     static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -53,6 +56,9 @@ struct SocketPolicy {
         return ::send(fd, buf, count, flags);
     }
     static ssize_t read_flags(int fd, void* buf, size_t count, int flags) { return ::recv(fd, buf, count, flags); }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -107,6 +113,9 @@ struct UnixDomainStreamPolicy {
 
     // Works perfectly for regular files! Kernel flushes buffers in one shot
     static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 struct UnixDomainDgramPolicy {
@@ -166,6 +175,9 @@ struct UnixDomainDgramPolicy {
 
         return ::sendmsg(fd, &msg, 0);
     }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -204,6 +216,9 @@ struct UdpLocalhostPolicy {
 
     // Standard POSIX recvfrom wrapper mapped to read
     static ssize_t read(int fd, void* buf, size_t count) { return ::recvfrom(fd, buf, count, 0, nullptr, nullptr); }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -243,7 +258,12 @@ struct PipePolicy {
     static ssize_t read(int fd, void* buf, size_t count) { return ::read(fd, buf, count); }
 
     // Works perfectly for Pipes! Prevents pipe buffer fragmentation natively
-    static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
+    static ssize_t write_vector(int fd, const struct iovec* iov, const Context& ctx) { return ::writev(fd, iov, 2); }
+
+    static const bool prepare_context_asset(const Context& ctx) {
+        ::unlink(ctx.path.c_str());  // Evict preexisting stale files
+        return ::mkfifo(ctx.path.c_str(), 0666) == 0;
+    }
 };
 
 // ============================================================================
@@ -269,6 +289,9 @@ struct EpollPolicy {
     static int wait(int epoll_fd, struct epoll_event* events, int maxevents, int timeout) {
         return ::epoll_wait(epoll_fd, events, maxevents, timeout);
     }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -289,4 +312,7 @@ struct EventFdPolicy {
 
     // Reads the 8-byte signaling information counter block
     static ssize_t fetch_signal(int fd, uint64_t& counter) { return ::read(fd, &counter, sizeof(counter)); }
+
+    // todo
+    static bool prepare_context_asset(const Context& ctx) { return true; }
 };
