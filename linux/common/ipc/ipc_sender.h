@@ -63,46 +63,4 @@ class IPCSenderBase {
     }
 };
 
-// template <typename Policy>
-// class StreamSender : public IPCSenderBase<StreamSender<Policy>, Policy> {
-//     friend class IPCSenderBase<StreamSender>;
-
-//  public:
-//     explicit StreamSender(SharedFileDescription<Policy> target_fd)
-//         : IPCSenderBase<StreamSender<Policy>, Policy>(std::move(target_fd)) {}
-
-//  protected:
-//     // Handles continuous stream writing via writev natively across any streaming policy
-//     ssize_t write_impl(int active_fd, const struct iovec* iov) const { return ::writev(active_fd, iov, 2); }
-// };
-
-// template <typename Policy>
-// class DgramSender : public IPCSenderBase<DgramSender<Policy>, Policy> {
-//     friend class IPCSenderBase<DgramSender<Policy>, Policy>;
-
-//  public:
-//     DgramSender(SharedFileDescription<Policy> target_fd, const std::string& target_path)
-//         : IPCSenderBase<DgramSender<Policy>, Policy>(std::move(target_fd)) {
-//         this->_fd_list.reset_active_fd(std::move(target_fd));
-//         std::memset(&remote_addr, 0, sizeof(remote_addr));
-//         remote_addr.sun_family = AF_UNIX;
-//         std::strncpy(remote_addr.sun_path, target_path.c_str(), sizeof(remote_addr.sun_path) - 1);
-//         addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
-//     }
-
-//  private:
-//     sockaddr_un remote_addr{};
-//     socklen_t   addr_len = 0;
-
-//  protected:
-//     ssize_t write_impl(int active_fd, const struct iovec* iov) const {
-//         struct msghdr msg {};
-//         msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));
-//         msg.msg_namelen = addr_len;
-//         msg.msg_iov     = const_cast<struct iovec*>(iov);
-//         msg.msg_iovlen  = 2;
-//         return sendmsg(active_fd, &msg, 0);
-//     }
-// };
-
 }  // namespace HarisLinux

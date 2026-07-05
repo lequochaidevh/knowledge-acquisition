@@ -118,8 +118,17 @@ struct UnixDomainStreamPolicy {
     static bool prepare_context_asset(const Context& ctx) { return true; }
 };
 
+struct UnixDomainDgramContext {
+    std::string path{};  // Dynamic or SSO-driven string container for clean code
+
+    sockaddr_un remote_addr{};
+    socklen_t   addr_len = 0;
+
+    bool is_receiver = false;
+};
+
 struct UnixDomainDgramPolicy {
-    using Context = UnixDomainSocketContext;
+    using Context = UnixDomainDgramContext;
 
     // API for Server-side instantiation (Performs critical unlink of old stale nodes)
     template <typename... Args>
@@ -134,6 +143,14 @@ struct UnixDomainDgramPolicy {
         internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
 
         ::unlink(internal_ctx.path.c_str());
+
+        std::memset(&internal_ctx.remote_addr, 0, sizeof(internal_ctx.remote_addr));
+        internal_ctx.remote_addr.sun_family = AF_UNIX;
+        std::strncpy(internal_ctx.remote_addr.sun_path, internal_ctx.path.c_str(),
+                     sizeof(internal_ctx.remote_addr.sun_path) - 1);
+        internal_ctx.addr_len =
+            sizeof(internal_ctx.remote_addr.sun_family) + std::strlen(internal_ctx.remote_addr.sun_path);
+
         return ::socket(domain, type, protocol);  // Invokes the raw system call with 100% clean integer types
     }
 
@@ -160,16 +177,10 @@ struct UnixDomainDgramPolicy {
 
     // Mapped directly to sendmsg because Datagrams require explicit target metadata packaging
     static ssize_t write_vector(int fd, const struct iovec* iov, const Context& ctx) {
-        struct msghdr      msg {};
-        struct sockaddr_un remote_addr {};
+        struct msghdr msg {};
 
-        std::memset(&remote_addr, 0, sizeof(remote_addr));
-        remote_addr.sun_family = AF_UNIX;
-        std::strncpy(remote_addr.sun_path, ctx.path.c_str(), sizeof(remote_addr.sun_path) - 1);
-        socklen_t addr_len = sizeof(remote_addr.sun_family) + std::strlen(remote_addr.sun_path);
-
-        msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&remote_addr));
-        msg.msg_namelen = addr_len;
+        msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&ctx.remote_addr));
+        msg.msg_namelen = ctx.addr_len;
         msg.msg_iov     = const_cast<struct iovec*>(iov);
         msg.msg_iovlen  = 2;
 
