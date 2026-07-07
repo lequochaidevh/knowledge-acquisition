@@ -1,5 +1,8 @@
 #pragma once
 #include "sfd_static_registry.h"
+#include "ipc_metadata.h"
+
+namespace HarisLinux {
 
 // --- INTEGRATED COMPILE-TIME POLICIES (OPEN + CLOSE) ---
 
@@ -76,24 +79,59 @@ struct UnixDomainStreamPolicy {
 
     // API for Server-side instantiation (Performs critical unlink of old stale nodes)
     template <typename... Args>
-    static int open_receiver(const Context& ctx, Args&&... args) {
-        ::unlink(ctx.path.c_str());  // Safely evict legacy files before binding
-        return ::socket(std::forward<Args>(args)...);
+    static int open_receiver(Context& ctx, int domain, int type, int protocol) {
+        ctx.is_receiver = true;
+        ::unlink(ctx.path.c_str());
+
+        int fd = ::socket(domain, type, protocol);
+        if (fd < 0) return -1;
+
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        if (::listen(fd, 5) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
     }
 
     template <typename... Args>
     static int open_receiver_with_forwarded_ctx(Context& internal_ctx, const Context& external_ctx, int domain,
                                                 int type, int protocol) {
-        internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
-
+        internal_ctx             = external_ctx;
+        internal_ctx.is_receiver = true;
         ::unlink(internal_ctx.path.c_str());
-        return ::socket(domain, type, protocol);  // Invokes the raw system call with 100% clean integer types
+
+        int fd = ::socket(domain, type, protocol);
+        if (fd < 0) return -1;
+
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, internal_ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        if (::listen(fd, 5) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
     }
 
     // API for Client-side instantiation (Does NOT unlink the target server path)
     template <typename... Args>
-    static int open_transmitter(Args&&... args) {
-        return ::socket(std::forward<Args>(args)...);
+    static int open_transmitter(Context&, int domain, int type, int protocol) {
+        return ::socket(domain, type, protocol);  // Client stream only requires raw socket creation
     }
 
     static void close(int fd, Context& ctx) {
@@ -114,8 +152,30 @@ struct UnixDomainStreamPolicy {
     // Works perfectly for regular files! Kernel flushes buffers in one shot
     static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
 
-    // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    // Reads exact continuous bytes using POSIX barriers
+    static ssize_t read_vector(int fd, void* buffer, size_t length) {
+        size_t   total_read = 0;
+        uint8_t* ptr        = reinterpret_cast<uint8_t*>(buffer);
+        while (total_read < length) {
+            ssize_t bytes = ::read(fd, ptr + total_read, length - total_read);
+            if (bytes <= 0) return -1;
+            total_read += bytes;
+        }
+        return static_cast<ssize_t>(total_read);
+    }
+
+    // Update inside UnixDomainStreamPolicy
+    static bool prepare_context_asset(int fd, const Context& ctx) {
+        if (fd < 0 || ctx.path.empty()) return false;
+
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) return false;
+        if (::listen(fd, 5) < 0) return false;
+        return true;
+    }
 };
 
 struct UnixDomainDgramContext {
@@ -131,33 +191,65 @@ struct UnixDomainDgramPolicy {
     using Context = UnixDomainDgramContext;
 
     // API for Server-side instantiation (Performs critical unlink of old stale nodes)
-    template <typename... Args>
-    static int open_receiver(const Context& ctx, Args&&... args) {
-        ::unlink(ctx.path.c_str());  // Safely evict legacy files before binding
-        return ::socket(std::forward<Args>(args)...);
+    // Receives the internal _ctx which has already adopted the moved configurations
+    static int open_receiver(const Context& ctx, int domain, int type, int protocol) {
+        ::unlink(ctx.path.c_str());  // Cleanly unlinks the active path node safely
+
+        int fd = ::socket(domain, type, protocol);
+        if (fd < 0) return -1;
+
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
     }
 
     template <typename... Args>
     static int open_receiver_with_forwarded_ctx(Context& internal_ctx, const Context& external_ctx, int domain,
                                                 int type, int protocol) {
-        internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
-
+        // internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
+        internal_ctx             = external_ctx;
+        internal_ctx.is_receiver = true;
         ::unlink(internal_ctx.path.c_str());
 
-        std::memset(&internal_ctx.remote_addr, 0, sizeof(internal_ctx.remote_addr));
-        internal_ctx.remote_addr.sun_family = AF_UNIX;
-        std::strncpy(internal_ctx.remote_addr.sun_path, internal_ctx.path.c_str(),
-                     sizeof(internal_ctx.remote_addr.sun_path) - 1);
-        internal_ctx.addr_len =
-            sizeof(internal_ctx.remote_addr.sun_family) + std::strlen(internal_ctx.remote_addr.sun_path);
+        int fd = ::socket(domain, type, protocol);
+        if (fd < 0) return -1;
 
-        return ::socket(domain, type, protocol);  // Invokes the raw system call with 100% clean integer types
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, internal_ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
     }
 
     // API for Client-side instantiation (Does NOT unlink the target server path)
-    template <typename... Args>
-    static int open_transmitter(Args&&... args) {
-        return ::socket(std::forward<Args>(args)...);
+    static int open_transmitter(const Context& ctx, int domain, int type, int protocol) {
+        ::unlink(ctx.path.c_str());
+
+        int fd = ::socket(domain, type, protocol);
+        if (fd < 0) return -1;
+
+        struct sockaddr_un local_addr {};
+        local_addr.sun_family = AF_UNIX;
+        std::strncpy(local_addr.sun_path, ctx.path.c_str(), sizeof(local_addr.sun_path) - 1);
+
+        socklen_t local_len = sizeof(local_addr.sun_family) + std::strlen(local_addr.sun_path) + 1;
+        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&local_addr), local_len) < 0) {
+            ::close(fd);
+            return -1;
+        }
+        return fd;
     }
 
     static void close(int fd, Context& ctx) {
@@ -187,8 +279,23 @@ struct UnixDomainDgramPolicy {
         return ::sendmsg(fd, &msg, 0);
     }
 
-    // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    // Executes specialized atomic message peek to extract trailing boundaries
+    static ssize_t peek_header(int fd, PacketHeader& header, sockaddr_storage& addr, socklen_t& len) {
+        return ::recvfrom(fd, &header, sizeof(PacketHeader), MSG_PEEK, reinterpret_cast<sockaddr*>(&addr), &len);
+    }
+    // Pulls the finalized scatter-gather layout out from the system buffer rings
+    static ssize_t read_vector_msg(int fd, struct msghdr& msg) { return ::recvmsg(fd, &msg, 0); }
+
+    // Update inside UnixDomainDgramPolicy
+    static bool prepare_context_asset(int fd, const Context& ctx) {
+        if (fd < 0 || ctx.path.empty()) return false;
+
+        struct sockaddr_un addr {};
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+
+        return ::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) >= 0;
+    }
 };
 
 // ============================================================================
@@ -327,3 +434,5 @@ struct EventFdPolicy {
     // todo
     static bool prepare_context_asset(const Context& ctx) { return true; }
 };
+
+}  // namespace HarisLinux

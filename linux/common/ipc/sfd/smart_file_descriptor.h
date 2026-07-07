@@ -2,6 +2,7 @@
 #include "sfd_policy.h"
 #include "sfd_session_guard.h"
 
+namespace HarisLinux {
 // --- COMPILE-TIME TAG TO FORCE LINUX SYSTEM CALL PATH ---
 // Empty struct used as a compile-time signal for the constructor
 struct LinuxArgs {};
@@ -98,16 +99,19 @@ class SharedFileDescription {
         // Compile-time routing based strictly on the Policy type
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
-        } else if constexpr (std::is_same_v<Policy, UnixDomainStreamPolicy>) {
-            // FIXED: If the user mistakenly passed 'ctx' inside the variadic args pack,
+
+        } else if constexpr (std::is_same_v<Policy, UnixDomainStreamPolicy>  //
+                             || std::is_same_v<Policy, UnixDomainDgramPolicy>) {
+            // If the user mistakenly passed 'ctx' inside the variadic args pack,
             // we isolate and handle the raw system parameters directly to prevent forwarding objects to ::socket()
             if constexpr (sizeof...(args) == 4) {
                 // Scenario: (LinuxArgs{}, ctx, domain, type, protocol) -> Extract the system flags cleanly
-                _fd = UnixDomainStreamPolicy::open_receiver_with_forwarded_ctx(_ctx, std::forward<Args>(args)...);
+                _fd = Policy::open_receiver_with_forwarded_ctx(_ctx, std::forward<Args>(args)...);
             } else {
                 // Scenario: Standard inline construction (LinuxArgs{}, path, domain, type, protocol)
-                _fd = UnixDomainStreamPolicy::open_receiver(_ctx, std::forward<Args>(args)...);
+                _fd = Policy::open_receiver(_ctx, std::forward<Args>(args)...);
             }
+
         } else {
             _fd = Policy::open(std::forward<Args>(args)...);
         }
@@ -148,6 +152,16 @@ class SharedFileDescription {
         return *this;
     }
 
+    constexpr int release() noexcept {
+        int tmp = _fd;
+        if (_fd >= 0) {
+            // Decrement reference count; registry filters whether to execute system close()
+            (void)Registry::release(_fd);
+            _fd = -1;  // Reset to stop destructor side-effects
+        }
+        return tmp;
+    }
+
     void reset() {
         if (_fd >= 0) {
             // If release returns true under mutex protection, safely close the descriptor
@@ -167,6 +181,11 @@ class SharedFileDescription {
     // This allows seamless zero-overhead inspection of network IPs, ports, or FIFO paths.
     const typename Policy::Context& get_context() const noexcept { return _ctx; }
 
+    bool set_context(typename Policy::Context& ctx) noexcept {
+        _ctx = std::move(ctx);
+        return true;
+    }
+
     static const bool prepare_context_asset(const typename Policy::Context& ctx) noexcept {
         return Policy::prepare_context_asset(ctx);
     }
@@ -176,3 +195,5 @@ class SharedFileDescription {
     explicit operator bool() const { return _fd >= 0; }
     int      operator*() const { return _fd; }
 };
+
+}  // namespace HarisLinux

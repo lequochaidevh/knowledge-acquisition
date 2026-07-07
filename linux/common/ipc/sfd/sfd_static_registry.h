@@ -1,6 +1,8 @@
 #pragma once
 #include "std17pch.h"
 
+namespace HarisLinux {
+
 // Struct fields are atomic to support lock-free data synchronization
 struct FileDescriptionRefCount {
     std::atomic<int>    fd{-1};
@@ -118,3 +120,5 @@ class StaticFileDescriptionRegistry {
         return 0;
     }
 };
+
+}  // namespace HarisLinux

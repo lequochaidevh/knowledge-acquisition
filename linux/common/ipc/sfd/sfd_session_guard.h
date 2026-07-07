@@ -1,6 +1,8 @@
 #pragma once
 #include "sfd_policy.h"
 
+namespace HarisLinux {
+
 // RAII Session Guard invoking compiled policy operations under mutex protection
 template <typename Policy>
 class FileDescriptionSession {
@@ -34,3 +36,5 @@ class FileDescriptionSession {
 
     int get_fd() const { return _fd; }
 };
+
+}  // namespace HarisLinux

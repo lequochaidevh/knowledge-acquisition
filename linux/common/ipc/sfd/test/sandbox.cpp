@@ -15,6 +15,8 @@
 // GOOGLE TEST FIXTURE SETUP
 // ============================================================================
 
+using namespace HarisLinux;
+
 // Test fixture to manage directory setup and teardown for isolation
 class FileDescriptorTest : public ::testing::Test {
  protected:
@@ -58,13 +60,13 @@ void shared_concurrency_worker(SharedFileDescription<FilePolicy> shared_desc, in
 // GOOGLE TEST CASES
 // ============================================================================
 
-// TEST 1: UniqueFileDescriptor Move Semantics and RAII Verification
+// TEST 1: UniqueFileDescription Move Semantics and RAII Verification
 TEST_F(FileDescriptorTest, UniqueLifecycleAndMoveSemantics) {
-    UniqueFileDescriptor<FilePolicy> u1(LinuxArgs{}, "output/unique_test.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    UniqueFileDescription<FilePolicy> u1(LinuxArgs{}, "output/unique_test.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
     EXPECT_GE(u1.get(), 0);
 
     // Transfer ownership via move constructor
-    UniqueFileDescriptor<FilePolicy> u2(std::move(u1));
+    UniqueFileDescription<FilePolicy> u2(std::move(u1));
     EXPECT_EQ(u1.get(), -1);
     EXPECT_GE(u2.get(), 0);
 }
@@ -141,9 +143,9 @@ TEST_F(FileDescriptorTest, StaticRegistryLockFreeHighContentionCAS) {
 
 // TEST 4: Unique-to-Shared Conversion Verification
 TEST_F(FileDescriptorTest, UniqueToSharedConversionLifecycle) {
-    UniqueFileDescriptor<FilePolicy> unique_source(LinuxArgs{}, "output/conversion_test.txt",
-                                                   O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    int                              native_fd = unique_source.get();
+    UniqueFileDescription<FilePolicy> unique_source(LinuxArgs{}, "output/conversion_test.txt",
+                                                    O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    int                               native_fd = unique_source.get();
 
     // Convert by moving Unique into Shared constructor
     SharedFileDescription<FilePolicy> shared_dest(std::move(unique_source));
@@ -212,49 +214,71 @@ TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
 }
 
 // TEST 2: Named Pipe (FIFO) Unidirectional Stream Verification
-TEST_F(FileDescriptorTest, NamedPipeFifoTransmission) {
-    PipeContext ctx;
-    std::string file_path{"output/test_fifo.fifo"};
-    uint16_t    flag = 0;
+TEST_F(SmartIpcTest, DatagramTransmissionVerification) {
+    std::string server_path = "output/gtest_dgram_srv.sock";
+    std::string client_path = "output/gtest_dgram_cli.sock";
 
-    // Step 1: Initialize the FIFO file layout safely on the disk
-    ASSERT_TRUE(PipePolicy::open_and_declare_ctx(ctx, file_path, flag));
+    UnixDomainDgramContext s_ctx{server_path, {}, 0, true};
+    UnixDomainDgramContext c_ctx{client_path, {}, 0, false};  // Set false to auto-route via open_transmitter
 
-    // Step 2: Spawn the writer thread FIRST. It opens the write channel in blocking mode.
-    // It will safely pause inside kernel space until the reader side joins the connection.
-    std::thread writer_thread([&ctx]() {
-        int write_fd = PipePolicy::open_channel(ctx, O_WRONLY);
-        if (write_fd < 0) return;
+    // Policy internally triggers complete socket() and bind() for both nodes via internal ctx.path!
+    SharedFileDescription<UnixDomainDgramPolicy> server_fd(LinuxArgs{}, s_ctx, AF_UNIX, SOCK_DGRAM, 0);
+    SharedFileDescription<UnixDomainDgramPolicy> client_fd(LinuxArgs{}, c_ctx, AF_UNIX, SOCK_DGRAM, 0);
 
-        SharedFileDescription<PipePolicy> write_desc(write_fd);
-        auto                              session = write_desc.lock();
+    ASSERT_TRUE(server_fd);
+    ASSERT_TRUE(client_fd);
 
-        std::string message = "HELLO_FIFO";
-        session.write(message.c_str(), message.length());
+    std::mutex              ready_mutex;
+    std::condition_variable ready_cv;
+    bool                    server_is_ready = false;
+
+    std::thread client_thread([&server_path, &client_fd, &ready_mutex, &ready_cv, &server_is_ready]() {
+        std::unique_lock<std::mutex> lock(ready_mutex);
+        ready_cv.wait(lock, [&server_is_ready]() { return server_is_ready; });
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        Ipc::Generic<Ipc::Client>                      client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose;
+        UnixSocket<Ipc::Client, UnixDomainDgramPolicy> client_node(AF_UNIX, SOCK_DGRAM, client_flags);
+
+        client_node.set_read_sfd(client_fd);
+        client_node.set_write_sfd(client_fd);
+
+        // Configure targeted server destination coordinates safely inside the context frame
+        auto& ctx = const_cast<UnixDomainDgramContext&>(client_fd.get_context());
+        std::memset(&ctx.remote_addr, 0, sizeof(ctx.remote_addr));
+        ctx.remote_addr.sun_family = AF_UNIX;
+        std::strncpy(ctx.remote_addr.sun_path, server_path.c_str(), sizeof(ctx.remote_addr.sun_path) - 1);
+        ctx.addr_len = sizeof(ctx.remote_addr.sun_family) + std::strlen(ctx.remote_addr.sun_path) + 1;
+
+        std::string payload = "Hello Dgram";
+        // SUCCESS: Returns true as both source and target addresses are fully bound and matched
+        EXPECT_TRUE(client_node.send_packet(DataType::Text, payload, 888));
     });
 
-    // Step 3: Open the read channel on the main thread in standard blocking mode.
-    // This instantly unblocks both the writer's open and this reader's open simultaneously.
-    int read_fd = PipePolicy::open_channel(ctx, O_RDONLY);
-    ASSERT_GE(read_fd, 0);
+    Ipc::Generic<Ipc::Server>                      server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
+    UnixSocket<Ipc::Server, UnixDomainDgramPolicy> server_node(AF_UNIX, SOCK_DGRAM, server_flags);
 
-    SharedFileDescription<PipePolicy> read_desc(read_fd);
-    ASSERT_TRUE(read_desc);
+    server_node.set_read_sfd(server_fd);
+    server_node.set_write_sfd(server_fd);
 
-    // Step 4: Read the data cleanly via the isolated read descriptor guard
-    char read_buffer[32] = {0};  // Allocating array buffer cleanly on stack
-    bool data_verified   = false;
-
-    auto    session    = read_desc.lock();
-    ssize_t bytes_read = session.read(read_buffer, sizeof(read_buffer) - 1);
-
-    if (bytes_read > 0) {
-        EXPECT_STREQ(read_buffer, "HELLO_FIFO");
-        data_verified = true;
+    {
+        std::lock_guard<std::mutex> lock(ready_mutex);
+        server_is_ready = true;
     }
+    ready_cv.notify_one();
 
-    EXPECT_TRUE(data_verified);
-    writer_thread.join();
+    PacketHeader         rcv_hdr{};
+    std::vector<uint8_t> rcv_payload;
+    ASSERT_TRUE(server_node.receive(rcv_hdr, rcv_payload));
+
+    EXPECT_EQ(rcv_hdr.sequence_id, 888);
+    std::string received_str(rcv_payload.begin(), rcv_payload.end());
+    EXPECT_EQ(received_str, "Hello Dgram");
+
+    client_thread.join();
+    server_fd.reset();
+    client_fd.reset();  // Auto-unlinks output/gtest_dgram_cli.sock cleanly
 }
 
 // TEST 3: EventFd Signal Counter Notification Verification
