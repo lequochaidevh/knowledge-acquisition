@@ -1,6 +1,6 @@
 #pragma once
-#include "sfd_static_registry.h"
 #include "ipc_metadata.h"
+#include "sfd_static_registry.h"
 
 namespace HarisLinux {
 
@@ -67,234 +67,246 @@ struct SocketPolicy {
 // ============================================================================
 // 3. UNIX DOMAIN SOCKET POLICY (LOCAL IPC WITH PATH UNLINK)
 // ============================================================================
-struct UnixDomainSocketContext {
-    std::string path{};  // Dynamic or SSO-driven string container for clean code
-    bool        is_receiver = false;
+
+// Context: IPv4 DGRAM (IP, Port, sockaddr_in)
+struct SocketDgramIPv4Context {
+    std::string local_ip;
+    uint16_t    local_port = 0;
+    std::string target_ip;
+    uint16_t    target_port = 0;
+
+    // Runtime cache for compiled network layouts
+    sockaddr_in local_sockaddr;
+    sockaddr_in target_sockaddr;
 };
+// --- POLICY 1: IPv4 DGRAM ---
+class SocketDgramIPv4Policy {
+ public:
+    using Context = SocketDgramIPv4Context;
 
-// Unix Domain Socket Policy with clean up separation
-struct UnixDomainStreamPolicy {
-    // Internal static tracking storage to handle server-side cleanup
-    using Context = UnixDomainSocketContext;
-
-    // API for Server-side instantiation (Performs critical unlink of old stale nodes)
-    template <typename... Args>
-    static int open_receiver(Context& ctx, int domain, int type, int protocol) {
-        ctx.is_receiver = true;
-        ::unlink(ctx.path.c_str());
-
-        int fd = ::socket(domain, type, protocol);
-        if (fd < 0) return -1;
-
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
-
-        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
-            ::close(fd);
-            return -1;
+    static int init(Context& ctx, IoMode mode) {
+        int fd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (fd == -1) {
+            throw std::runtime_error("IPv4 Socket creation failed");
         }
-        if (::listen(fd, 5) < 0) {
-            ::close(fd);
-            return -1;
+
+        if (mode == IoMode::Receiver) {
+            std::memset(&ctx.local_sockaddr, 0, sizeof(ctx.local_sockaddr));
+            ctx.local_sockaddr.sin_family = AF_INET;
+            ctx.local_sockaddr.sin_port   = htons(ctx.local_port);
+            ::inet_pton(AF_INET, ctx.local_ip.c_str(), &ctx.local_sockaddr.sin_addr);
+            ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
+            std::cout << "[Policy IPv4] Generated Receiver FD: " << fd << std::endl;
+        } else if (mode == IoMode::Transmiter) {
+            std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
+            ctx.target_sockaddr.sin_family = AF_INET;
+            ctx.target_sockaddr.sin_port   = htons(ctx.target_port);
+            ::inet_pton(AF_INET, ctx.target_ip.c_str(), &ctx.target_sockaddr.sin_addr);
+            ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
+            std::cout << "[Policy IPv4] Generated Transmitter FD: " << fd << std::endl;
         }
+
         return fd;
     }
 
-    template <typename... Args>
-    static int open_receiver_with_forwarded_ctx(Context& internal_ctx, const Context& external_ctx, int domain,
-                                                int type, int protocol) {
-        internal_ctx             = external_ctx;
-        internal_ctx.is_receiver = true;
-        ::unlink(internal_ctx.path.c_str());
+    /**
+     * @brief Peeks at the incoming kernel socket buffer to extract header info and remote address.
+     * @note This operation does not consume or evict data from the kernel's receive queue.
+     * @param active_fd The active socket file descriptor.
+     * @param out_header Reference to populate with the peeked packet header.
+     * @param out_remote_addr Storage structure to hold the sender's network/local address metadata.
+     * @param out_addr_len Length descriptor, updated by the kernel to reflect actual address bytes written.
+     * @return ssize_t Total bytes peeked on success, or -1 on system call failure.
+     */
+    static ssize_t peek_header(int active_fd, PacketHeader& out_header, sockaddr_storage& out_remote_addr,
+                               socklen_t& out_addr_len) noexcept {
+        // Zero-out the address storage to prevent stale data corruption or memory leaks
+        ::memset(&out_remote_addr, 0, sizeof(sockaddr_storage));
 
-        int fd = ::socket(domain, type, protocol);
-        if (fd < 0) return -1;
+        // Initialize with maximum buffer capacity to inform the kernel of safe boundaries
+        out_addr_len = sizeof(sockaddr_storage);
 
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, internal_ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+        // Execute system call with MSG_PEEK flag to inspect buffer head without data eviction
+        ssize_t peek_bytes = ::recvfrom(active_fd, &out_header, sizeof(PacketHeader), MSG_PEEK,
+                                        reinterpret_cast<sockaddr*>(&out_remote_addr), &out_addr_len);
 
-        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
-            ::close(fd);
-            return -1;
-        }
-        if (::listen(fd, 5) < 0) {
-            ::close(fd);
-            return -1;
-        }
-        return fd;
+        // Return the operation status (byte count or -1 error code) to caller
+        return peek_bytes;
     }
 
-    // API for Client-side instantiation (Does NOT unlink the target server path)
-    template <typename... Args>
-    static int open_transmitter(Context&, int domain, int type, int protocol) {
-        return ::socket(domain, type, protocol);  // Client stream only requires raw socket creation
+    static ssize_t write_vector(int tx_fd, const struct iovec* iov, int count) { return ::writev(tx_fd, iov, count); }
+
+    /**
+     * @brief Executes an atomic scatter-gather read operation using POSIX message structures.
+     * @note This uses the non-const msghdr reference because the kernel mutates internal fields
+     *       (e.g., updating msg_namelen and msg_flags) during network execution.
+     * @param rx_fd The active receiver socket file descriptor.
+     * @param msg Reference to the system message container configuring destination buffers and remote address space.
+     * @return ssize_t The exact total byte count received on success, or -1 on system call failure.
+     */
+    static ssize_t read_vector(int rx_fd, struct msghdr& msg) noexcept { return ::recvmsg(rx_fd, &msg, 0); }
+
+    static void cleanup(const Context& ctx) {
+        // No filesystem cleanup required for network stack
     }
 
-    static void close(int fd, Context& ctx) {
+    static void close(int fd, const Context& ctx) {
         if (fd >= 0) {
-            ::shutdown(fd, SHUT_RDWR);
             ::close(fd);
-            // Only clean up the file node if this instance was registered as the server owner
-            if (!ctx.path.empty()) {
-                ::unlink(ctx.path.c_str());
-                ctx.path.clear();
-            }
+            cleanup(ctx);
         }
-    }
-
-    static ssize_t write(int fd, const void* buf, size_t count) { return ::send(fd, buf, count, 0); }
-    static ssize_t read(int fd, void* buf, size_t count) { return ::recv(fd, buf, count, 0); }
-
-    // Works perfectly for regular files! Kernel flushes buffers in one shot
-    static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
-
-    // Reads exact continuous bytes using POSIX barriers
-    static ssize_t read_vector(int fd, void* buffer, size_t length) {
-        size_t   total_read = 0;
-        uint8_t* ptr        = reinterpret_cast<uint8_t*>(buffer);
-        while (total_read < length) {
-            ssize_t bytes = ::read(fd, ptr + total_read, length - total_read);
-            if (bytes <= 0) return -1;
-            total_read += bytes;
-        }
-        return static_cast<ssize_t>(total_read);
-    }
-
-    // Update inside UnixDomainStreamPolicy
-    static bool prepare_context_asset(int fd, const Context& ctx) {
-        if (fd < 0 || ctx.path.empty()) return false;
-
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
-
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) return false;
-        if (::listen(fd, 5) < 0) return false;
-        return true;
     }
 };
 
-struct UnixDomainDgramContext {
-    std::string path{};  // Dynamic or SSO-driven string container for clean code
+// Context: Unix Domain DGRAM (File Paths, sockaddr_un)
+struct SocketDgramPathContext {
+    std::string local_path;
+    std::string target_path;
 
-    sockaddr_un remote_addr{};
-    socklen_t   addr_len = 0;
-
-    bool is_receiver = false;
+    // Runtime cache for compiled local filesystem layouts
+    sockaddr_un local_sockaddr;
+    sockaddr_un target_sockaddr;
 };
 
-struct UnixDomainDgramPolicy {
-    using Context = UnixDomainDgramContext;
+// --- POLICY 2: UNIX DOMAIN DGRAM ---
+class SocketDgramPathPolicy {
+ public:
+    using Context = SocketDgramPathContext;
 
-    // API for Server-side instantiation (Performs critical unlink of old stale nodes)
-    // Receives the internal _ctx which has already adopted the moved configurations
-    static int open_receiver(const Context& ctx, int domain, int type, int protocol) {
-        ::unlink(ctx.path.c_str());  // Cleanly unlinks the active path node safely
-
-        int fd = ::socket(domain, type, protocol);
-        if (fd < 0) return -1;
-
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
-
-        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
-            ::close(fd);
-            return -1;
+    static int init(Context& ctx, IoMode mode) {
+        int fd = ::socket(AF_UNIX, SOCK_DGRAM, 0);
+        if (fd == -1) {
+            throw std::runtime_error("Unix DGRAM Socket creation failed");
         }
+
+        if (mode == IoMode::Receiver) {
+            std::memset(&ctx.local_sockaddr, 0, sizeof(ctx.local_sockaddr));
+            ctx.local_sockaddr.sun_family = AF_UNIX;
+            std::strncpy(ctx.local_sockaddr.sun_path, ctx.local_path.c_str(), sizeof(ctx.local_sockaddr.sun_path) - 1);
+
+            ::unlink(ctx.local_path.c_str());
+            ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
+            std::cout << "[Policy Unix] Generated Receiver FD: " << fd << std::endl;
+        } else if (mode == IoMode::Transmiter) {
+            std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
+            ctx.target_sockaddr.sun_family = AF_UNIX;
+            std::strncpy(ctx.target_sockaddr.sun_path, ctx.target_path.c_str(),
+                         sizeof(ctx.target_sockaddr.sun_path) - 1);
+            ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
+            std::cout << "[Policy Unix] Generated Transmitter FD: " << fd << std::endl;
+        }
+
         return fd;
     }
 
-    template <typename... Args>
-    static int open_receiver_with_forwarded_ctx(Context& internal_ctx, const Context& external_ctx, int domain,
-                                                int type, int protocol) {
-        // internal_ctx = std::move(external_ctx);  // Clone the external parameters inside the active RAII stack frame
-        internal_ctx             = external_ctx;
-        internal_ctx.is_receiver = true;
-        ::unlink(internal_ctx.path.c_str());
+    /**
+     * @brief Peeks at the incoming kernel socket buffer to extract header info and remote address.
+     * @note This operation does not consume or evict data from the kernel's receive queue.
+     * @param active_fd The active socket file descriptor.
+     * @param out_header Reference to populate with the peeked packet header.
+     * @param out_remote_addr Storage structure to hold the sender's network/local address metadata.
+     * @param out_addr_len Length descriptor, updated by the kernel to reflect actual address bytes written.
+     * @return ssize_t Total bytes peeked on success, or -1 on system call failure.
+     */
+    static ssize_t peek_header(int active_fd, PacketHeader& out_header, sockaddr_storage& out_remote_addr,
+                               socklen_t& out_addr_len) noexcept {
+        // Zero-out the address storage to prevent stale data corruption or memory leaks
+        ::memset(&out_remote_addr, 0, sizeof(sockaddr_storage));
 
-        int fd = ::socket(domain, type, protocol);
-        if (fd < 0) return -1;
+        // Initialize with maximum buffer capacity to inform the kernel of safe boundaries
+        out_addr_len = sizeof(sockaddr_storage);
 
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, internal_ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+        // Execute system call with MSG_PEEK flag to inspect buffer head without data eviction
+        ssize_t peek_bytes = ::recvfrom(active_fd, &out_header, sizeof(PacketHeader), MSG_PEEK,
+                                        reinterpret_cast<sockaddr*>(&out_remote_addr), &out_addr_len);
 
-        socklen_t len = sizeof(addr.sun_family) + std::strlen(addr.sun_path) + 1;
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), len) < 0) {
-            ::close(fd);
-            return -1;
-        }
-        return fd;
+        // Return the operation status (byte count or -1 error code) to caller
+        return peek_bytes;
     }
 
-    // API for Client-side instantiation (Does NOT unlink the target server path)
-    static int open_transmitter(const Context& ctx, int domain, int type, int protocol) {
-        ::unlink(ctx.path.c_str());
+    static ssize_t write_vector(int tx_fd, const struct iovec* iov, int count) { return ::writev(tx_fd, iov, count); }
 
-        int fd = ::socket(domain, type, protocol);
-        if (fd < 0) return -1;
+    /**
+     * @brief Executes an atomic scatter-gather read operation using POSIX message structures.
+     * @note This uses the non-const msghdr reference because the kernel mutates internal fields
+     *       (e.g., updating msg_namelen and msg_flags) during network execution.
+     * @param rx_fd The active receiver socket file descriptor.
+     * @param msg Reference to the system message container configuring destination buffers and remote address space.
+     * @return ssize_t The exact total byte count received on success, or -1 on system call failure.
+     */
+    static ssize_t read_vector(int rx_fd, struct msghdr& msg) noexcept { return ::recvmsg(rx_fd, &msg, 0); }
 
-        struct sockaddr_un local_addr {};
-        local_addr.sun_family = AF_UNIX;
-        std::strncpy(local_addr.sun_path, ctx.path.c_str(), sizeof(local_addr.sun_path) - 1);
+    static void cleanup(const Context& ctx) { ::unlink(ctx.local_path.c_str()); }
 
-        socklen_t local_len = sizeof(local_addr.sun_family) + std::strlen(local_addr.sun_path) + 1;
-        if (::bind(fd, reinterpret_cast<struct sockaddr*>(&local_addr), local_len) < 0) {
-            ::close(fd);
-            return -1;
-        }
-        return fd;
-    }
-
-    static void close(int fd, Context& ctx) {
+    static void close(int fd, const Context& ctx) {
         if (fd >= 0) {
-            ::shutdown(fd, SHUT_RDWR);
             ::close(fd);
-            // Only clean up the file node if this instance was registered as the server owner
-            if (!ctx.path.empty()) {
-                ::unlink(ctx.path.c_str());
-                ctx.path.clear();
-            }
+            cleanup(ctx);
         }
     }
+};
 
-    static ssize_t write(int fd, const void* buf, size_t count) { return ::send(fd, buf, count, 0); }
-    static ssize_t read(int fd, void* buf, size_t count) { return ::recv(fd, buf, count, 0); }
+// Context: Unix Domain STREAM (File Paths, sockaddr_un)
+struct SocketStreamPathContext {
+    std::string local_path;
+    std::string target_path;
 
-    // Mapped directly to sendmsg because Datagrams require explicit target metadata packaging
-    static ssize_t write_vector(int fd, const struct iovec* iov, const Context& ctx) {
-        struct msghdr msg {};
+    sockaddr_un local_sockaddr;
+    sockaddr_un target_sockaddr;
+};
 
-        msg.msg_name    = const_cast<sockaddr*>(reinterpret_cast<const sockaddr*>(&ctx.remote_addr));
-        msg.msg_namelen = ctx.addr_len;
-        msg.msg_iov     = const_cast<struct iovec*>(iov);
-        msg.msg_iovlen  = 2;
+// --- POLICY 3: UNIX DOMAIN STREAM ---
+class SocketStreamPathPolicy {
+ public:
+    using Context = SocketStreamPathContext;
 
-        return ::sendmsg(fd, &msg, 0);
+    static int init(Context& ctx, IoMode mode) {
+        int fd = -1;
+        // Critical: receiver::listen before transmiter::connect
+        if (mode == IoMode::Receiver) {
+            fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+            if (fd == -1) {
+                throw std::runtime_error("Unix STREAM Receiver Socket creation failed");
+            }
+
+            std::memset(&ctx.local_sockaddr, 0, sizeof(ctx.local_sockaddr));
+            ctx.local_sockaddr.sun_family = AF_UNIX;
+            std::strncpy(ctx.local_sockaddr.sun_path, ctx.local_path.c_str(), sizeof(ctx.local_sockaddr.sun_path) - 1);
+
+            ::unlink(ctx.local_path.c_str());
+            ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
+
+            ::listen(fd, 5);
+            std::cout << "[Policy Unix STREAM] Generated Receiver FD and started listening: " << fd << std::endl;
+        } else if (mode == IoMode::Transmiter) {
+            fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+            if (fd == -1) {
+                throw std::runtime_error("Unix STREAM Transmitter Socket creation failed");
+            }
+
+            std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
+            ctx.target_sockaddr.sun_family = AF_UNIX;
+            std::strncpy(ctx.target_sockaddr.sun_path, ctx.target_path.c_str(),
+                         sizeof(ctx.target_sockaddr.sun_path) - 1);
+
+            ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
+            std::cout << "[Policy Unix STREAM] Generated Transmitter FD and connected: " << fd << std::endl;
+        }
+
+        return fd;
     }
 
-    // Executes specialized atomic message peek to extract trailing boundaries
-    static ssize_t peek_header(int fd, PacketHeader& header, sockaddr_storage& addr, socklen_t& len) {
-        return ::recvfrom(fd, &header, sizeof(PacketHeader), MSG_PEEK, reinterpret_cast<sockaddr*>(&addr), &len);
-    }
-    // Pulls the finalized scatter-gather layout out from the system buffer rings
-    static ssize_t read_vector_msg(int fd, struct msghdr& msg) { return ::recvmsg(fd, &msg, 0); }
+    static ssize_t write_vector(int tx_fd, const struct iovec* iov, int count) { return ::writev(tx_fd, iov, count); }
 
-    // Update inside UnixDomainDgramPolicy
-    static bool prepare_context_asset(int fd, const Context& ctx) {
-        if (fd < 0 || ctx.path.empty()) return false;
+    static ssize_t read_vector(int rx_fd, struct iovec* iov, int count) { return ::readv(rx_fd, iov, count); }
 
-        struct sockaddr_un addr {};
-        addr.sun_family = AF_UNIX;
-        std::strncpy(addr.sun_path, ctx.path.c_str(), sizeof(addr.sun_path) - 1);
+    static void cleanup(const Context& ctx) { ::unlink(ctx.local_path.c_str()); }
 
-        return ::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) >= 0;
+    static void close(int fd, const Context& ctx) {
+        if (fd >= 0) {
+            ::close(fd);
+            cleanup(ctx);
+        }
     }
 };
 
@@ -376,7 +388,18 @@ struct PipePolicy {
     static ssize_t read(int fd, void* buf, size_t count) { return ::read(fd, buf, count); }
 
     // Works perfectly for Pipes! Prevents pipe buffer fragmentation natively
-    static ssize_t write_vector(int fd, const struct iovec* iov, const Context& ctx) { return ::writev(fd, iov, 2); }
+    static ssize_t write_vector(int fd, const struct iovec* iov, int f) { return ::writev(fd, iov, f); }
+
+    /**
+     * @brief Direct stream scatter-gather read execution optimized for Unix Pipes.
+     * @note Pipes transfer data as a continuous byte stream without boundary encapsulation
+     *       or source routing headers, making raw iovec memory binding the most efficient path.
+     * @param rx_fd The active read end of the pipe file descriptor.
+     * @param iov Pointer to the scatter-gather layout arrays.
+     * @param count Total number of memory buffers registered inside the iovec array.
+     * @return ssize_t Total bytes retrieved from the pipe buffer on success, 0 on EOF, or -1 on system failure.
+     */
+    static ssize_t read_vector(int rx_fd, struct iovec* iov, int count) noexcept { return ::readv(rx_fd, iov, count); }
 
     static const bool prepare_context_asset(const Context& ctx) {
         ::unlink(ctx.path.c_str());  // Evict preexisting stale files

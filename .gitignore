@@ -8,3 +8,4 @@ __pycache__/
 my_manim_project/
 *.webm
 *.backup
+socket_v2

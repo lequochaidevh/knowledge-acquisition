@@ -1,5 +1,6 @@
 #pragma once
 #include "ipc_metadata.h"
+#include "sfd/smart_file_descriptor.h"
 
 namespace HarisLinux {
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
@@ -52,14 +53,36 @@ class IPCSenderBase {
         iov[1].iov_base = const_cast<uint8_t*>(payload_ptr);
         iov[1].iov_len  = payload_size;
 
-        // Secure session allocation under fine-grained registry lock protection
-        auto session = _shared_fd.lock();
+        auto   session              = _shared_fd.lock();
+        int    target_fd            = session.get_fd();
+        size_t total_bytes_expected = sizeof(PacketHeader) + payload_size;
 
-        size_t total_bytes = sizeof(PacketHeader) + payload_size;
-        // Execute the exact optimized system call at compile-time!
-        ssize_t sent = Policy::write_vector(session.get_fd(), iov, _shared_fd.get_context());
+        if constexpr (std::is_same_v<Policy, SocketStreamPathPolicy> || std::is_same_v<Policy, SocketDgramPathPolicy> ||
+                      std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, FilePolicy>) {
+            // --- STREAM CORRIDOR: Direct vector write ---
+            ssize_t sent = Policy::write_vector(target_fd, iov, (payload_size > 0) ? 2 : 1);
+            return sent == static_cast<ssize_t>(total_bytes_expected);
 
-        return sent == static_cast<ssize_t>(total_bytes);
+        } else if constexpr (std::is_same_v<Policy, SocketDgramPathPolicy> ||
+                             std::is_same_v<Policy, SocketDgramIPv4Context> ||
+                             std::is_same_v<Policy, UdpLocalhostPolicy>) {
+            // --- DATAGRAM CORRIDOR: Vector mapping via msghdr and sendmsg ---
+            // Pull the pre-configured remote destination address out of your context
+            auto& ctx = _shared_fd.get_context();
+
+            struct msghdr msg {};
+            msg.msg_name    = reinterpret_cast<sockaddr*>(&ctx.remote_addr);
+            msg.msg_namelen = ctx.addr_len;
+            msg.msg_iov     = iov;
+            msg.msg_iovlen  = (payload_size > 0) ? 2 : 1;
+
+            ssize_t sent = Policy::write_vector(target_fd, msg);
+            return sent == static_cast<ssize_t>(total_bytes_expected);
+
+        } else {
+            static_assert(sizeof(Policy) == 0, "Unsupported compile-time execution for IPC Sender!");
+            return false;
+        }
     }
 };
 

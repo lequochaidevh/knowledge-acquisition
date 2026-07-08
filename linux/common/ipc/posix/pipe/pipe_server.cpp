@@ -6,11 +6,15 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
       PosixPipe<Ipc::Server>(path, modes) {
     INIT_LOGGER("PipeServer");
     logger->setLevel(LogLevel::Trace);
-
-    UniqueFileDescriptor::create_fifo_direction(_upstream_path);
-    if (_modes & Ipc::Server::Feedback) {
-        UniqueFileDescriptor::create_fifo_direction(_downstream_path);
+    {
+        PipeContext pipe_main_ctx{_upstream_path};
+        SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_main_ctx);
     }
+    {
+        PipeContext pipe_ctx{_downstream_path};
+        SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_ctx);
+    }
+
     HARIS_LOG_INFO("Request Pipe available...");
 }
 
@@ -30,7 +34,7 @@ bool PipeServer::accept_client() {
     HARIS_LOG_INFO("Open Request Pipe, wait any client request");
 
     // Block wait command from client
-    UniqueFileDescriptor req_read_smart(open(_upstream_path.c_str(), O_RDONLY), FileType::Generic);
+    SharedFileDescription<PipePolicy> req_read_smart(open(_upstream_path.c_str(), O_RDONLY));
     HARIS_LOG_INFO("Get req_read_fd : {} ", req_read_smart.get());
 
     SharedFileDescription<PipePolicy> req_write_smart;
@@ -41,7 +45,7 @@ bool PipeServer::accept_client() {
 
     PacketHeader         header;
     std::vector<uint8_t> data;
-    bool                 is_new = receive_packet(req_read_smart.get(), header, data);
+    bool                 is_new = receive_packet(req_read_smart, header, data);
 
     // Read data from client request
     if (is_new) {
@@ -93,9 +97,12 @@ bool PipeServer::accept_client() {
             std::string dynamic_main_path = "/tmp/pipe_" + client_id;
             std::string dynamic_fb_path   = dynamic_main_path + "_fb";
 
-            UniqueFileDescriptor::create_fifo_direction(dynamic_main_path);
             {
-                PipeContext pipe_ctx{dynamic_fb_path};
+                PipeContext pipe_main_ctx{dynamic_fb_path};
+                SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_main_ctx);
+            }
+            {
+                PipeContext pipe_ctx{dynamic_main_path};
                 SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_ctx);
             }
 
@@ -106,14 +113,13 @@ bool PipeServer::accept_client() {
             }
 
             // Acquire client dedicated stream assets securely using our automated factory methods
-            UniqueFileDescriptor smart_read_fd =  //
-                UniqueFileDescriptor::create_fifo_fd(dynamic_main_path, O_RDONLY | O_NONBLOCK);
+
+            SharedFileDescription<PipePolicy>  //
+                smart_read_fd(open(dynamic_main_path.c_str(), O_RDONLY | O_NONBLOCK));
             // block
             HARIS_LOG_DEBUG("1 Wait client join the /tmp/pipe_{} pipe ...", client_id);
-            SharedFileDescription<PipePolicy> smart_write_fd(open(dynamic_fb_path.c_str(), O_WRONLY));  //
-
-            // Explicit Resource Refresh: Assign empty envelopes to trigger instant cleanup of request channels
-            req_read_smart = UniqueFileDescriptor();
+            SharedFileDescription<PipePolicy>                             //
+                smart_write_fd(open(dynamic_fb_path.c_str(), O_WRONLY));  //
 
             // 4. Open new pipe (server - client_id)
             HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
@@ -137,15 +143,15 @@ bool PipeServer::accept_client() {
     return false;
 }
 
-void PipeServer::process_client_packet(const std::string& client_id, int read_fd,
+void PipeServer::process_client_packet(const std::string& client_id, SharedFileDescription<PipePolicy>& proxy_read_fd,
                                        SharedFileDescription<PipePolicy>& proxy_write_fd) {
     PacketHeader         header;
     std::vector<uint8_t> data;
 
-    HARIS_LOG_DEBUG("=== read_fd === [{}] ", read_fd);
+    HARIS_LOG_DEBUG("=== read_fd === [{}] ", proxy_read_fd.get());
 
     // 1. Extract packet header and payload
-    if (receive_packet(read_fd, header, data)) {
+    if (receive_packet(proxy_read_fd, header, data)) {
         monitor_throughput(header.timestamp_ms);
 
         // 2. Validate payload size
@@ -212,11 +218,13 @@ void PipeServer::dispatch_events() {
                     int         read_fd   = poll_fds[i].fd;
 
                     SharedFileDescription<PipePolicy> proxy_write_fd;
+                    SharedFileDescription<PipePolicy> proxy_read_fd;
 
                     // Retrieve write_fd safely from registry
                     {
                         std::lock_guard<std::mutex> lock(_client_registry_mutex);
                         if (_client_registry.find(client_id) != _client_registry.end()) {
+                            proxy_read_fd  = _client_registry[client_id].first;
                             proxy_write_fd = _client_registry[client_id].second;
                         }
                     }
@@ -226,7 +234,7 @@ void PipeServer::dispatch_events() {
                         static uint32_t counter = 0;
                         counter++;
                         HARIS_LOG_TRACE("Client ID: {} - counter {} ", client_id, counter);
-                        process_client_packet(client_id, read_fd, proxy_write_fd);
+                        process_client_packet(client_id, proxy_read_fd, proxy_write_fd);
                     }
                 }
 

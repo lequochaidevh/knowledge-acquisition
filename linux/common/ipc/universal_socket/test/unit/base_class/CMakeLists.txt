@@ -13,11 +13,10 @@ enable_testing()
 register_gtest_target(sandbox
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
-        "${BASE_SOURCE_PATH}/ipc/unix/socket/*.cpp"
     INCLUDES
-        "${BASE_SOURCE_PATH}/"
         "${BASE_SOURCE_PATH}/ipc/"
-        "${BASE_SOURCE_PATH}/ipc/unix/socket/"
+        "${BASE_SOURCE_PATH}/ipc/socket/"
+        "${BASE_SOURCE_PATH}/"
     LIBRARIES
         Threads::Threads
         fmt::fmt

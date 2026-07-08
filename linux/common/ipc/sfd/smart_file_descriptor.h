@@ -96,22 +96,8 @@ class SharedFileDescription {
     // Completely eliminates ambiguity with copy/move/conversion constructors
     template <typename... Args>
     explicit SharedFileDescription(LinuxArgs, Args&&... args) {
-        // Compile-time routing based strictly on the Policy type
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
-
-        } else if constexpr (std::is_same_v<Policy, UnixDomainStreamPolicy>  //
-                             || std::is_same_v<Policy, UnixDomainDgramPolicy>) {
-            // If the user mistakenly passed 'ctx' inside the variadic args pack,
-            // we isolate and handle the raw system parameters directly to prevent forwarding objects to ::socket()
-            if constexpr (sizeof...(args) == 4) {
-                // Scenario: (LinuxArgs{}, ctx, domain, type, protocol) -> Extract the system flags cleanly
-                _fd = Policy::open_receiver_with_forwarded_ctx(_ctx, std::forward<Args>(args)...);
-            } else {
-                // Scenario: Standard inline construction (LinuxArgs{}, path, domain, type, protocol)
-                _fd = Policy::open_receiver(_ctx, std::forward<Args>(args)...);
-            }
-
         } else {
             _fd = Policy::open(std::forward<Args>(args)...);
         }

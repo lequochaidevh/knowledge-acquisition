@@ -24,19 +24,7 @@ class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
         : HarisLinux::PosixPipe<Modes>(path, modes) {}
 
     // Pull the protected modifier methods into public scope
-    UniqueFileDescriptor test_set_read_fd(int read_fd) {
-        // if (read_fd < 0) return;
-
-        /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamReceiver::_unique_fd);
-
-        /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(read_fd, FileType::Pipe);
-        StreamReceiver::_unique_fd = std::move(unique_fd);
-
-        /* Step 3: store smart fd */
-        return std::move(store_main_fd);
-    }
+    bool test_set_read_fd(int read_fd) { return this->set_read_sfd(read_fd); }
     bool test_set_write_sfd(int write_fd) { return this->set_write_sfd(write_fd); }
 
     // Pull the protected data transmission methods into public scope
@@ -139,21 +127,21 @@ TEST_F(IPCPosixPipeTest, VerifyNamedPipeTransmissionE2E) {
     PacketHeader         header;
     std::vector<uint8_t> payload;
 
+    SharedFileDescription<PipePolicy> shared_proxy = pipe_receiver.get_read_sfd();
+
     // Phase 1 Validation: Verify incoming numeric type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(pipe_receiver.get_read_fd(), header, payload))
-        << "Failed to receive numeric payload";
+    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload)) << "Failed to receive numeric payload";
     EXPECT_EQ(header.type, DataType::Number);
     EXPECT_EQ(*reinterpret_cast<int*>(payload.data()), 2026);
 
     // Phase 2 Validation: Verify incoming string type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(pipe_receiver.get_read_fd(), header, payload))
-        << "Failed to receive textual payload";
+    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload)) << "Failed to receive textual payload";
     EXPECT_EQ(header.type, DataType::Text);
     std::string text(reinterpret_cast<char*>(payload.data()), header.payload_size);
     EXPECT_EQ(text, "HarisLinux Pipe CRTP Engine Running!");
 
     // Phase 3 Validation: Verify incoming structured blob type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(pipe_receiver.get_read_fd(), header, payload))
+    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload))
         << "Failed to receive custom structured payload";
     EXPECT_EQ(header.type, DataType::Custom);
     SensorPayload* received_struct = reinterpret_cast<SensorPayload*>(payload.data());

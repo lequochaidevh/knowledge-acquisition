@@ -25,7 +25,7 @@ void PipeClient::check_feedback() {
     if (_modes.missing(Ipc::Client::CheckLose)) return;
     PacketHeader         fb_header;
     std::vector<uint8_t> fb_data;
-    if (receive_packet(_read_fd, fb_header, fb_data)) {
+    if (receive_packet(_read_share_fd, fb_header, fb_data)) {
         if (fb_header.sequence_id != _current_seq) {
             HARIS_LOG_DEBUG(
                 "Data Lost Detected! Expected Seq: {} "
@@ -42,7 +42,7 @@ bool PipeClient::request_and_switch_main_pipe() {
     _downstream_path = _old_upstream_path + "_fb";
 
     // _write_share_fd.reset();
-    if (_read_fd != -1) close(_read_fd);
+    // if (_read_share_fd != -1) close(_read_share_fd);
 
     HARIS_LOG_DEBUG(
         "Request with old main pipe: "
@@ -62,7 +62,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
     _write_share_fd = SharedFileDescription<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
 
     if (_modes & Ipc::Client::CheckLose) {
-        _read_fd = open(_downstream_path.c_str(), O_RDONLY);
+        _read_share_fd = SharedFileDescription<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
     }
 
     // Prepare Payload
@@ -83,7 +83,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
     if (_modes & Ipc::Client::CheckLose) {
         PacketHeader         fb_header;
         std::vector<uint8_t> fb_payload;
-        if (receive_packet(_read_fd, fb_header, fb_payload)) {
+        if (receive_packet(_read_share_fd, fb_header, fb_payload)) {
             std::string_view ack_status(reinterpret_cast<const char*>(fb_payload.data()), fb_payload.size());
             if (ack_status == "REJECTED") {  // when command = 1
                 HARIS_LOG_ERROR(
@@ -91,7 +91,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                     "have existed in Server ! Reject to connection ...",
                     _client_id);
                 // _write_share_fd.reset();
-                if (_read_fd != -1) close(_read_fd);
+                // if (_read_share_fd) close(_read_share_fd);
                 throw "Request failed";
                 // return false;
             } else if (ack_status == "REMOVED") {
@@ -106,7 +106,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                     _client_id);
                 // Close request_pipe fd
                 // _write_share_fd.reset();
-                if (_read_fd != -1) close(_read_fd);
+                // if (_read_share_fd != -1) close(_read_share_fd);
 
                 // Update to new pipe
                 _upstream_path   = "/tmp/pipe_" + _client_id;
@@ -114,7 +114,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
 
                 // Connect to new pipe
                 _write_share_fd = SharedFileDescription<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
-                _read_fd        = open(_downstream_path.c_str(), O_RDONLY);
+                _read_share_fd  = SharedFileDescription<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
                 HARIS_LOG_DEBUG(
                     "The client id: [{}] "
                     "Switch to new pipe successfully!",
@@ -124,7 +124,7 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         }
     }
     // _write_share_fd.reset();
-    if (_read_fd != -1) close(_read_fd);
+    // if (_read_share_fd != -1) close(_read_share_fd);
     return false;
 }
 

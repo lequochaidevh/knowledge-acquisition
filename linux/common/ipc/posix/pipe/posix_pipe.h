@@ -10,18 +10,28 @@
 namespace HarisLinux {
 
 template <typename Modes>
-class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
+class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipePolicy> {
  private:
     DECLARE_LOGGER;
 
-    std::mutex _send_packet_mutex;
-    std::mutex _read_packet_mutex;
-
  public:
+    // TODO REMOVED
     /** @brief Get fd with int for Linux API*/
-    int const get_read_fd() const { return StreamReceiver::_unique_fd.get(); }
+    SharedFileDescription<PipePolicy> const get_read_sfd() const  //
+    {
+        return IPCSenderBase<PipePolicy>::_shared_fd;
+    }
 
-    SharedFileDescription<PipePolicy> const get_write_sfd() const { return _shared_fd; }
+    SharedFileDescription<PipePolicy> const get_write_sfd() const {  //
+        return IPCSenderBase<PipePolicy>::_shared_fd;
+    }
+
+    bool set_read_sfd(int read_fd) {
+        SharedFileDescription<PipePolicy> shared_proxy;
+        shared_proxy                          = SharedFileDescription<PipePolicy>(read_fd);
+        IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
+        return true;
+    }
 
     bool set_write_sfd(int write_fd) {
         SharedFileDescription<PipePolicy> shared_proxy;
@@ -52,7 +62,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
      */
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
         : IPCSenderBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
-          StreamReceiver(UniqueFileDescriptor(-1, FileType::Pipe)),
+          IPCReceiverBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
@@ -87,10 +97,10 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
             HARIS_LOG_CRITICAL("Invalid share posix fd");
             return false;
         }
-        SharedFileDescription<PipePolicy> temporary = _shared_fd;
-        _shared_fd                                  = shared_proxy_fd;
+        SharedFileDescription<PipePolicy> temporary = IPCSenderBase<PipePolicy>::_shared_fd;
+        IPCSenderBase<PipePolicy>::_shared_fd       = shared_proxy_fd;
         bool result                                 = this->template send_packet<T>(type, data, seq);
-        _shared_fd                                  = temporary;
+        IPCSenderBase<PipePolicy>::_shared_fd       = temporary;
         return result;
     }
 
@@ -105,25 +115,16 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public StreamReceiver {
     bool receive_packet(PacketHeader& header, std::vector<uint8_t>& payload);
 
     // Adapt function : todo remove it
-    bool receive_packet(int read_fd, PacketHeader& header, std::vector<uint8_t>& payload) {
-        if (read_fd < 0) return false;
-
-        std::lock_guard<std::mutex> lock(_read_packet_mutex);
-
-        /* Step 1: store main write fd before */
-        UniqueFileDescriptor store_main_fd = std::move(StreamReceiver::_unique_fd);
-
-        /* Step 2: Covert raw fd to smart fd */
-        UniqueFileDescriptor unique_fd(read_fd, FileType::Pipe);
-        StreamReceiver::_unique_fd = std::move(unique_fd);
-
-        /* Step 3: Send data with smart fd */
-        bool result = receive_packet(header, payload);
-        if (!result) HARIS_LOG_ERROR("Got packet failed");
-        /* Step 4: Release to not ::close raw read_fd */
-        read_fd                    = StreamReceiver::_unique_fd.release();
-        StreamReceiver::_unique_fd = std::move(store_main_fd);
-
+    bool receive_packet(SharedFileDescription<PipePolicy>& shared_proxy_fd, PacketHeader& header,
+                        std::vector<uint8_t>& payload) {
+        if (!shared_proxy_fd) {
+            HARIS_LOG_CRITICAL("Invalid share posix fd");
+            return false;
+        }
+        SharedFileDescription<PipePolicy> temporary = IPCReceiverBase<PipePolicy>::_shared_fd;
+        IPCReceiverBase<PipePolicy>::_shared_fd     = shared_proxy_fd;
+        bool result                                 = this->receive_packet(header, payload);
+        IPCReceiverBase<PipePolicy>::_shared_fd     = temporary;
         return result;
     }
 };  // namespace HarisLinux

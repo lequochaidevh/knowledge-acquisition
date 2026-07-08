@@ -1,11 +1,11 @@
 #pragma once
 #include "std17pch.h"
-#include "sfd/smart_file_descriptor.h"
-#include "helper/fd_manager.h"
 
 namespace HarisLinux {
 
 enum class DataType : uint8_t { Number, Text, Command, Media, Heartbeat, Custom };
+
+enum class IoMode : uint8_t { Receiver, Transmiter };
 
 inline uint64_t get_current_timestamp_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
