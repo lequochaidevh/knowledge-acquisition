@@ -13,7 +13,7 @@ namespace HarisLinux {
  * @tparam Policy Compile-time protocol selector routing static system behaviors.
  */
 template <typename Modes, typename Policy>
-class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiver<Policy> {
+class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Policy> {
  private:
     // Automatically extracts the concrete context type associated with the Policy at compile-time!
     typename Policy::Context _ctx;
@@ -33,8 +33,8 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiver<Policy>
           _rx_fd(Policy::init(_ctx, IoMode::Receiver)),  // Init receiver before transmiter
           _tx_fd(Policy::init(_ctx, IoMode::Transmiter)) {
         // Fire background thread worker tasks
-        IPCReceiver<Policy>::_shared_fd   = SharedFileDescription<Policy>(_rx_fd);
-        IPCSenderBase<Policy>::_shared_fd = SharedFileDescription<Policy>(_tx_fd);
+        IPCReceiverBase<Policy>::_shared_fd = SharedFileDescription<Policy>(_rx_fd);
+        IPCSenderBase<Policy>::_shared_fd   = SharedFileDescription<Policy>(_tx_fd);
         INIT_LOGGER("UnixSocket");
         logger->setLevel(LogLevel::Trace);
     }
@@ -57,8 +57,8 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiver<Policy>
         std::cout << "[UniversalSocket] Scope closed cleanly. Resources completely recycled.\n";
     }
     bool receive_packet(PacketHeader& header, std::vector<uint8_t>& payload_output) const {
-        // Directly route to IPCReceiver core atomic reading mechanisms
-        bool result = IPCReceiver<Policy>::receive(header, payload_output);
+        // Directly route to IPCReceiverBase core atomic reading mechanisms
+        bool result = IPCReceiverBase<Policy>::receive(header, payload_output);
 
         if (!result) HARIS_LOG_ERROR("Got packet failed");
 

@@ -78,6 +78,10 @@ struct SocketDgramIPv4Context {
     // Runtime cache for compiled network layouts
     sockaddr_in local_sockaddr;
     sockaddr_in target_sockaddr;
+
+    // Internal persistent storage blocks tracked safely on class layout levels for Datagrams
+    sockaddr_storage remote_addr{};
+    socklen_t        addr_len = sizeof(sockaddr_storage);
 };
 // --- POLICY 1: IPv4 DGRAM ---
 class SocketDgramIPv4Policy {
@@ -102,6 +106,10 @@ class SocketDgramIPv4Policy {
             ctx.target_sockaddr.sin_port   = htons(ctx.target_port);
             ::inet_pton(AF_INET, ctx.target_ip.c_str(), &ctx.target_sockaddr.sin_addr);
             ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
+
+            std::memset(&ctx.remote_addr, 0, sizeof(ctx.remote_addr));
+            std::memcpy(&ctx.remote_addr, &ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
+            ctx.addr_len = sizeof(sockaddr_in);
         }
 
         return fd;
@@ -116,8 +124,9 @@ class SocketDgramIPv4Policy {
      * @param out_addr_len Length descriptor, updated by the kernel to reflect actual address bytes written.
      * @return ssize_t Total bytes peeked on success, or -1 on system call failure.
      */
-    static ssize_t peek_header(int active_fd, PacketHeader& out_header, sockaddr_storage& out_remote_addr,
-                               socklen_t& out_addr_len) noexcept {
+    static ssize_t peek_header(int active_fd, PacketHeader& out_header,  //
+                               sockaddr_storage& out_remote_addr,        //
+                               socklen_t&        out_addr_len) noexcept {
         // Zero-out the address storage to prevent stale data corruption or memory leaks
         ::memset(&out_remote_addr, 0, sizeof(sockaddr_storage));
 
@@ -133,6 +142,10 @@ class SocketDgramIPv4Policy {
     }
 
     static ssize_t write_vector(int tx_fd, const struct iovec* iov, int count) { return ::writev(tx_fd, iov, count); }
+    static ssize_t write_vector(int tx_fd, struct msghdr& msg, int flags = 0)  //
+    {
+        return ::sendmsg(tx_fd, &msg, flags);
+    }
 
     /**
      * @brief Executes an atomic scatter-gather read operation using POSIX message structures.
@@ -230,7 +243,10 @@ class SocketDgramPathPolicy {
      * @param msg Reference to the system message container configuring destination buffers and remote address space.
      * @return ssize_t The exact total byte count received on success, or -1 on system call failure.
      */
-    static ssize_t read_vector(int rx_fd, struct msghdr& msg) noexcept { return ::recvmsg(rx_fd, &msg, 0); }
+    static ssize_t read_vector(int rx_fd, struct msghdr& msg) noexcept  //
+    {
+        return ::recvmsg(rx_fd, &msg, 0);
+    }
 
     static void cleanup(const Context& ctx) { ::unlink(ctx.local_path.c_str()); }
 
@@ -292,7 +308,7 @@ class SocketStreamPathPolicy {
 
     static ssize_t write_vector(int tx_fd, const struct iovec* iov, int count) { return ::writev(tx_fd, iov, count); }
 
-    static ssize_t read_vector(int rx_fd, struct iovec* iov, int count) { return ::readv(rx_fd, iov, count); }
+    static ssize_t read_vector(int rx_fd, const struct iovec* iov, int count) { return ::readv(rx_fd, iov, count); }
 
     static void cleanup(const Context& ctx) { ::unlink(ctx.local_path.c_str()); }
 
@@ -393,7 +409,9 @@ struct PipePolicy {
      * @param count Total number of memory buffers registered inside the iovec array.
      * @return ssize_t Total bytes retrieved from the pipe buffer on success, 0 on EOF, or -1 on system failure.
      */
-    static ssize_t read_vector(int rx_fd, struct iovec* iov, int count) noexcept { return ::readv(rx_fd, iov, count); }
+    static ssize_t read_vector(int rx_fd, const struct iovec* iov, int count) noexcept {
+        return ::readv(rx_fd, iov, count);
+    }
 
     static const bool setup_communication(const Context& ctx) {
         ::unlink(ctx.path.c_str());  // Evict preexisting stale files

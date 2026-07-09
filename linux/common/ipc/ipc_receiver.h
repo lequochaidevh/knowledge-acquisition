@@ -23,21 +23,19 @@ class IPCReceiverBase {
     bool receive(PacketHeader& out_header, std::vector<uint8_t>& out_payload) const {
         if (!_shared_fd) return false;
 
-        // Secure locking session assignment - thread-safe read pipeline isolation
-        auto session = _shared_fd.lock();
-        // todo: will add read to session
-        int active_fd = session.get_fd();
-
         // COMPILE-TIME ROUTING ENGINE: Completely replaces the old child classes!
-        if constexpr (std::is_same_v<Policy, SocketStreamPathPolicy> || std::is_same_v<Policy, PipePolicy> ||
-                      std::is_same_v<Policy, FilePolicy>) {
+        if constexpr (std::is_same_v<Policy, SocketStreamPathPolicy>  //
+                      || std::is_same_v<Policy, PipePolicy>           //
+                      || std::is_same_v<Policy, FilePolicy>) {
             // --- STREAM CORRIDOR: Correctly using Scatter-Gather vector interface for Header ---
             struct iovec header_iov[1];
             header_iov[0].iov_base = &out_header;
             header_iov[0].iov_len  = sizeof(PacketHeader);
 
+            // Secure locking session assignment - thread-safe read pipeline isolation
+            auto session = _shared_fd.lock();
             // Call the exact system interface (readv) matching your Policy signature
-            ssize_t header_bytes = Policy::read_vector(active_fd, header_iov, 1);
+            ssize_t header_bytes = session.read_vector(header_iov, 1);
             if (header_bytes != static_cast<ssize_t>(sizeof(PacketHeader))) {
                 return false;  // Connection closed or incomplete header
             }
@@ -50,18 +48,20 @@ class IPCReceiverBase {
                 payload_iov[0].iov_base = out_payload.data();
                 payload_iov[0].iov_len  = out_header.payload_size;
 
-                ssize_t payload_bytes = Policy::read_vector(active_fd, payload_iov, 1);
+                ssize_t payload_bytes = session.read_vector(payload_iov, 1);
                 return payload_bytes == static_cast<ssize_t>(out_header.payload_size);
             }
             return true;
-        } else if constexpr (std::is_same_v<Policy, SocketDgramIPv4Context> ||  //
+        } else if constexpr (std::is_same_v<Policy, SocketDgramIPv4Policy> ||  //
                              std::is_same_v<Policy, SocketDgramPathPolicy> ||
                              std::is_same_v<Policy, UdpLocalhostPolicy>) {
             // --- DATAGRAM CORRIDOR: Atomic vector processing using MSG_PEEK + recvmsg ---
             _addr_len = sizeof(_remote_addr);
 
             PacketHeader peek_header;
-            ssize_t      peek_bytes = Policy::peek_header(active_fd, peek_header, _remote_addr, _addr_len);
+            // Secure locking session assignment - thread-safe read pipeline isolation
+            auto    session    = _shared_fd.lock();
+            ssize_t peek_bytes = session.peek_header(peek_header, _remote_addr, _addr_len);
             if (peek_bytes < static_cast<ssize_t>(sizeof(PacketHeader))) {
                 return false;
             }
@@ -82,7 +82,7 @@ class IPCReceiverBase {
             msg.msg_iovlen  = (peek_header.payload_size > 0) ? 2 : 1;
 
             size_t  total_expected = sizeof(PacketHeader) + peek_header.payload_size;
-            ssize_t received_bytes = Policy::read_vector(active_fd, msg);
+            ssize_t received_bytes = session.read_vector(msg);
 
             return received_bytes == static_cast<ssize_t>(total_expected);
         } else {

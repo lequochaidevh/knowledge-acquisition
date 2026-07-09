@@ -88,7 +88,7 @@ TEST_F(UniversalSocketTest, DgramPathPolicy_POD_Struct_Transmission) {
     // Instantiate standard fixed-size payload layout to hit the 'is_arithmetic / custom' compiler branch
     IPCRequestPayload request;
     std::memset(request.client_id, 0, sizeof(request.client_id));
-    std::strncpy(request.client_id, "client_pipeline_node_A", sizeof(request.client_id) - 1);
+    std::strncpy(request.client_id, "SocketDgramPathContext", sizeof(request.client_id) - 1);
     request.command = 1;
     struct iovec iov_struct;
     iov_struct.iov_base = &request;
@@ -143,5 +143,67 @@ TEST_F(UniversalSocketTest, DgramPathPolicy_Zero_Length_Payload_Signaling) {
     ASSERT_TRUE(recv_status);
 
     EXPECT_EQ(received_header.payload_size, 0);
+    EXPECT_TRUE(received_payload.empty());
+}
+
+// ============================================================================
+// TEST CASE 4:
+// ============================================================================
+TEST_F(UniversalSocketTest, DgramIPv4Policy_Payload_Signaling) {
+    std::string host_ip{"127.0.0.1"};
+    uint16_t    upstream_port   = 1111;
+    uint16_t    downstream_port = 2222;
+
+    HarisLinux::SocketDgramIPv4Context server_ctx;
+    server_ctx.local_ip    = host_ip;
+    server_ctx.local_port  = upstream_port;
+    server_ctx.target_ip   = host_ip;
+    server_ctx.target_port = downstream_port;
+
+    HarisLinux::SocketDgramIPv4Context client_ctx;
+    client_ctx.local_ip    = host_ip;
+    client_ctx.local_port  = downstream_port;
+    client_ctx.target_ip   = host_ip;
+    client_ctx.target_port = upstream_port;
+
+    UniversalSocket<void, SocketDgramIPv4Policy> server_node(server_ctx);
+    UniversalSocket<void, SocketDgramIPv4Policy> client_node(client_ctx);
+
+    // Testing dynamic optimization branch when iov_len = 1 (Header only)
+    std::string dummy_data = "Dummy";
+
+    bool send_status = client_node.send_packet(DataType::Text, dummy_data, 777);
+    ASSERT_TRUE(send_status);
+
+    PacketHeader         received_header{};
+    std::vector<uint8_t> received_payload;
+
+    bool recv_status = server_node.receive_packet(received_header, received_payload);
+    ASSERT_TRUE(recv_status);
+
+    EXPECT_EQ(received_header.payload_size, dummy_data.size());
+    EXPECT_FALSE(received_payload.empty());
+    /////////
+
+    std::string data_append{" data append"};
+
+    send_status = server_node.send_packet(DataType::Text, dummy_data + data_append, 777);
+    ASSERT_TRUE(send_status);
+
+    recv_status = client_node.receive_packet(received_header, received_payload);
+    ASSERT_TRUE(recv_status);
+
+    EXPECT_EQ(received_header.payload_size, dummy_data.size() + data_append.size());
+    EXPECT_FALSE(received_payload.empty());
+
+    ///////////////////
+    dummy_data.clear();
+    send_status = server_node.send_packet(DataType::Text, dummy_data, 777);
+    ASSERT_TRUE(send_status);
+
+    recv_status = client_node.receive_packet(received_header, received_payload);
+    ASSERT_TRUE(recv_status);
+
+    EXPECT_EQ(received_header.payload_size, dummy_data.size());
     EXPECT_TRUE(received_payload.empty());
 }

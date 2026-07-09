@@ -60,23 +60,24 @@ class IPCSenderBase {
         if constexpr (std::is_same_v<Policy, SocketStreamPathPolicy> || std::is_same_v<Policy, SocketDgramPathPolicy> ||
                       std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, FilePolicy>) {
             // --- STREAM CORRIDOR: Direct vector write ---
-            ssize_t sent = Policy::write_vector(target_fd, iov, (payload_size > 0) ? 2 : 1);
+            ssize_t sent = session.write_vector(iov, (payload_size > 0) ? 2 : 1);
             return sent == static_cast<ssize_t>(total_bytes_expected);
 
-        } else if constexpr (std::is_same_v<Policy, SocketDgramPathPolicy> ||
-                             std::is_same_v<Policy, SocketDgramIPv4Context> ||
+        } else if constexpr (std::is_same_v<Policy, SocketDgramIPv4Policy> ||
                              std::is_same_v<Policy, UdpLocalhostPolicy>) {
             // --- DATAGRAM CORRIDOR: Vector mapping via msghdr and sendmsg ---
             // Pull the pre-configured remote destination address out of your context
             auto& ctx = _shared_fd.get_context();
 
             struct msghdr msg {};
-            msg.msg_name    = reinterpret_cast<sockaddr*>(&ctx.remote_addr);
-            msg.msg_namelen = ctx.addr_len;
+            // msg.msg_name    = reinterpret_cast<sockaddr*>(const_cast<sockaddr_storage*>(&ctx.remote_addr));
+            // msg.msg_namelen = ctx.addr_len;
+            msg.msg_name    = nullptr;
+            msg.msg_namelen = 0;
             msg.msg_iov     = iov;
             msg.msg_iovlen  = (payload_size > 0) ? 2 : 1;
 
-            ssize_t sent = Policy::write_vector(target_fd, msg);
+            ssize_t sent = session.write_vector(msg);
             return sent == static_cast<ssize_t>(total_bytes_expected);
 
         } else {
