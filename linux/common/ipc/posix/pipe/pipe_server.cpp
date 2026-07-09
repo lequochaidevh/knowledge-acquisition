@@ -8,11 +8,11 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
     logger->setLevel(LogLevel::Trace);
     {
         PipeContext pipe_main_ctx{_upstream_path};
-        SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_main_ctx);
+        SharedFileDescription<PipePolicy>::setup_communication(pipe_main_ctx);
     }
     {
         PipeContext pipe_ctx{_downstream_path};
-        SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_ctx);
+        SharedFileDescription<PipePolicy>::setup_communication(pipe_ctx);
     }
 
     HARIS_LOG_INFO("Request Pipe available...");
@@ -99,11 +99,11 @@ bool PipeServer::accept_client() {
 
             {
                 PipeContext pipe_main_ctx{dynamic_fb_path};
-                SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_main_ctx);
+                SharedFileDescription<PipePolicy>::setup_communication(pipe_main_ctx);
             }
             {
                 PipeContext pipe_ctx{dynamic_main_path};
-                SharedFileDescription<PipePolicy>::prepare_context_asset(pipe_ctx);
+                SharedFileDescription<PipePolicy>::setup_communication(pipe_ctx);
             }
 
             // 2. Send ACK to notify for the client "the pipe have been created successfully"

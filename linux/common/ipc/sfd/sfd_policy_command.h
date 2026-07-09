@@ -31,7 +31,7 @@ struct FilePolicy {
     static ssize_t write_vector(int fd, const struct iovec* iov, const Context&) { return ::writev(fd, iov, 2); }
 
     // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    static bool setup_communication(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -61,7 +61,7 @@ struct SocketPolicy {
     static ssize_t read_flags(int fd, void* buf, size_t count, int flags) { return ::recv(fd, buf, count, flags); }
 
     // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    static bool setup_communication(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -96,14 +96,12 @@ class SocketDgramIPv4Policy {
             ctx.local_sockaddr.sin_port   = htons(ctx.local_port);
             ::inet_pton(AF_INET, ctx.local_ip.c_str(), &ctx.local_sockaddr.sin_addr);
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
-            std::cout << "[Policy IPv4] Generated Receiver FD: " << fd << std::endl;
         } else if (mode == IoMode::Transmiter) {
             std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
             ctx.target_sockaddr.sin_family = AF_INET;
             ctx.target_sockaddr.sin_port   = htons(ctx.target_port);
             ::inet_pton(AF_INET, ctx.target_ip.c_str(), &ctx.target_sockaddr.sin_addr);
             ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
-            std::cout << "[Policy IPv4] Generated Transmitter FD: " << fd << std::endl;
         }
 
         return fd;
@@ -186,14 +184,12 @@ class SocketDgramPathPolicy {
 
             ::unlink(ctx.local_path.c_str());
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
-            std::cout << "[Policy Unix] Generated Receiver FD: " << fd << std::endl;
         } else if (mode == IoMode::Transmiter) {
             std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
             ctx.target_sockaddr.sun_family = AF_UNIX;
             std::strncpy(ctx.target_sockaddr.sun_path, ctx.target_path.c_str(),
                          sizeof(ctx.target_sockaddr.sun_path) - 1);
             ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
-            std::cout << "[Policy Unix] Generated Transmitter FD: " << fd << std::endl;
         }
 
         return fd;
@@ -277,7 +273,6 @@ class SocketStreamPathPolicy {
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
 
             ::listen(fd, 5);
-            std::cout << "[Policy Unix STREAM] Generated Receiver FD and started listening: " << fd << std::endl;
         } else if (mode == IoMode::Transmiter) {
             fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
             if (fd == -1) {
@@ -290,7 +285,6 @@ class SocketStreamPathPolicy {
                          sizeof(ctx.target_sockaddr.sun_path) - 1);
 
             ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
-            std::cout << "[Policy Unix STREAM] Generated Transmitter FD and connected: " << fd << std::endl;
         }
 
         return fd;
@@ -348,7 +342,7 @@ struct UdpLocalhostPolicy {
     static ssize_t read(int fd, void* buf, size_t count) { return ::recvfrom(fd, buf, count, 0, nullptr, nullptr); }
 
     // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    static bool setup_communication(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -388,7 +382,7 @@ struct PipePolicy {
     static ssize_t read(int fd, void* buf, size_t count) { return ::read(fd, buf, count); }
 
     // Works perfectly for Pipes! Prevents pipe buffer fragmentation natively
-    static ssize_t write_vector(int fd, const struct iovec* iov, int f) { return ::writev(fd, iov, f); }
+    static ssize_t write_vector(int fd, const struct iovec* iov, int count) { return ::writev(fd, iov, count); }
 
     /**
      * @brief Direct stream scatter-gather read execution optimized for Unix Pipes.
@@ -401,7 +395,7 @@ struct PipePolicy {
      */
     static ssize_t read_vector(int rx_fd, struct iovec* iov, int count) noexcept { return ::readv(rx_fd, iov, count); }
 
-    static const bool prepare_context_asset(const Context& ctx) {
+    static const bool setup_communication(const Context& ctx) {
         ::unlink(ctx.path.c_str());  // Evict preexisting stale files
         return ::mkfifo(ctx.path.c_str(), 0666) == 0;
     }
@@ -432,7 +426,7 @@ struct EpollPolicy {
     }
 
     // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    static bool setup_communication(const Context& ctx) { return true; }
 };
 
 // ============================================================================
@@ -455,7 +449,7 @@ struct EventFdPolicy {
     static ssize_t fetch_signal(int fd, uint64_t& counter) { return ::read(fd, &counter, sizeof(counter)); }
 
     // todo
-    static bool prepare_context_asset(const Context& ctx) { return true; }
+    static bool setup_communication(const Context& ctx) { return true; }
 };
 
 }  // namespace HarisLinux

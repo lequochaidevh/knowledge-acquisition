@@ -1,6 +1,8 @@
 #pragma once
 #include "std17pch.h"
 
+#include "logging/logger.h"
+
 namespace HarisLinux {
 
 enum class DataType : uint8_t { Number, Text, Command, Media, Heartbeat, Custom };

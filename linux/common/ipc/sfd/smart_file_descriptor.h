@@ -1,5 +1,5 @@
 #pragma once
-#include "sfd_policy.h"
+#include "sfd_policy_command.h"
 #include "sfd_session_guard.h"
 
 namespace HarisLinux {
@@ -172,8 +172,8 @@ class SharedFileDescription {
         return true;
     }
 
-    static const bool prepare_context_asset(const typename Policy::Context& ctx) noexcept {
-        return Policy::prepare_context_asset(ctx);
+    static const bool setup_communication(const typename Policy::Context& ctx) noexcept {
+        return Policy::setup_communication(ctx);
     }
 
     int      get() const { return _fd; }
