@@ -97,10 +97,10 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
             HARIS_LOG_CRITICAL("Invalid share posix fd");
             return false;
         }
-        SharedFileDescription<PipePolicy> temporary = IPCSenderBase<PipePolicy>::_shared_fd;
-        IPCSenderBase<PipePolicy>::_shared_fd       = shared_proxy_fd;
-        bool result                                 = this->template send_packet<T>(type, data, seq);
-        IPCSenderBase<PipePolicy>::_shared_fd       = temporary;
+
+        SharedFdSwitchGuard<PipePolicy> guard(IPCSenderBase<PipePolicy>::_shared_fd, shared_proxy_fd);
+
+        bool result = this->template send_packet<T>(type, data, seq);
         return result;
     }
 
@@ -121,12 +121,13 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
             HARIS_LOG_CRITICAL("Invalid share posix fd");
             return false;
         }
-        SharedFileDescription<PipePolicy> temporary = IPCReceiverBase<PipePolicy>::_shared_fd;
-        IPCReceiverBase<PipePolicy>::_shared_fd     = shared_proxy_fd;
-        bool result                                 = this->receive_packet(header, payload);
-        IPCReceiverBase<PipePolicy>::_shared_fd     = temporary;
+
+        // Pass the vector element directly by reference without making any temporal copy copies
+        SharedFdSwitchGuard<PipePolicy> guard(IPCReceiverBase<PipePolicy>::_shared_fd, shared_proxy_fd);
+
+        bool result = this->receive_packet(header, payload);
         return result;
     }
-};  // namespace HarisLinux
+};
 
 }  // namespace HarisLinux

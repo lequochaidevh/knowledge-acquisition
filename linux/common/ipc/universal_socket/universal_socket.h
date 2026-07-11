@@ -21,9 +21,6 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
     const int _rx_fd;
     const int _tx_fd;
 
-    std::atomic<bool> _is_running{true};
-    std::thread       _receive_thread;
-
     DECLARE_LOGGER;
 
  public:
@@ -32,7 +29,6 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
         : _ctx(context),                                 //
           _rx_fd(Policy::init(_ctx, IoMode::Receiver)),  // Init receiver before transmiter
           _tx_fd(Policy::init(_ctx, IoMode::Transmiter)) {
-        // Fire background thread worker tasks
         IPCReceiverBase<Policy>::_shared_fd = SharedFileDescription<Policy>(_rx_fd);
         IPCSenderBase<Policy>::_shared_fd   = SharedFileDescription<Policy>(_tx_fd);
         INIT_LOGGER("UnixSocket");
@@ -41,20 +37,15 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
 
     // === CLOSE STATE ===
     ~UniversalSocket() {
-        _is_running = false;
-        if (_rx_fd >= 0) ::shutdown(_rx_fd, SHUT_RDWR);
-        if (_tx_fd >= 0) ::shutdown(_tx_fd, SHUT_RDWR);
+        // if (_rx_fd >= 0) ::shutdown(_rx_fd, SHUT_RDWR);
+        // if (_tx_fd >= 0) ::shutdown(_tx_fd, SHUT_RDWR);
 
-        if (_rx_fd >= 0) ::close(_rx_fd);
-        if (_tx_fd >= 0) ::close(_tx_fd);
-
-        if (_receive_thread.joinable()) {
-            _receive_thread.join();
-        }
+        // if (_rx_fd >= 0) ::close(_rx_fd);
+        // if (_tx_fd >= 0) ::close(_tx_fd);
 
         // Delegate specific system-wiping cleanup hook commands back to the policy
         Policy::cleanup(_ctx);
-        std::cout << "[UniversalSocket] Scope closed cleanly. Resources completely recycled.\n";
+        HARIS_LOG_DEBUG("Scope closed cleanly. Resources completely recycled.");
     }
     bool receive_packet(PacketHeader& header, std::vector<uint8_t>& payload_output) const {
         // Directly route to IPCReceiverBase core atomic reading mechanisms
@@ -76,7 +67,6 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
     template <typename T>
     bool send_packet(DataType type, const T& data, uint32_t seq) {
         bool result = IPCSenderBase<Policy>::send(type, data, seq);
-
         HARIS_LOG_DEBUG("------------ UnixSocket Policy Send Data ------------");
         return result;
     }

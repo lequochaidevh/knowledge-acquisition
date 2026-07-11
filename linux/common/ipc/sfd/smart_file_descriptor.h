@@ -182,4 +182,70 @@ class SharedFileDescription {
     int      operator*() const { return _fd; }
 };
 
+/**
+ * @brief Thread-safe context switch guard that generates and manages its own locks internally.
+ * @details Eliminates the need to declare std::mutex instances inside base or derived classes.
+ * @tparam Policy The structural policy dictating the pipe behaviors.
+ */
+template <typename Policy>
+class SharedFdSwitchGuard {
+ private:
+    // Reference to the active member variable of the target instance
+    SharedFileDescription<Policy>& _current_fd;
+    SharedFileDescription<Policy>& _new_fd;
+
+    // This must be a clean value object to hold the server's main fd safely on stack
+    SharedFileDescription<Policy> _temporary_fd;
+
+    // Explicit manual lock management instead of std::lock_guard for precise structural binding
+    std::mutex* _allocated_mutex_ptr;
+
+ public:
+    /**
+     * @brief Fetches or constructs a dedicated mutex associated with the target reference address.
+     * @param target_address The memory address of the tracking member variable.
+     * @return std::mutex& A reference to a thread-isolated synchronization primitive.
+     */
+    static std::mutex& get_mutex_pool(void* target_address) {
+        // Global registry protecting the instantiation of dynamic locks
+        static std::mutex                            pool_manager_mtx;
+        static std::unordered_map<void*, std::mutex> lock_registry;
+
+        std::lock_guard<std::mutex> pool_lock(pool_manager_mtx);
+        return lock_registry[target_address];  // Automatically creates a new mutex if it doesn't exist
+    }
+
+    /**
+     * @brief Construct a new Fd Switch Guard object, dynamically lock via address context, and swap.
+     * @param active The reference to the core variable to be modified.
+     * @param target The target descriptor to be injected into execution.
+     */
+    SharedFdSwitchGuard(SharedFileDescription<Policy>& active, SharedFileDescription<Policy>& target)  //
+        : _current_fd(active), _new_fd(target) {
+        // 1. Resolve and extract the specific lock based on the instance variable address
+        _allocated_mutex_ptr = &get_mutex_pool(static_cast<void*>(&_current_fd));
+
+        // 2. Enforce atomic isolation before executing the reference rewrite
+        _allocated_mutex_ptr->lock();
+
+        // 3. Preserve the structural backup token and apply move semantics
+        _temporary_fd = std::move(_current_fd);
+        _current_fd   = std::move(_new_fd);
+    }
+
+    /**
+     * @brief Destroy the Fd Switch Guard object, restore context, and release the internal lock.
+     */
+    ~SharedFdSwitchGuard() {
+        // 1. Unconditionally restore original system state
+        _new_fd     = std::move(_current_fd);
+        _current_fd = std::move(_temporary_fd);
+
+        // 2. Release the isolated instance mutex safely on scope departure
+        if (_allocated_mutex_ptr != nullptr) {
+            _allocated_mutex_ptr->unlock();
+        }
+    }
+};
+
 }  // namespace HarisLinux
