@@ -29,6 +29,7 @@ target_link_libraries(logging PUBLIC fmt::fmt)
 # Configure include directory paths for building and installing
 target_include_directories(logging PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/../
     $<INSTALL_INTERFACE:include>
 )
 

@@ -41,7 +41,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
         INIT_LOGGER("PosixPipe");
-        logger->setLevel(LogLevel::Trace);
+        logger->set_level(LogLevel::Trace);
     }
 
     /**
@@ -61,7 +61,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
         INIT_LOGGER("PosixPipe");
-        logger->setLevel(LogLevel::Trace);
+        logger->set_level(LogLevel::Trace);
     }
 
     virtual ~PosixPipe() {}

@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(ipc)
 add_subdirectory(logging)
+add_subdirectory(util)
 
 # Install the header file (std17pch.h) to 'include/'
 install(FILES std17pch.h

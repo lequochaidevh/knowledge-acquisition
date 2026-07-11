@@ -3,14 +3,12 @@
 /*Setup Pre-compile header file*/
 // Standard Libraty
 #include <algorithm>
-#include <assert.h>
 #include <array>
 #include <bitset>
 #include <cassert>
-#include <cstring>
+#include <cstring>  // For strrchr
 #include <fstream>
 #include <functional>
-#include <iostream>
 #include <istream>
 #include <limits>
 #include <list>
@@ -21,44 +19,47 @@
 #include <set>
 #include <sstream>
 #include <stack>
-#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <math.h>
 #include <type_traits>
 #include <typeindex>
-#include <signal.h>
 #include <iostream>
 #include <vector>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <mutex>
 #include <chrono>
-#include <thread>    // get info
-#include <unistd.h>  // get process id
+#include <thread>  // get info
 #include <utility>
 #include <atomic>
 #include <iomanip>
 #include <condition_variable>  // queue -> async log
-#include <sys/syscall.h>
-#include <dlfcn.h>  // dloader
-#include <sys/uio.h>
+
+// C libs
+#include <stdint.h>
+#include <assert.h>
+#include <math.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <unistd.h>  // Required for getpid() on Linux
+#include <dlfcn.h>   // dloader
 #include <cstdint>
-#include <sys/wait.h>
 #include <poll.h>
 #include <errno.h>
 // Unix socket
-#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+// Linux System
 #include <sys/un.h>
-#include <arpa/inet.h>
-
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
+#include <sys/syscall.h>  // Required for SYS_gettid on Linux embedded/ubuntu
 
 template <typename T>
 using Shared = std::shared_ptr<T>;

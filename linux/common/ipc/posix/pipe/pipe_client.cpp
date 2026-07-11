@@ -2,7 +2,7 @@
 
 namespace HarisLinux {
 
-// static auto logger = LogRegistry::getInstance().getLogger("PipeClient");
+// static auto logger = LogRegistry::get_instance().get_logger("PipeClient");
 
 PipeClient::PipeClient(const std::string& request_path, const std::string& id, Ipc::Generic<Ipc::Client> modes)
     :  //
@@ -10,7 +10,7 @@ PipeClient::PipeClient(const std::string& request_path, const std::string& id, I
       _old_upstream_path(request_path),
       _client_id(id) {
     INIT_LOGGER("PipeClient");
-    logger->setLevel(LogLevel::Trace);
+    logger->set_level(LogLevel::Trace);
 }
 
 PipeClient::~PipeClient() {

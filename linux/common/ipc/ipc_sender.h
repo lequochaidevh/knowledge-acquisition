@@ -47,7 +47,6 @@ class IPCSenderBase {
 
         PacketHeader header{data_type, payload_size, get_current_timestamp_ms(), seq};
 
-        std::cout << "Seq : " << seq << "\n";
         struct iovec iov[2];
         iov[0].iov_base = const_cast<PacketHeader*>(&header);
         iov[0].iov_len  = sizeof(PacketHeader);

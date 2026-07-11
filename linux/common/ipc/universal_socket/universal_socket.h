@@ -32,7 +32,7 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
         IPCReceiverBase<Policy>::_shared_fd = SharedFileDescriptor<Policy>(_rx_fd);
         IPCSenderBase<Policy>::_shared_fd   = SharedFileDescriptor<Policy>(_tx_fd);
         INIT_LOGGER("UnixSocket");
-        logger->setLevel(LogLevel::Trace);
+        logger->set_level(LogLevel::Trace);
     }
 
     // === CLOSE STATE ===

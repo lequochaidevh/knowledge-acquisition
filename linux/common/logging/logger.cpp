@@ -1,30 +1,12 @@
 #include "logger.h"
-#include <iostream>
-#include <chrono>
-#include <iomanip>
-#include <sstream>
-#include <cstring>  // For strrchr
-// C libs
-#include <unistd.h>       // Required for getpid() on Linux
-#include <sys/syscall.h>  // Required for SYS_gettid on Linux embedded/ubuntu
 
+namespace HarisLinux {
 // --- Logger Implementation ---
 Logger::Logger(std::string name) : _name(std::move(name)), _level(LogLevel::Info) {}
 
-void Logger::setLevel(LogLevel level) { _level = level; }
+void Logger::set_level(LogLevel level) { _level = level; }
 
-// Extracts only the filename from a full path (e.g., /path/to/main.cpp -> main.cpp)
-std::string_view Logger::trimSourcePath(const char* filepath) {
-    if (!filepath) return "unknown";
-    const char* filename = ::strrchr(filepath, '/');
-    return filename ? std::string_view(filename + 1) : std::string_view(filepath);
-}
-
-std::string Logger::getThreadProcessInfo() {
-    // 1. Fetch both Process ID and current Thread ID from Linux OS
-    pid_t pid = ::getpid();
-    pid_t tid = static_cast<pid_t>(::syscall(SYS_gettid));
-
+std::string Logger::format_thread_process_info() {
     // 1. Get current time point from system clock
     auto now = std::chrono::system_clock::now();
 
@@ -42,6 +24,9 @@ std::string Logger::getThreadProcessInfo() {
     // (tm_min / 10) uses compiler-optimized multiplication shifts, then multiplied by 10 and subtracted.
     int min_last_digit = tm_struct.tm_min - ((tm_struct.tm_min / 10) * 10);
 
+    // 5. Fetch both Process ID and current Thread ID from Linux OS
+    pid_t pid, tid;
+    RuntimeUtil::get_thread_and_process_id(pid, tid);
     char type_char = (pid == tid) ? 'P' : 'T';
 
     // Output pattern: T12224 4:48.125
@@ -49,7 +34,7 @@ std::string Logger::getThreadProcessInfo() {
                        static_cast<int>(milliseconds));
 }
 
-std::string_view Logger::levelToString(LogLevel level) {
+std::string_view Logger::format_level_to_string_view(LogLevel level) {
     switch (level) {
         case LogLevel::Trace:
             return "TRACE     ";
@@ -68,15 +53,21 @@ std::string_view Logger::levelToString(LogLevel level) {
     }
 }
 
-void Logger::printLog(LogLevel level, const char* file, int line, const char* func, const std::string& msg) {
-    // 1. Merge into a single compact pattern: file_clean:line:Module:function
-    std::string combined_metadata = fmt::format("{}:{} {}:{}", trimSourcePath(file), line, _name, func);
+void Logger::std_cout_message(LogLevel level, std::string_view file, int line, std::string_view func,
+                              const std::string& msg) {
+    // Check if the input file view or function view is empty to prevent broken patterns
+    if (file.empty()) file = "unknown_file";
+    if (func.empty()) func = "unknown_func";
+
+    // 1. Merge into a single compact pattern: file_clean:line Module:function
+    // Optimization: std::string_view is formatted directly with zero temporary string allocation overhead
+    std::string combined_metadata = fmt::format("{}:{} {}:{}", file, line, _name, func);
 
     // Pad the combined metadata block to 74 characters to ensure straight vertical alignment
     std::string padded_metadata = fmt::format("{:<74}", combined_metadata);
 
     // 2. Setup color formatting for level string
-    std::string_view raw_level  = levelToString(level);
+    std::string_view raw_level  = format_level_to_string_view(level);
     std::string_view color_code = "";
     std::string_view reset_code = "\033[0m";
 
@@ -103,18 +94,21 @@ void Logger::printLog(LogLevel level, const char* file, int line, const char* fu
     std::string formatted_level = fmt::format("{}{:<5}{}", color_code, raw_level, reset_code);
 
     // 3. Print out the structured log line
-    std::cout << fmt::format("{} {} {} {}\n", getThreadProcessInfo(), formatted_level, padded_metadata, msg);
+    std::cout << fmt::format("{} {} {} {}\n", format_thread_process_info(), formatted_level, padded_metadata, msg);
 }
 
-void Logger::printError(const char* error_msg) { std::cerr << "[LOG ERROR] Format failed: " << error_msg << "\n"; }
+void Logger::std_cerr_message(std::string_view error_msg) {
+    if (error_msg.empty()) return;
+    std::cerr << "[LOG ERROR] Format failed: " << error_msg << "\n";
+}
 
 // --- LogRegistry Implementation ---
-LogRegistry& LogRegistry::getInstance() {
+LogRegistry& LogRegistry::get_instance() {
     static LogRegistry instance;
     return instance;
 }
 
-std::shared_ptr<Logger> LogRegistry::getLogger(const std::string& name) {
+std::shared_ptr<Logger> LogRegistry::get_logger(const std::string& name) {
     auto it = _loggers.find(name);
     if (it == _loggers.end()) {
         auto new_logger = std::make_shared<Logger>(name);
@@ -123,3 +117,5 @@ std::shared_ptr<Logger> LogRegistry::getLogger(const std::string& name) {
     }
     return it->second;
 }
+
+}  // namespace HarisLinux

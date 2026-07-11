@@ -39,7 +39,7 @@ class DataHandlerPolicy {
     void on_packet(const std::vector<uint8_t>& media, const std::string& data_type_string = "") {
         HARIS_LOG_DEBUG("Media Buffer Size: {} bytes", media.size());
 
-        if (logger->getLevel() != LogLevel::Trace) return;
+        if (logger->get_level() != LogLevel::Trace) return;
         if (!media.empty()) {
             // stack/heap smart memory
             fmt::memory_buffer out;

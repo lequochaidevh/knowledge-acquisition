@@ -43,7 +43,7 @@ class IPCReceiverBase {
             // Process payload sequentially based on the validated stream header info
             if (out_header.payload_size > 0) {
                 out_payload.resize(out_header.payload_size);
-                std::cout << "Seq READ: " << out_header.sequence_id << "\n";
+
                 struct iovec payload_iov[1];
                 payload_iov[0].iov_base = out_payload.data();
                 payload_iov[0].iov_len  = out_header.payload_size;
