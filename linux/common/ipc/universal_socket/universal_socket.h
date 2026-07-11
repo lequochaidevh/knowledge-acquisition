@@ -28,7 +28,7 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
     UniversalSocket(const typename Policy::Context& context)
         : _ctx(context),                                 //
           _rx_fd(Policy::init(_ctx, IoMode::Receiver)),  // Init receiver before transmiter
-          _tx_fd(Policy::init(_ctx, IoMode::Transmiter)) {
+          _tx_fd(Policy::init(_ctx, IoMode::Transmitter)) {
         IPCReceiverBase<Policy>::_shared_fd = SharedFileDescriptor<Policy>(_rx_fd);
         IPCSenderBase<Policy>::_shared_fd   = SharedFileDescriptor<Policy>(_tx_fd);
         INIT_LOGGER("UnixSocket");

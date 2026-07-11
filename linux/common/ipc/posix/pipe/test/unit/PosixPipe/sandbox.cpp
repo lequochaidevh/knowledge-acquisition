@@ -20,12 +20,8 @@ template <typename Modes>
 class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
  public:
     // Explicitly define and forward the constructor to the base protected constructor
-    TestPosixPipe(const std::string& path, HarisLinux::Ipc::Generic<Modes> modes)
-        : HarisLinux::PosixPipe<Modes>(path, modes) {}
-
-    // Pull the protected modifier methods into public scope
-    bool test_set_read_fd(int read_fd) { return this->set_read_sfd(read_fd); }
-    bool test_set_write_sfd(int write_fd) { return this->set_write_sfd(write_fd); }
+    TestPosixPipe(const std::string& path, int read, int write, HarisLinux::Ipc::Generic<Modes> modes)
+        : HarisLinux::PosixPipe<Modes>(path, read, write, modes) {}
 
     // Pull the protected data transmission methods into public scope
     using HarisLinux::PosixPipe<Modes>::send_packet;
@@ -79,24 +75,21 @@ class IPCPosixPipeTest : public ::testing::Test {
         Ipc::Generic<Ipc::Client> client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose;
 
         // Use the public wrapper class instead of the raw protected class
-        TestPosixPipe<Ipc::Client> pipe_sender(MAIN_PIPE_PATH, client_flags);
-        pipe_sender.test_set_write_sfd(write_fd);
-
-        auto sender_base = pipe_sender.get_write_sfd();
+        TestPosixPipe<Ipc::Client> pipe_sender(MAIN_PIPE_PATH, -1, write_fd, client_flags);
 
         // Test case 1: Dispatch an integer primitive
         int system_code = 2026;
-        pipe_sender.send_packet(sender_base, DataType::Number, system_code, 1);
+        pipe_sender.send_packet(DataType::Number, system_code, 1);
 
         // Test case 2: Dispatch a standard string container
         std::string alert_msg = "HarisLinux Pipe CRTP Engine Running!";
-        pipe_sender.send_packet(sender_base, DataType::Text, alert_msg, 2);
+        pipe_sender.send_packet(DataType::Text, alert_msg, 2);
 
         // Test case 3: Dispatch a plain old data struct via a raw buffer
         SensorPayload        sensor_data{123456789, 36.5, 0};
         std::vector<uint8_t> struct_buffer(sizeof(SensorPayload));
         std::memcpy(struct_buffer.data(), &sensor_data, sizeof(SensorPayload));
-        pipe_sender.send_packet(sender_base, DataType::Custom, struct_buffer, 3);
+        pipe_sender.send_packet(DataType::Custom, struct_buffer, 3);
 
         close(write_fd);
         std::exit(0);  // Explicitly terminate to prevent the child from entering the test harness loop
@@ -121,28 +114,24 @@ TEST_F(IPCPosixPipeTest, VerifyNamedPipeTransmissionE2E) {
 
     // Initialize the main reading pipeline configuration using the Test Wrapper
     Ipc::Generic<Ipc::Server>  server_flags = Ipc::Server::Feedback | Ipc::Server::CheckLose;
-    TestPosixPipe<Ipc::Server> pipe_receiver(MAIN_PIPE_PATH, server_flags);
-    pipe_receiver.test_set_read_fd(read_fd);
+    TestPosixPipe<Ipc::Server> pipe_receiver(MAIN_PIPE_PATH, read_fd, -1, server_flags);
 
     PacketHeader         header;
     std::vector<uint8_t> payload;
 
-    SharedFileDescriptor<PipePolicy> shared_proxy = pipe_receiver.get_read_sfd();
-
     // Phase 1 Validation: Verify incoming numeric type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload)) << "Failed to receive numeric payload";
+    ASSERT_TRUE(pipe_receiver.receive_packet(header, payload)) << "Failed to receive numeric payload";
     EXPECT_EQ(header.type, DataType::Number);
     EXPECT_EQ(*reinterpret_cast<int*>(payload.data()), 2026);
 
     // Phase 2 Validation: Verify incoming string type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload)) << "Failed to receive textual payload";
+    ASSERT_TRUE(pipe_receiver.receive_packet(header, payload)) << "Failed to receive textual payload";
     EXPECT_EQ(header.type, DataType::Text);
     std::string text(reinterpret_cast<char*>(payload.data()), header.payload_size);
     EXPECT_EQ(text, "HarisLinux Pipe CRTP Engine Running!");
 
     // Phase 3 Validation: Verify incoming structured blob type data streams
-    ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload))
-        << "Failed to receive custom structured payload";
+    ASSERT_TRUE(pipe_receiver.receive_packet(header, payload)) << "Failed to receive custom structured payload";
     EXPECT_EQ(header.type, DataType::Custom);
     SensorPayload* received_struct = reinterpret_cast<SensorPayload*>(payload.data());
     EXPECT_DOUBLE_EQ(received_struct->temperature, 36.5);  // Safe precision floating point check

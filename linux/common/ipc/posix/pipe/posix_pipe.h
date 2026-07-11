@@ -14,32 +14,6 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
  private:
     DECLARE_LOGGER;
 
- public:
-    // TODO REMOVED
-    /** @brief Get fd with int for Linux API*/
-    SharedFileDescriptor<PipePolicy> const get_read_sfd() const  //
-    {
-        return IPCSenderBase<PipePolicy>::_shared_fd;
-    }
-
-    SharedFileDescriptor<PipePolicy> const get_write_sfd() const {  //
-        return IPCSenderBase<PipePolicy>::_shared_fd;
-    }
-
-    bool set_read_sfd(int read_fd) {
-        SharedFileDescriptor<PipePolicy> shared_proxy;
-        shared_proxy                          = SharedFileDescriptor<PipePolicy>(read_fd);
-        IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
-        return true;
-    }
-
-    bool set_write_sfd(int write_fd) {
-        SharedFileDescriptor<PipePolicy> shared_proxy;
-        shared_proxy                          = SharedFileDescriptor<PipePolicy>(write_fd);
-        IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
-        return true;
-    }
-
  protected:
     /** @brief File system path for the pipe.
      * Data with transmit from client to server */
@@ -63,6 +37,26 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
         : IPCSenderBase<PipePolicy>(SharedFileDescriptor<PipePolicy>{}),
           IPCReceiverBase<PipePolicy>(SharedFileDescriptor<PipePolicy>{}),
+          _upstream_path(path),
+          _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
+          _modes(modes) {
+        INIT_LOGGER("PosixPipe");
+        logger->setLevel(LogLevel::Trace);
+    }
+
+    /**
+     * @brief Constructs a bidirectional POSIX Named Pipe channel.
+     * @param base_path The base file path used to generate the specialized pipe paths.
+     * @param read_fd For test => -1 mean not use
+     * @param write_fd For test => -1 mean not use
+     * @param modes Operational modes for this IPC instance.
+     */
+    PosixPipe(const std::string&  path,      //
+              int                 read_fd,   //
+              int                 write_fd,  //
+              Ipc::Generic<Modes> modes)
+        : IPCSenderBase<PipePolicy>(SharedFileDescriptor<PipePolicy>(write_fd)),
+          IPCReceiverBase<PipePolicy>(SharedFileDescriptor<PipePolicy>(read_fd)),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {

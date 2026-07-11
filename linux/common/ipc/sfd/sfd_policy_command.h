@@ -96,7 +96,7 @@ class SocketDgramIPv4Policy {
             ctx.local_sockaddr.sin_port   = htons(ctx.local_port);
             ::inet_pton(AF_INET, ctx.local_ip.c_str(), &ctx.local_sockaddr.sin_addr);
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
-        } else if (mode == IoMode::Transmiter) {
+        } else if (mode == IoMode::Transmitter) {
             std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
             ctx.target_sockaddr.sin_family = AF_INET;
             ctx.target_sockaddr.sin_port   = htons(ctx.target_port);
@@ -189,7 +189,7 @@ class SocketDgramPathPolicy {
 
             ::unlink(ctx.local_path.c_str());
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
-        } else if (mode == IoMode::Transmiter) {
+        } else if (mode == IoMode::Transmitter) {
             std::memset(&ctx.target_sockaddr, 0, sizeof(ctx.target_sockaddr));
             ctx.target_sockaddr.sun_family = AF_UNIX;
             std::strncpy(ctx.target_sockaddr.sun_path, ctx.target_path.c_str(),
@@ -281,7 +281,7 @@ class SocketStreamPathPolicy {
             ::bind(fd, (sockaddr*)&ctx.local_sockaddr, sizeof(ctx.local_sockaddr));
 
             ::listen(fd, 5);
-        } else if (mode == IoMode::Transmiter) {
+        } else if (mode == IoMode::Transmitter) {
             fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
             if (fd == -1) {
                 throw std::runtime_error("Unix STREAM Transmitter Socket creation failed");
@@ -365,7 +365,7 @@ struct PipePolicy {
     using Context = PipeContext;
 
     // Creates the underlying FIFO special node on the filesystem layout
-    static bool open_and_declare_ctx(Context& ctx, std::string& path, uint16_t flag) {
+    static int open_and_declare_ctx(Context& ctx, std::string& path, uint16_t flag) {
         ctx.path = std::move(path);
         ctx.flag = static_cast<int>(flag);
         ::unlink(ctx.path.c_str());  // Evict preexisting stale files
