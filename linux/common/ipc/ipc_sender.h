@@ -8,11 +8,11 @@ template <typename Policy>
 class IPCSenderBase {
  protected:
     // Internal variable with a leading underscore tracking shared reference lifecycles
-    SharedFileDescription<Policy> _shared_fd{};
+    SharedFileDescriptor<Policy> _shared_fd{};
 
     IPCSenderBase() noexcept {}
     // Explicit constructor taking the ownership model from the outside
-    explicit IPCSenderBase(SharedFileDescription<Policy> fd_input) : _shared_fd(std::move(fd_input)) {}
+    explicit IPCSenderBase(SharedFileDescriptor<Policy> fd_input) : _shared_fd(std::move(fd_input)) {}
 
     template <typename T>
     bool send(DataType data_type, const T& data, const uint32_t& seq = 0) const {

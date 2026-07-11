@@ -59,10 +59,10 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         "The client id: [{}] "
         "have connected to Request Pipe ...",
         _client_id);
-    _write_share_fd = SharedFileDescription<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
+    _write_share_fd = SharedFileDescriptor<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
 
     if (_modes & Ipc::Client::CheckLose) {
-        _read_share_fd = SharedFileDescription<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
+        _read_share_fd = SharedFileDescriptor<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
     }
 
     // Prepare Payload
@@ -113,8 +113,8 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                 _downstream_path = _upstream_path + "_fb";
 
                 // Connect to new pipe
-                _write_share_fd = SharedFileDescription<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
-                _read_share_fd  = SharedFileDescription<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
+                _write_share_fd = SharedFileDescriptor<PipePolicy>(open(_upstream_path.c_str(), O_WRONLY));
+                _read_share_fd  = SharedFileDescriptor<PipePolicy>(open(_downstream_path.c_str(), O_RDONLY));
                 HARIS_LOG_DEBUG(
                     "The client id: [{}] "
                     "Switch to new pipe successfully!",

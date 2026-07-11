@@ -10,8 +10,8 @@ class PipeClient : public PosixPipe<Ipc::Client> {
     uint32_t _current_seq = 0;
     uint32_t _lost_count  = 0;
 
-    SharedFileDescription<PipePolicy> _write_share_fd;
-    SharedFileDescription<PipePolicy> _read_share_fd;
+    SharedFileDescriptor<PipePolicy> _write_share_fd;
+    SharedFileDescriptor<PipePolicy> _read_share_fd;
 
     std::string _client_id;
     std::string _old_upstream_path;

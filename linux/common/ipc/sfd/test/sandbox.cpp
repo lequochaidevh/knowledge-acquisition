@@ -34,8 +34,8 @@ class FileDescriptorTest : public ::testing::Test {
 // CONCURRENCY TEST WORKERS FOR GOOGLE TEST
 // ============================================================================
 
-// Worker function for SharedFileDescription concurrency testing
-void shared_concurrency_worker(SharedFileDescription<FilePolicy> shared_desc, int thread_id) {
+// Worker function for SharedFileDescriptor concurrency testing
+void shared_concurrency_worker(SharedFileDescriptor<FilePolicy> shared_desc, int thread_id) {
     std::string thread_identity = "[Thread_" + std::to_string(thread_id) + "]";
 
     for (int i = 0; i < 100; ++i) {
@@ -60,21 +60,21 @@ void shared_concurrency_worker(SharedFileDescription<FilePolicy> shared_desc, in
 // GOOGLE TEST CASES
 // ============================================================================
 
-// TEST 1: UniqueFileDescription Move Semantics and RAII Verification
+// TEST 1: UniqueFileDescriptor Move Semantics and RAII Verification
 TEST_F(FileDescriptorTest, UniqueLifecycleAndMoveSemantics) {
-    UniqueFileDescription<FilePolicy> u1(LinuxArgs{}, "output/unique_test.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    UniqueFileDescriptor<FilePolicy> u1(LinuxArgs{}, "output/unique_test.txt", O_CREAT | O_WRONLY | O_TRUNC, 0644);
     EXPECT_GE(u1.get(), 0);
 
     // Transfer ownership via move constructor
-    UniqueFileDescription<FilePolicy> u2(std::move(u1));
+    UniqueFileDescriptor<FilePolicy> u2(std::move(u1));
     EXPECT_EQ(u1.get(), -1);
     EXPECT_GE(u2.get(), 0);
 }
 
-// TEST 2: SharedFileDescription Multi-threaded I/O Lock Isolation Test
+// TEST 2: SharedFileDescriptor Multi-threaded I/O Lock Isolation Test
 TEST_F(FileDescriptorTest, SharedMultiThreadedIOLockIsolation) {
-    SharedFileDescription<FilePolicy> shared_log(LinuxArgs{}, "output/io_isolation_test.log",
-                                                 O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    SharedFileDescriptor<FilePolicy> shared_log(LinuxArgs{}, "output/io_isolation_test.log",
+                                                O_CREAT | O_WRONLY | O_TRUNC, 0644);
     ASSERT_TRUE(shared_log);
 
     const int                num_threads = 8;
@@ -99,11 +99,11 @@ TEST_F(FileDescriptorTest, SharedMultiThreadedIOLockIsolation) {
     }
 }
 
-void registry_stress_worker(SharedFileDescription<FilePolicy>& shared_desc, int thread_id) {
+void registry_stress_worker(SharedFileDescriptor<FilePolicy>& shared_desc, int thread_id) {
     std::string thread_identity = "[Thread_" + std::to_string(thread_id) + "]";
     for (int i = 0; i < 500; ++i) {
         // Rapidly create and destroy copies to trigger heavy CAS loop contention in the registry
-        SharedFileDescription<FilePolicy> temporary_copy = shared_desc;
+        SharedFileDescriptor<FilePolicy> temporary_copy = shared_desc;
 
         auto        session = shared_desc.lock();
         std::string context = thread_identity + " : New shared fd access this file "  //
@@ -120,9 +120,9 @@ void registry_stress_worker(SharedFileDescription<FilePolicy>& shared_desc, int 
 
 // TEST 3: Static Registry Reference Counting High Contention CAS Test
 TEST_F(FileDescriptorTest, StaticRegistryLockFreeHighContentionCAS) {
-    SharedFileDescription<FilePolicy> shared_stress(LinuxArgs{}, "output/registry_stress.log",
-                                                    O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    size_t                            initial_count = shared_stress.use_count();
+    SharedFileDescriptor<FilePolicy> shared_stress(LinuxArgs{}, "output/registry_stress.log",
+                                                   O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    size_t                           initial_count = shared_stress.use_count();
     EXPECT_EQ(initial_count, 1);
 
     const int                num_threads = 12;
@@ -143,12 +143,12 @@ TEST_F(FileDescriptorTest, StaticRegistryLockFreeHighContentionCAS) {
 
 // TEST 4: Unique-to-Shared Conversion Verification
 TEST_F(FileDescriptorTest, UniqueToSharedConversionLifecycle) {
-    UniqueFileDescription<FilePolicy> unique_source(LinuxArgs{}, "output/conversion_test.txt",
-                                                    O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    int                               native_fd = unique_source.get();
+    UniqueFileDescriptor<FilePolicy> unique_source(LinuxArgs{}, "output/conversion_test.txt",
+                                                   O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    int                              native_fd = unique_source.get();
 
     // Convert by moving Unique into Shared constructor
-    SharedFileDescription<FilePolicy> shared_dest(std::move(unique_source));
+    SharedFileDescriptor<FilePolicy> shared_dest(std::move(unique_source));
 
     EXPECT_EQ(unique_source.get(), -1);
     EXPECT_EQ(shared_dest.get(), native_fd);
@@ -159,7 +159,7 @@ TEST_F(FileDescriptorTest, UniqueToSharedConversionLifecycle) {
 TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
     UnixDomainStreamContext ctx{"output/test_unix.sock"};
 
-    SharedFileDescription<UnixDomainStreamPolicy> server_sock(LinuxArgs{}, ctx, AF_UNIX, SOCK_STREAM, 0);
+    SharedFileDescriptor<UnixDomainStreamPolicy> server_sock(LinuxArgs{}, ctx, AF_UNIX, SOCK_STREAM, 0);
     ASSERT_TRUE(server_sock);
 
     struct sockaddr_un addr {};
@@ -177,8 +177,8 @@ TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
         int client_raw_fd = UnixDomainStreamPolicy::open_transmitter(AF_UNIX, SOCK_STREAM, 0);
         if (client_raw_fd < 0) return;
 
-        SharedFileDescription<UnixDomainStreamPolicy> client_sock(client_raw_fd);
-        struct sockaddr_un                            client_addr {};
+        SharedFileDescriptor<UnixDomainStreamPolicy> client_sock(client_raw_fd);
+        struct sockaddr_un                           client_addr {};
         client_addr.sun_family = AF_UNIX;
         std::strncpy(client_addr.sun_path, ctx.path.c_str(), sizeof(client_addr.sun_path) - 1);
 
@@ -195,7 +195,7 @@ TEST_F(FileDescriptorTest, UnixDomainSocketTransmission) {
     int client_fd = ::accept(server_sock.get(), nullptr, nullptr);
     ASSERT_GE(client_fd, 0);
 
-    SharedFileDescription<UnixDomainStreamPolicy> accepted_session(client_fd);
+    SharedFileDescriptor<UnixDomainStreamPolicy> accepted_session(client_fd);
     {
         auto    session         = accepted_session.lock();
         char    read_buffer[10] = {0};  // Allocating buffer cleanly on stack
@@ -228,8 +228,8 @@ TEST_F(FileDescriptorTest, NamedPipeFifoTransmission) {
         int write_fd = PipePolicy::open_channel(ctx, O_WRONLY);
         if (write_fd < 0) return;
 
-        SharedFileDescription<PipePolicy> write_desc(write_fd);
-        auto                              session = write_desc.lock();
+        SharedFileDescriptor<PipePolicy> write_desc(write_fd);
+        auto                             session = write_desc.lock();
 
         std::string message = "HELLO_FIFO";
         session.write(message.c_str(), message.length());
@@ -240,7 +240,7 @@ TEST_F(FileDescriptorTest, NamedPipeFifoTransmission) {
     int read_fd = PipePolicy::open_channel(ctx, O_RDONLY);
     ASSERT_GE(read_fd, 0);
 
-    SharedFileDescription<PipePolicy> read_desc(read_fd);
+    SharedFileDescriptor<PipePolicy> read_desc(read_fd);
     ASSERT_TRUE(read_desc);
 
     // Step 4: Read the data cleanly via the isolated read descriptor guard
@@ -262,7 +262,7 @@ TEST_F(FileDescriptorTest, NamedPipeFifoTransmission) {
 // TEST 3: EventFd Signal Counter Notification Verification
 TEST_F(FileDescriptorTest, EventFdSignalingAndNotification) {
     // Instantiate lightweight signaling system using compile-time flags
-    SharedFileDescription<EventFdPolicy> notifier(LinuxArgs{}, 0, EFD_CLOEXEC | EFD_NONBLOCK);
+    SharedFileDescriptor<EventFdPolicy> notifier(LinuxArgs{}, 0, EFD_CLOEXEC | EFD_NONBLOCK);
     ASSERT_TRUE(notifier);
 
     // Write a trigger event value of 5 to the system layer counter
@@ -287,11 +287,11 @@ TEST_F(FileDescriptorTest, EventFdSignalingAndNotification) {
 // TEST 4: Epoll Interface Multiplexing Event Listening Verification
 TEST_F(FileDescriptorTest, EpollEventMultiplexing) {
     // Create high-performance asynchronous tracking instance via EpollPolicy
-    SharedFileDescription<EpollPolicy> epoll_manager(LinuxArgs{}, EPOLL_CLOEXEC);
+    SharedFileDescriptor<EpollPolicy> epoll_manager(LinuxArgs{}, EPOLL_CLOEXEC);
     ASSERT_TRUE(epoll_manager);
 
     // Build an EventFd device to register into our asynchronous epoll matrix
-    SharedFileDescription<EventFdPolicy> target_device(LinuxArgs{}, 0, EFD_CLOEXEC | EFD_NONBLOCK);
+    SharedFileDescriptor<EventFdPolicy> target_device(LinuxArgs{}, 0, EFD_CLOEXEC | EFD_NONBLOCK);
     ASSERT_TRUE(target_device);
 
     // Configure tracking matrix to listen exclusively for inbound read triggers
@@ -332,7 +332,7 @@ TEST_F(FileDescriptorTest, UdpLocalhostDatagramTransmission) {
     server_addr.sin_port        = htons(port);
     server_addr.sin_addr.s_addr = inet_addr(ip_address.c_str());
 
-    SharedFileDescription<UdpLocalhostPolicy> server_udp(LinuxArgs{}, ip_address, port);
+    SharedFileDescriptor<UdpLocalhostPolicy> server_udp(LinuxArgs{}, ip_address, port);
     ASSERT_TRUE(server_udp);
 
     int bind_res = ::bind(server_udp.get(), reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr));
@@ -344,7 +344,7 @@ TEST_F(FileDescriptorTest, UdpLocalhostDatagramTransmission) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
         // Client Side initialization
-        SharedFileDescription<UdpLocalhostPolicy> client_udp(LinuxArgs{}, ip_address, port);
+        SharedFileDescriptor<UdpLocalhostPolicy> client_udp(LinuxArgs{}, ip_address, port);
         if (client_udp) {
             auto        session  = client_udp.lock();
             std::string datagram = "UDP_PING";

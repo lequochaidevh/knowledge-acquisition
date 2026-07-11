@@ -127,7 +127,7 @@ TEST_F(IPCPosixPipeTest, VerifyNamedPipeTransmissionE2E) {
     PacketHeader         header;
     std::vector<uint8_t> payload;
 
-    SharedFileDescription<PipePolicy> shared_proxy = pipe_receiver.get_read_sfd();
+    SharedFileDescriptor<PipePolicy> shared_proxy = pipe_receiver.get_read_sfd();
 
     // Phase 1 Validation: Verify incoming numeric type data streams
     ASSERT_TRUE(pipe_receiver.receive_packet(shared_proxy, header, payload)) << "Failed to receive numeric payload";

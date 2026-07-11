@@ -7,7 +7,7 @@ template <typename Policy>
 class IPCReceiverBase {
  protected:
     // Internal variable with a leading underscore tracking shared reference lifecycles
-    SharedFileDescription<Policy> _shared_fd{};
+    SharedFileDescriptor<Policy> _shared_fd{};
 
     // Internal persistent storage blocks tracked safely on class layout levels for Datagrams
     mutable sockaddr_storage _remote_addr{};
@@ -17,7 +17,7 @@ class IPCReceiverBase {
     IPCReceiverBase() = default;
 
     // Explicit constructor linking the smart descriptor instance directly
-    explicit IPCReceiverBase(SharedFileDescription<Policy> fd_input) : _shared_fd(std::move(fd_input)) {}
+    explicit IPCReceiverBase(SharedFileDescriptor<Policy> fd_input) : _shared_fd(std::move(fd_input)) {}
 
     // Unified Public API to extract full network/IPC frames atomically
     bool receive(PacketHeader& out_header, std::vector<uint8_t>& out_payload) const {

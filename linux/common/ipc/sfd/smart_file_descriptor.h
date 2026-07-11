@@ -8,20 +8,20 @@ namespace HarisLinux {
 struct LinuxArgs {};
 
 template <typename Policy = FilePolicy>
-class UniqueFileDescription {
+class UniqueFileDescriptor {
  private:
     int                      _fd = -1;
     typename Policy::Context _ctx;  // Automatically infers the correct string/ip property pack
 
  public:
-    UniqueFileDescription() = default;
+    UniqueFileDescriptor() = default;
 
     // Traditional raw fd constructor
-    explicit UniqueFileDescription(int fd) : _fd(fd) {}
+    explicit UniqueFileDescriptor(int fd) : _fd(fd) {}
 
     // Variadic constructor triggered ONLY when LinuxArgs tag is passed first
     template <typename... Args>
-    explicit UniqueFileDescription(LinuxArgs, Args&&... args) {
+    explicit UniqueFileDescriptor(LinuxArgs, Args&&... args) {
         // Compile-time routing based strictly on the Policy type
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
@@ -30,21 +30,21 @@ class UniqueFileDescription {
         }
     }
 
-    ~UniqueFileDescription() { release(); }
+    ~UniqueFileDescriptor() { release(); }
 
     // Copying is prohibited to guarantee unique ownership
-    UniqueFileDescription(const UniqueFileDescription&) = delete;
-    UniqueFileDescription& operator=(const UniqueFileDescription&) = delete;
+    UniqueFileDescriptor(const UniqueFileDescriptor&) = delete;
+    UniqueFileDescriptor& operator=(const UniqueFileDescriptor&) = delete;
 
     // Move semantics transfer ownership safely on the stack
-    UniqueFileDescription(UniqueFileDescription&& other) noexcept  //
-        : _fd(other._fd),                                          //
-          _ctx(std::move(other._ctx))                              //
+    UniqueFileDescriptor(UniqueFileDescriptor&& other) noexcept  //
+        : _fd(other._fd),                                        //
+          _ctx(std::move(other._ctx))                            //
     {
         other._fd = -1;
     }
 
-    UniqueFileDescription& operator=(UniqueFileDescription&& other) noexcept {
+    UniqueFileDescriptor& operator=(UniqueFileDescriptor&& other) noexcept {
         if (this != &other) {
             release();
             _fd       = other._fd;
@@ -78,7 +78,7 @@ class UniqueFileDescription {
 // template <size_t MaxSlots> class StaticFileDescriptionRegistry;
 
 template <typename Policy = FilePolicy, size_t MaxSlots = 256>
-class SharedFileDescription {
+class SharedFileDescriptor {
  private:
     int                      _fd = -1;
     typename Policy::Context _ctx;  // Automatically infers the correct string/ip property pack
@@ -86,16 +86,16 @@ class SharedFileDescription {
     using Registry = StaticFileDescriptionRegistry<MaxSlots>;
 
  public:
-    SharedFileDescription() = default;
+    SharedFileDescriptor() = default;
 
-    explicit SharedFileDescription(int fd) : _fd(fd) {
+    explicit SharedFileDescriptor(int fd) : _fd(fd) {
         if (_fd >= 0) Registry::retain(_fd);
     }
 
     // Variadic constructor triggered ONLY when LinuxArgs tag is passed first
     // Completely eliminates ambiguity with copy/move/conversion constructors
     template <typename... Args>
-    explicit SharedFileDescription(LinuxArgs, Args&&... args) {
+    explicit SharedFileDescriptor(LinuxArgs, Args&&... args) {
         if constexpr (std::is_same_v<Policy, PipePolicy> || std::is_same_v<Policy, UdpLocalhostPolicy>) {
             _fd = Policy::open_and_declare_ctx(_ctx, std::forward<Args>(args)...);
         } else {
@@ -105,20 +105,20 @@ class SharedFileDescription {
     }
 
     // Conversion constructor utilizes release_ownership() instead of pointer hacking
-    explicit SharedFileDescription(UniqueFileDescription<Policy>&& unique_file_desc)
+    explicit SharedFileDescriptor(UniqueFileDescriptor<Policy>&& unique_file_desc)
         : _fd(unique_file_desc.release_ownership()) {
         if (_fd >= 0) {
             Registry::retain(_fd);
         }
     }
 
-    ~SharedFileDescription() { reset(); }
+    ~SharedFileDescriptor() { reset(); }
 
-    SharedFileDescription(const SharedFileDescription& other) : _fd(other._fd) {
+    SharedFileDescriptor(const SharedFileDescriptor& other) : _fd(other._fd) {
         if (_fd >= 0) Registry::retain(_fd);
     }
 
-    SharedFileDescription& operator=(const SharedFileDescription& other) {
+    SharedFileDescriptor& operator=(const SharedFileDescriptor& other) {
         if (this != &other) {
             reset();
             _fd = other._fd;
@@ -127,9 +127,9 @@ class SharedFileDescription {
         return *this;
     }
 
-    SharedFileDescription(SharedFileDescription&& other) noexcept : _fd(other._fd) { other._fd = -1; }
+    SharedFileDescriptor(SharedFileDescriptor&& other) noexcept : _fd(other._fd) { other._fd = -1; }
 
-    SharedFileDescription& operator=(SharedFileDescription&& other) noexcept {
+    SharedFileDescriptor& operator=(SharedFileDescriptor&& other) noexcept {
         if (this != &other) {
             reset();
             _fd       = other._fd;
@@ -191,11 +191,11 @@ template <typename Policy>
 class SharedFdSwitchGuard {
  private:
     // Reference to the active member variable of the target instance
-    SharedFileDescription<Policy>& _current_fd;
-    SharedFileDescription<Policy>& _new_fd;
+    SharedFileDescriptor<Policy>& _current_fd;
+    SharedFileDescriptor<Policy>& _new_fd;
 
     // This must be a clean value object to hold the server's main fd safely on stack
-    SharedFileDescription<Policy> _temporary_fd;
+    SharedFileDescriptor<Policy> _temporary_fd;
 
     // Explicit manual lock management instead of std::lock_guard for precise structural binding
     std::mutex* _allocated_mutex_ptr;
@@ -220,7 +220,7 @@ class SharedFdSwitchGuard {
      * @param active The reference to the core variable to be modified.
      * @param target The target descriptor to be injected into execution.
      */
-    SharedFdSwitchGuard(SharedFileDescription<Policy>& active, SharedFileDescription<Policy>& target)  //
+    SharedFdSwitchGuard(SharedFileDescriptor<Policy>& active, SharedFileDescriptor<Policy>& target)  //
         : _current_fd(active), _new_fd(target) {
         // 1. Resolve and extract the specific lock based on the instance variable address
         _allocated_mutex_ptr = &get_mutex_pool(static_cast<void*>(&_current_fd));

@@ -17,25 +17,25 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
  public:
     // TODO REMOVED
     /** @brief Get fd with int for Linux API*/
-    SharedFileDescription<PipePolicy> const get_read_sfd() const  //
+    SharedFileDescriptor<PipePolicy> const get_read_sfd() const  //
     {
         return IPCSenderBase<PipePolicy>::_shared_fd;
     }
 
-    SharedFileDescription<PipePolicy> const get_write_sfd() const {  //
+    SharedFileDescriptor<PipePolicy> const get_write_sfd() const {  //
         return IPCSenderBase<PipePolicy>::_shared_fd;
     }
 
     bool set_read_sfd(int read_fd) {
-        SharedFileDescription<PipePolicy> shared_proxy;
-        shared_proxy                          = SharedFileDescription<PipePolicy>(read_fd);
+        SharedFileDescriptor<PipePolicy> shared_proxy;
+        shared_proxy                          = SharedFileDescriptor<PipePolicy>(read_fd);
         IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
         return true;
     }
 
     bool set_write_sfd(int write_fd) {
-        SharedFileDescription<PipePolicy> shared_proxy;
-        shared_proxy                          = SharedFileDescription<PipePolicy>(write_fd);
+        SharedFileDescriptor<PipePolicy> shared_proxy;
+        shared_proxy                          = SharedFileDescriptor<PipePolicy>(write_fd);
         IPCSenderBase<PipePolicy>::_shared_fd = shared_proxy;
         return true;
     }
@@ -61,8 +61,8 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
      * @param modes Operational modes for this IPC instance.
      */
     PosixPipe(const std::string& path, Ipc::Generic<Modes> modes)
-        : IPCSenderBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
-          IPCReceiverBase<PipePolicy>(SharedFileDescription<PipePolicy>{}),
+        : IPCSenderBase<PipePolicy>(SharedFileDescriptor<PipePolicy>{}),
+          IPCReceiverBase<PipePolicy>(SharedFileDescriptor<PipePolicy>{}),
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
@@ -91,7 +91,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
     }
 
     template <typename T>
-    bool send_packet(SharedFileDescription<PipePolicy>& shared_proxy_fd, DataType type, const T& data,
+    bool send_packet(SharedFileDescriptor<PipePolicy>& shared_proxy_fd, DataType type, const T& data,
                      const uint32_t& seq = 0) {
         if (!shared_proxy_fd) {
             HARIS_LOG_CRITICAL("Invalid share posix fd");
@@ -115,7 +115,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
     bool receive_packet(PacketHeader& header, std::vector<uint8_t>& payload);
 
     // Adapt function : todo remove it
-    bool receive_packet(SharedFileDescription<PipePolicy>& shared_proxy_fd, PacketHeader& header,
+    bool receive_packet(SharedFileDescriptor<PipePolicy>& shared_proxy_fd, PacketHeader& header,
                         std::vector<uint8_t>& payload) {
         if (!shared_proxy_fd) {
             HARIS_LOG_CRITICAL("Invalid share posix fd");

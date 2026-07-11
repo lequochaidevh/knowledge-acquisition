@@ -8,7 +8,7 @@ class PipeServer : public PosixPipe<Ipc::Server> {
  private:
     DECLARE_LOGGER;
 
-    std::map<std::string, std::pair<SharedFileDescription<PipePolicy>, SharedFileDescription<PipePolicy>>>  //
+    std::map<std::string, std::pair<SharedFileDescriptor<PipePolicy>, SharedFileDescriptor<PipePolicy>>>  //
         _client_registry;
 
     std::mutex _client_registry_mutex;
@@ -41,8 +41,8 @@ class PipeServer : public PosixPipe<Ipc::Server> {
      * @param read_fd The data source descriptor.
      * @param proxy_write_fd The data destination feedback descriptor.
      */
-    void process_client_packet(const std::string& client_id, SharedFileDescription<PipePolicy>& proxy_read_fd,
-                               SharedFileDescription<PipePolicy>& proxy_write_fd);
+    void process_client_packet(const std::string& client_id, SharedFileDescriptor<PipePolicy>& proxy_read_fd,
+                               SharedFileDescriptor<PipePolicy>& proxy_write_fd);
 
  public:
     PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes);

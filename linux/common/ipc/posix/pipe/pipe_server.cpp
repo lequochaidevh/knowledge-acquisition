@@ -8,11 +8,11 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
     logger->setLevel(LogLevel::Trace);
     {
         PipeContext pipe_main_ctx{_upstream_path};
-        SharedFileDescription<PipePolicy>::setup_communication(pipe_main_ctx);
+        SharedFileDescriptor<PipePolicy>::setup_communication(pipe_main_ctx);
     }
     {
         PipeContext pipe_ctx{_downstream_path};
-        SharedFileDescription<PipePolicy>::setup_communication(pipe_ctx);
+        SharedFileDescriptor<PipePolicy>::setup_communication(pipe_ctx);
     }
 
     HARIS_LOG_INFO("Request Pipe available...");
@@ -34,13 +34,13 @@ bool PipeServer::accept_client() {
     HARIS_LOG_INFO("Open Request Pipe, wait any client request");
 
     // Block wait command from client
-    SharedFileDescription<PipePolicy> req_read_smart(open(_upstream_path.c_str(), O_RDONLY));
+    SharedFileDescriptor<PipePolicy> req_read_smart(open(_upstream_path.c_str(), O_RDONLY));
     HARIS_LOG_INFO("Get req_read_fd : {} ", req_read_smart.get());
 
-    SharedFileDescription<PipePolicy> req_write_smart;
+    SharedFileDescriptor<PipePolicy> req_write_smart;
     if (_modes & Ipc::Server::Feedback) {
         // init with raw fd
-        req_write_smart = SharedFileDescription<PipePolicy>(open(_downstream_path.c_str(), O_WRONLY));
+        req_write_smart = SharedFileDescriptor<PipePolicy>(open(_downstream_path.c_str(), O_WRONLY));
     }
 
     PacketHeader         header;
@@ -99,11 +99,11 @@ bool PipeServer::accept_client() {
 
             {
                 PipeContext pipe_main_ctx{dynamic_fb_path};
-                SharedFileDescription<PipePolicy>::setup_communication(pipe_main_ctx);
+                SharedFileDescriptor<PipePolicy>::setup_communication(pipe_main_ctx);
             }
             {
                 PipeContext pipe_ctx{dynamic_main_path};
-                SharedFileDescription<PipePolicy>::setup_communication(pipe_ctx);
+                SharedFileDescriptor<PipePolicy>::setup_communication(pipe_ctx);
             }
 
             // 2. Send ACK to notify for the client "the pipe have been created successfully"
@@ -114,11 +114,11 @@ bool PipeServer::accept_client() {
 
             // Acquire client dedicated stream assets securely using our automated factory methods
 
-            SharedFileDescription<PipePolicy>  //
+            SharedFileDescriptor<PipePolicy>  //
                 smart_read_fd(open(dynamic_main_path.c_str(), O_RDONLY | O_NONBLOCK));
             // block
             HARIS_LOG_DEBUG("1 Wait client join the /tmp/pipe_{} pipe ...", client_id);
-            SharedFileDescription<PipePolicy>                             //
+            SharedFileDescriptor<PipePolicy>                              //
                 smart_write_fd(open(dynamic_fb_path.c_str(), O_WRONLY));  //
 
             // 4. Open new pipe (server - client_id)
@@ -143,8 +143,8 @@ bool PipeServer::accept_client() {
     return false;
 }
 
-void PipeServer::process_client_packet(const std::string& client_id, SharedFileDescription<PipePolicy>& proxy_read_fd,
-                                       SharedFileDescription<PipePolicy>& proxy_write_fd) {
+void PipeServer::process_client_packet(const std::string& client_id, SharedFileDescriptor<PipePolicy>& proxy_read_fd,
+                                       SharedFileDescriptor<PipePolicy>& proxy_write_fd) {
     PacketHeader         header;
     std::vector<uint8_t> data;
 
@@ -217,8 +217,8 @@ void PipeServer::dispatch_events() {
                     std::string client_id = client_ids[i];
                     int         read_fd   = poll_fds[i].fd;
 
-                    SharedFileDescription<PipePolicy> proxy_write_fd;
-                    SharedFileDescription<PipePolicy> proxy_read_fd;
+                    SharedFileDescriptor<PipePolicy> proxy_write_fd;
+                    SharedFileDescriptor<PipePolicy> proxy_read_fd;
 
                     // Retrieve write_fd safely from registry
                     {

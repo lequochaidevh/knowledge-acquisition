@@ -78,10 +78,6 @@ struct SocketDgramIPv4Context {
     // Runtime cache for compiled network layouts
     sockaddr_in local_sockaddr;
     sockaddr_in target_sockaddr;
-
-    // Internal persistent storage blocks tracked safely on class layout levels for Datagrams
-    sockaddr_storage remote_addr{};
-    socklen_t        addr_len = sizeof(sockaddr_storage);
 };
 // --- POLICY 1: IPv4 DGRAM ---
 class SocketDgramIPv4Policy {
@@ -106,10 +102,6 @@ class SocketDgramIPv4Policy {
             ctx.target_sockaddr.sin_port   = htons(ctx.target_port);
             ::inet_pton(AF_INET, ctx.target_ip.c_str(), &ctx.target_sockaddr.sin_addr);
             ::connect(fd, (sockaddr*)&ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
-
-            std::memset(&ctx.remote_addr, 0, sizeof(ctx.remote_addr));
-            std::memcpy(&ctx.remote_addr, &ctx.target_sockaddr, sizeof(ctx.target_sockaddr));
-            ctx.addr_len = sizeof(sockaddr_in);
         }
 
         return fd;
