@@ -133,12 +133,12 @@ bool PipeServer::accept_client() {
             SharedFileDescriptor<PipePolicy>  //
                 smart_read_fd(open(dynamic_main_path.c_str(), O_RDONLY | O_NONBLOCK));
             // block
-            HARIS_LOG_DEBUG("1 Wait client join the /tmp/pipe_{} pipe ...", client_id);
+            HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
             SharedFileDescriptor<PipePolicy>                              //
                 smart_write_fd(open(dynamic_fb_path.c_str(), O_WRONLY));  //
 
             // 4. Open new pipe (server - client_id)
-            HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
+            HARIS_LOG_DEBUG("Client have joined");
             {
                 std::lock_guard<std::mutex> lock(_client_registry_mutex);
                 // Construct the object directly inside the map bucket memory layout to avoid redundant moves
@@ -167,8 +167,6 @@ void PipeServer::process_client_packet(const std::string& client_id, SharedFileD
                                        SharedFileDescriptor<PipePolicy>& proxy_write_fd) {
     PacketHeader         header;
     std::vector<uint8_t> data;
-
-    static uint64_t last_heartbeat_time = 0;
 
     HARIS_LOG_DEBUG("=== read_fd === [{}] ", proxy_read_fd.get());
 
@@ -210,6 +208,7 @@ void PipeServer::process_client_packet(const std::string& client_id, SharedFileD
 
             send_packet(proxy_write_fd, DataType::Command, fb_payload, seq_id);
 
+            static uint64_t last_heartbeat_time = 0;
             if ((current_time_ms - last_heartbeat_time) > 1000) {
                 send_heartbeat(proxy_write_fd, _server_id, seq_id);
                 last_heartbeat_time = current_time_ms;
@@ -227,7 +226,7 @@ void PipeServer::dispatch_events() {
     });
     acceptor_thread.detach();
 
-    // 2. Efficient polling using OS poll()
+    // 2. Efficient polling using OS poll() - MAX: 1KHz/client
     while (_server_running) {
         // Check connection timeout.
         execute_housekeeping_phase();
@@ -258,8 +257,9 @@ void PipeServer::dispatch_events() {
             continue;
         }
 
-        // Wait up to 100ms for ANY client to send data (OS manages this, 0% CPU overhead)
-        int poll_ret = poll(poll_fds.data(), poll_fds.size(), 1);
+        // MAX: 1KHz/client - Wait up to 1ms for ANY client to send data (OS manages this, 0% CPU overhead)
+        // Todo: Upgrade
+        int poll_ret = ::poll(poll_fds.data(), poll_fds.size(), 1);
 
         if (poll_ret > 0) {
             // Data is available! Loop through and process ONLY active clients

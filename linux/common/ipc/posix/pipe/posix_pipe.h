@@ -78,7 +78,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
      * @return false If the write operation failed.
      */
     template <typename T>
-    bool send_packet(DataType type, const T& data, const uint32_t& seq = 0) const {
+    bool send_packet(DataType type, const T& data, const uint32_t& seq = 1) const {
         // Triggers the atomic zero-copy layout executed entirely on stack via IPCSender
         HARIS_LOG_DEBUG("------------ Derived Send Data ------------");
         return IPCSenderBase<PipePolicy>::send(type, data, seq);
@@ -86,7 +86,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
 
     template <typename T>
     bool send_packet(SharedFileDescriptor<PipePolicy>& shared_proxy_fd, DataType type, const T& data,
-                     const uint32_t& seq = 0) {
+                     const uint32_t& seq = 1) {
         if (!shared_proxy_fd) {
             HARIS_LOG_CRITICAL("Invalid share posix fd");
             return false;

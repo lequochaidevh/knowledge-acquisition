@@ -37,17 +37,17 @@ std::string Logger::format_thread_process_info() {
 std::string_view Logger::format_level_to_string_view(LogLevel level) {
     switch (level) {
         case LogLevel::Trace:
-            return "TRACE     ";
+            return "TRACE ";
         case LogLevel::Debug:
-            return "DEBUG     ";
+            return "DEBUG ";
         case LogLevel::Info:
-            return "INFOMATION";
+            return "INFO  ";
         case LogLevel::Warn:
-            return "WARNING   ";
+            return "WARN  ";
         case LogLevel::Error:
-            return "ERROR     ";
+            return "ERROR ";
         case LogLevel::Critical:
-            return "CRITICAL  ";
+            return "CRIT  ";
         default:
             return " UNKNOWN";
     }
@@ -63,8 +63,8 @@ void Logger::std_cout_message(LogLevel level, std::string_view file, int line, s
     // Optimization: std::string_view is formatted directly with zero temporary string allocation overhead
     std::string combined_metadata = fmt::format("{}:{} {}:{}", file, line, _name, func);
 
-    // Pad the combined metadata block to 74 characters to ensure straight vertical alignment
-    std::string padded_metadata = fmt::format("{:<74}", combined_metadata);
+    // Pad the combined metadata block to 68 characters to ensure straight vertical alignment
+    std::string padded_metadata = fmt::format("{:<68}", combined_metadata);
 
     // 2. Setup color formatting for level string
     std::string_view raw_level  = format_level_to_string_view(level);

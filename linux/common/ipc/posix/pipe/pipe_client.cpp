@@ -34,6 +34,8 @@ void PipeClient::check_feedback() {
                     "Data Lost Detected! Expected Seq: {} "
                     "Got: {}",
                     _current_seq, static_cast<uint32_t>(fb_header.sequence_id));
+            } else {
+                // _dispatcher.dispatch(fb_header, fb_data);
             }
         }
     }
@@ -81,11 +83,11 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
 
     HARIS_LOG_DEBUG(
         "The client id: [{}] "
+        "Seq : {} "
         "Send request to pipe ...",
-        _client_id);
-    // _current_seq++;
+        _client_id, _current_seq);
 
-    if (!send_packet(_write_share_fd, DataType::Command, req))  // Request to main pipe
+    if (!send_packet(_write_share_fd, DataType::Command, req, _current_seq))  // Request to main pipe
         HARIS_LOG_CRITICAL("Send packet failed");
 
     // Wait Server to accept and feedback ACK.
@@ -99,8 +101,6 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                     "Command:[1] --- The client id: [{}] "
                     "have existed in Server ! Reject to connection ...",
                     _client_id);
-                // _write_share_fd.reset();
-                // if (_read_share_fd) close(_read_share_fd);
                 throw "Request failed";
                 // return false;
             } else if (ack_status == "REMOVED") {
@@ -113,9 +113,6 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
                     "The client id: [{}] "
                     "Server have opened new pipe. Switch to it...",
                     _client_id);
-                // Close request_pipe fd
-                // _write_share_fd.reset();
-                // if (_read_share_fd != -1) close(_read_share_fd);
 
                 // Update to new pipe
                 _upstream_path   = "/tmp/pipe_" + _client_id;

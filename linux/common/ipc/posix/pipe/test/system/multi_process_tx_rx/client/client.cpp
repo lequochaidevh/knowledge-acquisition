@@ -74,8 +74,10 @@ TEST_F(PipeClientTest, VerifyClientSubscriptionAndDataPushSequence) {
         if (client.request_and_switch_pipe(1)) {
             // First messaging phase validation (FIXED: Removed EXPECT_TRUE)
             std::string private_data = "Private data Client Alpha and Server!";
+
             client.start_monitoring();
             client.push_data(DataType::Text, private_data);
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_arg));
         }
 
         int cnt = 200;
