@@ -14,35 +14,44 @@ PipeClient::PipeClient(const std::string& request_path, const std::string& id, I
 }
 
 PipeClient::~PipeClient() {
+    stop_monitoring();
     HARIS_LOG_DEBUG(
         "The client id [{}]  Distructor class, "
         "send command REMOVE to Server...",
         _client_id);
     request_and_switch_main_pipe();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void PipeClient::check_feedback() {
     if (_modes.missing(Ipc::Client::CheckLose)) return;
     PacketHeader         fb_header;
     std::vector<uint8_t> fb_data;
-    if (receive_packet(_read_share_fd, fb_header, fb_data)) {
-        if (fb_header.sequence_id != _current_seq) {
-            HARIS_LOG_DEBUG(
-                "Data Lost Detected! Expected Seq: {} "
-                "Got: {}",
-                _current_seq, static_cast<uint32_t>(fb_header.sequence_id));
-        } else {
-            _dispatcher.dispatch(fb_header, fb_data);
+    while (_is_running) {
+        if (receive_packet(_read_share_fd, fb_header, fb_data)) {
+            if (fb_header.sequence_id != _current_seq) {
+                HARIS_LOG_WARN(
+                    "Data Lost Detected! Expected Seq: {} "
+                    "Got: {}",
+                    _current_seq, static_cast<uint32_t>(fb_header.sequence_id));
+            }
         }
     }
 }
 
+void PipeClient::start_monitoring() {
+    if (_is_running.load()) return;
+
+    _is_running.store(true);
+    std::thread t(&PipeClient::check_feedback, this);
+    t.detach();
+}
+
+void PipeClient::stop_monitoring() { _is_running.store(false); }
+
 bool PipeClient::request_and_switch_main_pipe() {
     _upstream_path   = _old_upstream_path;
     _downstream_path = _old_upstream_path + "_fb";
-
-    // _write_share_fd.reset();
-    // if (_read_share_fd != -1) close(_read_share_fd);
 
     HARIS_LOG_DEBUG(
         "Request with old main pipe: "
@@ -74,9 +83,9 @@ bool PipeClient::request_and_switch_pipe(uint32_t command_arg) {
         "The client id: [{}] "
         "Send request to pipe ...",
         _client_id);
-    _current_seq++;
+    // _current_seq++;
 
-    if (!send_packet(_write_share_fd, DataType::Command, req, _current_seq))  // Request to main pipe
+    if (!send_packet(_write_share_fd, DataType::Command, req))  // Request to main pipe
         HARIS_LOG_CRITICAL("Send packet failed");
 
     // Wait Server to accept and feedback ACK.

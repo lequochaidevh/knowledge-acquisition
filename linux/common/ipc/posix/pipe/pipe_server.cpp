@@ -20,13 +20,29 @@ PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
 
 PipeServer::~PipeServer() {}
 
-void PipeServer::monitor_throughput(uint64_t current_ms) {
-    _accumulated_packet_count++;
-    if (_last_metrics_timestamp_ms == 0) _last_metrics_timestamp_ms = current_ms;
-    if (current_ms - _last_metrics_timestamp_ms >= 1000) {
-        HARIS_LOG_DEBUG("Frequency: {} Hz", _accumulated_packet_count);
-        _accumulated_packet_count  = 0;
-        _last_metrics_timestamp_ms = current_ms;
+/**
+ * @brief Periodic background task executed on the main server runtime loop.
+ */
+void PipeServer::execute_housekeeping_phase() {
+    uint64_t                    current_time_ms = get_current_timestamp_ms();
+    std::lock_guard<std::mutex> lock(_client_registry_mutex);
+
+    // Use a clean iterator to safely erase items while traversing the map
+    for (auto it = _client_registry.begin(); it != _client_registry.end();) {
+        ClientSession&     session   = it->second;
+        const std::string& client_id = it->first;
+        // 1. Evaluate client lifecycle expiration via internal calculations
+        if (session.is_heartbeat_expired(current_time_ms, 5000)) {  // 5-second deadline limit
+            HARIS_LOG_WARN("Client connection lost via heartbeat timeout: {}", client_id);
+            it = _client_registry.erase(it);  // Drop session from tracking registry matrix
+            continue;
+        }
+
+        // 2. Read live data throughput indicators securely through public encapsulation getters
+        double throughput_hz = session.get_message_frequency();
+        // HARIS_LOG_DEBUG("Telemetry report - Client: {} | Throughput: {:.2f} Hz", client_id, throughput_hz);
+
+        ++it;
     }
 }
 
@@ -125,9 +141,13 @@ bool PipeServer::accept_client() {
             HARIS_LOG_DEBUG("Wait client join the /tmp/pipe_{} pipe ...", client_id);
             {
                 std::lock_guard<std::mutex> lock(_client_registry_mutex);
-                // Package and move the live smart objects directly into the database container safely
-                _client_registry[client_id] =  //
-                    std::make_pair(std::move(smart_read_fd), std::move(smart_write_fd));
+                // Construct the object directly inside the map bucket memory layout to avoid redundant moves
+                _client_registry.emplace(std::piecewise_construct,  //
+                                         std::forward_as_tuple(client_id),
+                                         std::forward_as_tuple(std::move(smart_read_fd),  //
+                                                               std::move(smart_write_fd)));
+                ClientSession* target_session = &(_client_registry[client_id]);
+                target_session->register_heartbeat(get_current_timestamp_ms());
             }
             HARIS_LOG_DEBUG("Connected to client successfully: {} ", client_id);
 
@@ -148,11 +168,29 @@ void PipeServer::process_client_packet(const std::string& client_id, SharedFileD
     PacketHeader         header;
     std::vector<uint8_t> data;
 
+    static uint64_t last_heartbeat_time = 0;
+
     HARIS_LOG_DEBUG("=== read_fd === [{}] ", proxy_read_fd.get());
+
+    ClientSession* target_session = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(_client_registry_mutex);
+        auto                        it = _client_registry.find(client_id);
+        if (it == _client_registry.end()) return;
+        target_session = &(it->second);
+    }
 
     // 1. Extract packet header and payload
     if (receive_packet(proxy_read_fd, header, data)) {
-        monitor_throughput(header.timestamp_ms);
+        uint64_t current_time_ms = get_current_timestamp_ms();
+
+        // 2. Command the smart object to recalculate message frequencies autonomously
+        target_session->evaluate_message_frequency(current_time_ms);
+
+        // 3. Reset the keep-alive expiration timeline if this was a heartbeat packet
+        if (header.type == DataType::Heartbeat) {
+            target_session->register_heartbeat(current_time_ms);
+        }
 
         // 2. Validate payload size
         if (data.empty()) {
@@ -164,8 +202,18 @@ void PipeServer::process_client_packet(const std::string& client_id, SharedFileD
 
         // 4. Send acknowledgment feedback if required
         if (_modes & Ipc::Server::Feedback) {
-            IPCRequestPayload fb_payload{"Server feedback to client fd: ", static_cast<uint32_t>(proxy_write_fd.get())};
-            send_packet(proxy_write_fd, DataType::Command, fb_payload, header.sequence_id);
+            uint32_t seq_id = header.sequence_id;
+
+            HARIS_LOG_INFO("seq {}", seq_id);
+            IPCRequestPayload fb_payload{"Server feedback to client fd: ",  //
+                                         static_cast<uint32_t>(proxy_write_fd.get())};
+
+            send_packet(proxy_write_fd, DataType::Command, fb_payload, seq_id);
+
+            if ((current_time_ms - last_heartbeat_time) > 1000) {
+                send_heartbeat(proxy_write_fd, _server_id, seq_id);
+                last_heartbeat_time = current_time_ms;
+            }
         }
     }
 }
@@ -181,6 +229,9 @@ void PipeServer::dispatch_events() {
 
     // 2. Efficient polling using OS poll()
     while (_server_running) {
+        // Check connection timeout.
+        execute_housekeeping_phase();
+
         std::vector<struct pollfd> poll_fds;
         std::vector<std::string>   client_ids;  // Map back poll index to client_id
 
@@ -188,7 +239,7 @@ void PipeServer::dispatch_events() {
         {
             std::lock_guard<std::mutex> lock(_client_registry_mutex);
             for (const auto& [client_id, fds] : _client_registry) {
-                int read_fd = fds.first.get();
+                int read_fd = fds.get_read_sfd().get();
                 if (read_fd != -1) {
                     struct pollfd pfd;
                     pfd.fd      = read_fd;
@@ -224,8 +275,8 @@ void PipeServer::dispatch_events() {
                     {
                         std::lock_guard<std::mutex> lock(_client_registry_mutex);
                         if (_client_registry.find(client_id) != _client_registry.end()) {
-                            proxy_read_fd  = _client_registry[client_id].first;
-                            proxy_write_fd = _client_registry[client_id].second;
+                            proxy_read_fd  = _client_registry[client_id].get_read_sfd();
+                            proxy_write_fd = _client_registry[client_id].get_write_sfd();
                         }
                     }
 

@@ -43,7 +43,7 @@ class IPCReceiverBase {
             // Process payload sequentially based on the validated stream header info
             if (out_header.payload_size > 0) {
                 out_payload.resize(out_header.payload_size);
-
+                std::cout << "Seq READ: " << out_header.sequence_id << "\n";
                 struct iovec payload_iov[1];
                 payload_iov[0].iov_base = out_payload.data();
                 payload_iov[0].iov_len  = out_header.payload_size;
@@ -51,7 +51,7 @@ class IPCReceiverBase {
                 ssize_t payload_bytes = session.read_vector(payload_iov, 1);
                 return payload_bytes == static_cast<ssize_t>(out_header.payload_size);
             }
-            return true;
+            return false;
         } else if constexpr (std::is_same_v<Policy, SocketDgramIPv4Policy> ||  //
                              std::is_same_v<Policy, SocketDgramPathPolicy> ||
                              std::is_same_v<Policy, UdpLocalhostPolicy>) {

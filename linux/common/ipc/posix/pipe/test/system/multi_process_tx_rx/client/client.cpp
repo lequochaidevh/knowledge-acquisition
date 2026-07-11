@@ -40,6 +40,20 @@ class PipeClientTest : public ::testing::Test {
 // ==============================================================================
 // THE CLIENT TRANSACTION UNIT TEST
 // ==============================================================================
+void heartbeat_task(TestPipeClient &client) {
+    static auto last_heartbeat_time = get_current_timestamp_ms();
+    auto        current_time        = get_current_timestamp_ms();
+
+    auto elapsed = current_time - last_heartbeat_time;
+
+    if (elapsed >= 1000) {
+        std::cout << "Task Heart beat is running...\n";
+        client.push_heartbeat();
+
+        last_heartbeat_time = current_time;
+    }
+}
+
 TEST_F(PipeClientTest, VerifyClientSubscriptionAndDataPushSequence) {
     // Mock the incoming command-line argument configuration locally (e.g., ID "1")
     const std::string client_path = "client_alpha_" + GLOBAL_CLIENT_ID;
@@ -60,10 +74,8 @@ TEST_F(PipeClientTest, VerifyClientSubscriptionAndDataPushSequence) {
         if (client.request_and_switch_pipe(1)) {
             // First messaging phase validation (FIXED: Removed EXPECT_TRUE)
             std::string private_data = "Private data Client Alpha and Server!";
+            client.start_monitoring();
             client.push_data(DataType::Text, private_data);
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-            client.check_feedback();
         }
 
         int cnt = 200;
@@ -72,28 +84,21 @@ TEST_F(PipeClientTest, VerifyClientSubscriptionAndDataPushSequence) {
             std::string text_msg = "Hello POSIX Pipe!";
             fmt::print("\n{} Sending text...\n", client_path);
             client.push_data(DataType::Text, text_msg);
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-            client.check_feedback();
             std::this_thread::sleep_for(std::chrono::milliseconds(delay_arg));
 
             // --- TEST PHASE 2: Verify Raw Numeric Integer Translation (FIXED: Removed EXPECT_TRUE) ---
-            int              number = 2026;
-            std::string_view num_data(reinterpret_cast<const char *>(&number), sizeof(number));
+            int number = 2026;
             fmt::print("\n{} Sending number...\n", client_path);
-            client.push_data(DataType::Number, num_data);
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-            client.check_feedback();
+            client.push_data(DataType::Number, number);
             std::this_thread::sleep_for(std::chrono::milliseconds(delay_arg));
 
             // --- TEST PHASE 3: Verify Heavy Structured Binary Containers (FIXED: Removed EXPECT_TRUE) ---
             std::vector<uint8_t> dummy_media = {0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02};
             fmt::print("\n{} Sending mock Media data...\n", client_path);
             client.push_data(DataType::Media, dummy_media);
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_arg));
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
-            client.check_feedback();
+            heartbeat_task(client);
             std::this_thread::sleep_for(std::chrono::milliseconds(delay_arg));
         }
 
