@@ -1,43 +1,36 @@
 cmake_minimum_required(VERSION 3.12)
 project(LoggingLibrary CXX)
 
+# 1. Load the complete global ecosystem directly from your environment variable path
+set(BASE_DIR_CONFIG "common")
+include("$ENV{CMAKE_UTIL_PATH}/ProjectConfigInit.cmake")
+
+include(InstallUtil)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Check if the external environment variable exists
-if(DEFINED ENV{MINOR_ROOT_PATH})
-    set(MINOR_ROOT_PATH "$ENV{MINOR_ROOT_PATH}")
-    message(STATUS "Found environment path.")
-    message(STATUS "MINOR_ROOT_PATH: ${MINOR_ROOT_PATH}")
+# 2. Find and set variable to declare dependacies packages.
+find_package(fmt REQUIRED PATHS ${INTERNAL_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
 
-    set(CMAKE_INSTALL_PREFIX "$ENV{MINOR_ROOT_PATH}" CACHE PATH "Install path from env" FORCE)
-    set(CMAKE_PREFIX_PATH "$ENV{MINOR_ROOT_PATH}")
-    message(STATUS "--> Found environment path. Configure cmake prefix to: ${CMAKE_PREFIX_PATH}")
-    message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
-else()
-    message(FATAL_ERROR "--> Environment variable not found.")
-endif()
-
-find_package(fmt REQUIRED PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
-
-add_library(logging STATIC logger.cpp logger.h)
-
-target_link_libraries(logging PUBLIC fmt::fmt)
-
-# Configure include directory paths for building and installing
-target_include_directories(logging PUBLIC 
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/../
-    $<INSTALL_INTERFACE:include>
+# 3. Configure include directory paths for building and installing
+file(GLOB SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-# 3. CONFIGURE INSTALLATION TARGETS
-# Install the static library binary (liblogging.a) to 'lib/'
-install(TARGETS logging
-    ARCHIVE DESTINATION lib
+add_library(logging_object OBJECT
+    ${SOURCES}
 )
 
-# Install the header file (logger.h) to 'include/'
-install(FILES logger.h
-    DESTINATION include/logging
+register_module_component_strict(logging_object
+    LIB_NOT_MERGE 1 # Not merge lib
+    STATIC_LIB_NAME logging
+    ROOT_DIR "${BASE_SOURCE_PATH}/logging"
+    INSTALL_DESTINATION "include/haris/linux/common/logging"
+    EXTRA_INCLUDES
+        "${BASE_SOURCE_PATH}"
+    EXTRA_LIBS
+        "fmt::fmt"
+    EXCLUDE_FILES
+    EXCLUDE_DIRS
 )

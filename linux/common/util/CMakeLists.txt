@@ -7,10 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(helper/nlohmann_json)
 
-file(GLOB IPC_INSTALL_HEADERS
+file(GLOB UTIL_INSTALL_HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 
-install(FILES ${IPC_INSTALL_HEADERS}
+install(FILES ${UTIL_INSTALL_HEADERS}
     DESTINATION include/haris/linux/common/util
 )

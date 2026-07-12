@@ -22,14 +22,14 @@ if(LIB_NOT_MERGE)
     )
 else()
 
-    add_library(common_ipc STATIC
-        $<TARGET_OBJECTS:ipc_pipe_obj>
-        $<TARGET_OBJECTS:ipc_socket_obj>
-    )
+    add_library(ipc_manager STATIC
+        $<TARGET_OBJECTS:pipe_object>
+        )
+        # $<TARGET_OBJECTS:socket_object>
 
     # 3. CONFIGURE INSTALLATION TARGETS
     # Install the static library binary (libposix_pipe.a) to 'lib/'
-    install(TARGETS common_ipc
+    install(TARGETS ipc_manager
         ARCHIVE DESTINATION lib
     )
 

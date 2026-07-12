@@ -12,9 +12,9 @@ include(CMakeParseArguments)
 #]]
 function(register_module_component_strict TARGET_NAME)
     # Define generic argument keywords for the parser
-    set(options LIB_NOT_MERGE)
-    set(oneValueArgs ROOT_DIR INSTALL_DESTINATION STATIC_LIB_NAME)
-    set(multiValueArgs EXTRA_INCLUDES EXCLUDE_FILES EXCLUDE_DIRS)
+    set(options "")
+    set(oneValueArgs ROOT_DIR INSTALL_DESTINATION STATIC_LIB_NAME LIB_NOT_MERGE)
+    set(multiValueArgs EXTRA_INCLUDES EXTRA_LIBS EXCLUDE_FILES EXCLUDE_DIRS)
 
     # Parse arguments provided to the function call
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -34,6 +34,10 @@ function(register_module_component_strict TARGET_NAME)
         message(FATAL_ERROR "Missing mandatory argument: EXTRA_INCLUDES must contain at least one valid include path for target '${TARGET_NAME}'.")
     endif()
 
+    if("${ARG_EXTRA_LIBS}" STREQUAL "")
+        message(FATAL_ERROR "Missing mandatory argument: EXTRA_LIBS must contain at least one valid include path for target '${TARGET_NAME}'.")
+    endif()
+
     # (EXCLUDE_FILES)
     if(ARG_EXCLUDE_FILES)
         list(REMOVE_ITEM ALL_SOURCES ${ARG_EXCLUDE_FILES})
@@ -45,7 +49,6 @@ function(register_module_component_strict TARGET_NAME)
         foreach(SRC_FILE ${ALL_SOURCES})
             set(SHOULD_EXCLUDE FALSE)
             foreach(DIR ${ARG_EXCLUDE_DIRS})
-                # Kiểm tra nếu đường dẫn file bắt đầu bằng đường dẫn thư mục bị loại trừ
                 if(SRC_FILE MATCHES "^${DIR}/")
                     set(SHOULD_EXCLUDE TRUE)
                     break()
@@ -62,13 +65,15 @@ function(register_module_component_strict TARGET_NAME)
     # Configure include directory boundaries universally
     target_include_directories(${TARGET_NAME} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${ARG_ROOT_DIR}>
-        $<BUILD_INTERFACE:${ARG_EXTRA_INCLUDES}>
         $<INSTALL_INTERFACE:include>
+        ${ARG_ROOT_DIR}
+        ${ARG_EXTRA_INCLUDES}
     )
 
+    target_link_libraries(${TARGET_NAME} PUBLIC ${ARG_EXTRA_LIBS})
+
     # Conditional Branching: Handle distinct static library creation vs. header accumulation
-    if(ARG_LIB_NOT_MERGE)
+    if(${ARG_LIB_NOT_MERGE} STREQUAL "1")
         # Strict Validation for conditional argument: STATIC_LIB_NAME must be provided if LIB_NOT_MERGE is set
         if("${ARG_STATIC_LIB_NAME}" STREQUAL "")
             message(FATAL_ERROR "Missing mandatory argument: STATIC_LIB_NAME must be specified when 'LIB_NOT_MERGE' is enabled for target '${TARGET_NAME}'.")
