@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.10)
+project(PosixPipeProject LANGUAGES CXX)
+
+# 1. ONE-LINE BOOTSTRAP: Load the complete global ecosystem directly from your environment variable path
+include("$ENV{CMAKE_UTIL_PATH}/TestProjectInit.cmake")
+
+# Load the modern automated framework builder
+include(GTestSetup)
+
+# 2. Register your executable directly using industry-standard explicit parameters
+enable_testing()
+
+register_gtest_target(sandbox
+    SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
+    INCLUDES
+        "${BASE_SOURCE_PATH}/util/"
+        "${BASE_SOURCE_PATH}/util/helper/nlohmann_json/"
+        "${BASE_SOURCE_PATH}/"
+    LIBRARIES
+        Threads::Threads
+        fmt::fmt
+        GTest::gtest_main
+        nlohmann_json::nlohmann_json
+)

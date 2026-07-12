@@ -3,7 +3,7 @@ name: Sync Linux Readme to Root
 on:
   push:
     branches:
-      - "**"
+      - "documentation"
 
 jobs:
   sync-readme:
