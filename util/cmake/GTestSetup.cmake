@@ -45,6 +45,7 @@ function(register_gtest_target TARGET_NAME)
     )
     
     find_package(fmt REQUIRED PATHS ${INTERNAL_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
+    find_package(nlohmann_json REQUIRED PATHS ${INTERNAL_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
     find_package(GTest REQUIRED PATHS ${INTERNAL_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
     find_package(Threads REQUIRED)
 

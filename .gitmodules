@@ -7,3 +7,6 @@
 [submodule "linux/private_lib/Haris_Engine_Library"]
 	path = linux/private_lib/Haris_Engine_Library
 	url = git@github.com:lequochaidevh/Haris_Engine_Library.git
+[submodule "third-party/json"]
+	path = third-party/json
+	url = https://github.com/nlohmann/json.git

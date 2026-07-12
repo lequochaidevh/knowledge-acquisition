@@ -6,13 +6,22 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/linux/common/logging/**",
                 "${workspaceFolder}/linux/common/ipc/**",
-                "${workspaceFolder}/linux/common/**"
+                "${workspaceFolder}/linux/common/**",
+                "${workspaceFolder}/internal_root/include/**"
+            ],
+            "forcedInclude": [],
+            "compilerArgs": [
+                "-isystem",
+                "${workspaceFolder}/internal_root/include"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "cStandard": "c17"
         }
     ],
     "version": 4
 }
+// Reset config:
+//  Ctrl + Shift + P > C/C++: Reset IntelliSense Database
