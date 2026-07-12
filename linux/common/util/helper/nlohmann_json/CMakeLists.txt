@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(LoggingLibrary CXX)
+project(JsonHelperLibrary CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,26 +18,26 @@ else()
     message(FATAL_ERROR "--> Environment variable not found.")
 endif()
 
-find_package(fmt REQUIRED PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
+add_library(json_helper STATIC json_helper.cpp json_helper.h)
 
-add_library(logging STATIC logger.cpp logger.h)
+find_package(nlohmann_json REQUIRED PATHS "${MINOR_ROOT_PATH}" NO_DEFAULT_PATH)
 
-target_link_libraries(logging PUBLIC fmt::fmt)
+target_link_libraries(json_helper PUBLIC 
+        nlohmann_json::nlohmann_json)
 
 # Configure include directory paths for building and installing
-target_include_directories(logging PUBLIC 
+target_include_directories(json_helper PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/../
     $<INSTALL_INTERFACE:include>
 )
 
 # 3. CONFIGURE INSTALLATION TARGETS
-# Install the static library binary (liblogging.a) to 'lib/'
-install(TARGETS logging
+# Install the static library binary (libjson_helper.a) to 'lib/'
+install(TARGETS json_helper
     ARCHIVE DESTINATION lib
 )
 
 # Install the header file (logger.h) to 'include/'
-install(FILES logger.h
-    DESTINATION include/logging
+install(FILES json_helper.h
+    DESTINATION include/haris/linux/common/util/helper/nlohmann_json
 )

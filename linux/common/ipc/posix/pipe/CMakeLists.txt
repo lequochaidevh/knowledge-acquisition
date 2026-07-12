@@ -1,25 +1,15 @@
 cmake_minimum_required(VERSION 3.12)
 project(PosixPipeLibrary CXX)
 
+# 1. ONE-LINE BOOTSTRAP: Load the complete global ecosystem directly from your environment variable path
+include("$ENV{CMAKE_UTIL_PATH}/ProjectConfigInit.cmake")
+
+include(InstallUtil)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Check if the external environment variable exists
-if(DEFINED ENV{LOCAL_MINOR_ROOT})
-    # Read the environment variable and force it into CMAKE_INSTALL_PREFIX
-    set(CMAKE_INSTALL_PREFIX "$ENV{LOCAL_MINOR_ROOT}" CACHE PATH "Install path from env" FORCE)
-    set(CMAKE_PREFIX_PATH "$ENV{LOCAL_MINOR_ROOT}")
-    message(STATUS "--> Found environment path. Configure cmake prefix to: ${CMAKE_PREFIX_PATH}")
-    message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
-else()
-    # Fallback default path if the environment variable is not exported
-    message(STATUS "--> Environment variable not found. Using default: ${CMAKE_INSTALL_PREFIX}")
-    if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT) 
-        set(CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../third-party/local_minor_root")    
-    endif()
-endif()
-
-find_package(fmt REQUIRED PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
+find_package(fmt REQUIRED PATHS ${INTERNAL_ROOT_SEARCH_PATH} NO_DEFAULT_PATH)
 
 file(GLOB SOURCES 
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
@@ -31,48 +21,14 @@ add_library(ipc_pipe_obj OBJECT
 
 target_link_libraries(ipc_pipe_obj PUBLIC fmt::fmt)
 
-
-if("${IPC_ROOT_DIR}" STREQUAL "")
-    message(WARNING "IPC_ROOT_DIR is empty will auto find it")
-    set(IPC_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../")
-    message(WARNING "IPC_ROOT_DIR = ${IPC_ROOT_DIR}")
-endif()
-
-# Configure include directory paths for building and installing
-target_include_directories(ipc_pipe_obj PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../>
-    $<INSTALL_INTERFACE:include>
-    ${IPC_ROOT_DIR}
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:include>
+register_module_component_strict(ipc_pipe_obj
+    LIB_NOT_MERGE
+    STATIC_LIB_NAME posix_pipe                        # Explicitly passed now
+    ROOT_DIR "${BASE_SOURCE_PATH}/ipc"
+    INSTALL_DESTINATION "include/haris/linux/common/ipc"
+    EXTRA_INCLUDES 
+        "${BASE_SOURCE_PATH}/ipc/posix/pipe"
+        "${BASE_SOURCE_PATH}"
+    EXCLUDE_FILES
+    EXCLUDE_DIRS
 )
-if(LIB_NOT_MERGE)
-    add_library(posix_pipe STATIC
-        $<TARGET_OBJECTS:ipc_pipe_obj>
-    )
-
-    # 3. CONFIGURE INSTALLATION TARGETS
-    # Install the static library binary (libposix_pipe.a) to 'lib/'
-    install(TARGETS posix_pipe
-        ARCHIVE DESTINATION lib
-    )
-
-    file(GLOB HEADERS_BE_INSTALLED
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    )
-
-    # Copies the 'posix' folder and its contents into 'include/'
-    install(FILES ${HEADERS_BE_INSTALLED}
-        DESTINATION include/haris/linux/common/ipc
-    )
-else()
-    file(GLOB SOCKET_HEADERS
-        "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-    )
-
-    set(IPC_INSTALL_HEADERS
-        ${IPC_INSTALL_HEADERS}
-        ${SOCKET_HEADERS}
-        PARENT_SCOPE
-    )
-endif()

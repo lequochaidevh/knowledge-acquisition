@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(PosixPipeProject LANGUAGES CXX)
 
 # 1. ONE-LINE BOOTSTRAP: Load the complete global ecosystem directly from your environment variable path
-include("$ENV{CMAKE_UTIL_PATH}/TestProjectInit.cmake")
+include("$ENV{CMAKE_UTIL_PATH}/ProjectConfigInit.cmake")
 
 # Load the modern automated framework builder
 include(GTestSetup)

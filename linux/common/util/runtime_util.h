@@ -1,6 +1,7 @@
 #pragma once
 
 #include "std17pch.h"
+#include "helper/nlohmann_json/json_helper.h"
 
 namespace HarisLinux {
 /**
@@ -83,6 +84,16 @@ class RuntimeUtil {
         }
         return word;
     }
+
+    // ============================================================================
+    // SCOPED SUBSYSTEM ALIASES (Zero-Overhead Composition Pattern)
+    // ============================================================================
+
+    /**
+     * @brief Scoped accessor for all JSON configuration operations.
+     * @note Prevents function name collisions with other file utility managers.
+     */
+    using Json = JsonHelper;
 };
 
 }  // namespace HarisLinux

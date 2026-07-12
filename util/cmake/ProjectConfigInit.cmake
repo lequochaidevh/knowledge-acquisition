@@ -1,5 +1,5 @@
 # ==============================================================================
-# Module: TestProjectInit
+# Module: ProjectConfigInit
 # Description: Global bootstrap environment configuration shared by all CMake projects
 # ==============================================================================
 
@@ -25,5 +25,5 @@ include(FindParentDirectory)
 find_parent_directory("common" BASE_SOURCE_PATH)
 message(STATUS "[INIT] BASE_SOURCE_PATH is verified at: ${BASE_SOURCE_PATH}")
 
-# 5. Load the primary GTest test framework generator macro engine
-include(GTestSetup)
+# # 5. Load the primary GTest test framework generator macro engine
+# include(GTestSetup)
