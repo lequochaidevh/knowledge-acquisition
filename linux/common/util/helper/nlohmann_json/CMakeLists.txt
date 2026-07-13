@@ -1,43 +1,37 @@
 cmake_minimum_required(VERSION 3.12)
-project(JsonHelperLibrary CXX)
+project(PosixPipeLibrary CXX)
+
+# 1. Load the complete global ecosystem directly from your environment variable path
+set(BASE_DIR_CONFIG "common")
+include("$ENV{CMAKE_UTIL_PATH}/ProjectConfigInit.cmake")
+
+include(InstallUtil)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Check if the external environment variable exists
-if(DEFINED ENV{MINOR_ROOT_PATH})
-    set(MINOR_ROOT_PATH "$ENV{MINOR_ROOT_PATH}")
-    message(STATUS "Found environment path.")
-    message(STATUS "MINOR_ROOT_PATH: ${MINOR_ROOT_PATH}")
+# 2. Find and target dependancies
+find_package(nlohmann_json REQUIRED PATHS "${INTERNAL_ROOT_SEARCH_PATH}" NO_DEFAULT_PATH)
 
-    set(CMAKE_INSTALL_PREFIX "$ENV{MINOR_ROOT_PATH}" CACHE PATH "Install path from env" FORCE)
-    set(CMAKE_PREFIX_PATH "$ENV{MINOR_ROOT_PATH}")
-    message(STATUS "--> Found environment path. Configure cmake prefix to: ${CMAKE_PREFIX_PATH}")
-    message(STATUS "--> Found environment path. Installing to: ${CMAKE_INSTALL_PREFIX}")
-else()
-    message(FATAL_ERROR "--> Environment variable not found.")
-endif()
-
-add_library(json_helper STATIC json_helper.cpp json_helper.h)
-
-find_package(nlohmann_json REQUIRED PATHS "${MINOR_ROOT_PATH}" NO_DEFAULT_PATH)
-
-target_link_libraries(json_helper PUBLIC 
-        nlohmann_json::nlohmann_json)
-
-# Configure include directory paths for building and installing
-target_include_directories(json_helper PUBLIC 
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<INSTALL_INTERFACE:include>
+file(GLOB SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 
-# 3. CONFIGURE INSTALLATION TARGETS
-# Install the static library binary (libjson_helper.a) to 'lib/'
-install(TARGETS json_helper
-    ARCHIVE DESTINATION lib
+add_library(json_helper_object OBJECT
+    ${SOURCES}
 )
 
-# Install the header file (logger.h) to 'include/'
-install(FILES json_helper.h
-    DESTINATION include/haris/linux/common/util/helper/nlohmann_json
+# 3. Parse param and add to object
+register_module_component_strict(json_helper_object
+    LIB_NOT_MERGE "${LIB_NOT_MERGE}"
+    STATIC_LIB_NAME json_helper
+    ROOT_DIR "${BASE_SOURCE_PATH}/util"
+    INSTALL_DESTINATION "include/haris/linux/common/util/helper/nlohmann_json"
+    EXTRA_INCLUDES
+        "${BASE_SOURCE_PATH}/util"
+        "${BASE_SOURCE_PATH}/util/helper/nlohmann_json"
+    EXTRA_LIBS
+        "nlohmann_json::nlohmann_json"
+    EXCLUDE_FILES
+    EXCLUDE_DIRS
 )

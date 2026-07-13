@@ -24,43 +24,53 @@ function(register_module_component_strict TARGET_NAME)
         message(FATAL_ERROR "Missing mandatory argument: ROOT_DIR must be explicitly defined for target '${TARGET_NAME}'.")
     endif()
 
-    # Strict Validation: Check INSTALL_DESTINATION
-    if("${ARG_INSTALL_DESTINATION}" STREQUAL "")
-        message(FATAL_ERROR "Missing mandatory argument: INSTALL_DESTINATION must be explicitly defined for target '${TARGET_NAME}'.")
-    endif()
+    # 1. Scan all header files recursively (This returns ABSOLUTE paths)
+    file(GLOB_RECURSE ALL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 
-    # Strict Validation: Check EXTRA_INCLUDES
-    if("${ARG_EXTRA_INCLUDES}" STREQUAL "")
-        message(FATAL_ERROR "Missing mandatory argument: EXTRA_INCLUDES must contain at least one valid include path for target '${TARGET_NAME}'.")
-    endif()
+    # 2. Create an empty list to store the filtered files
+    set(FINAL_HEADERS_TO_INSTALL "")
+    set(HAVE_EXCLUDED "")
+    # --- DEBUG LINES: Let's see what CMake actually receives ---
+    message(STATUS "[DEBUG] ARG_EXCLUDE_DIRS contains: '${ARG_EXCLUDE_DIRS}'")
 
-    if("${ARG_EXTRA_LIBS}" STREQUAL "")
-        message(FATAL_ERROR "Missing mandatory argument: EXTRA_LIBS must contain at least one valid include path for target '${TARGET_NAME}'.")
-    endif()
+    # 3. Convert excluded files list to ABSOLUTE paths for exact matching
+    set(ABS_EXCLUDE_FILES "")
+    foreach(EX_FILE ${ARG_EXCLUDE_FILES})
+        get_filename_component(ABS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${EX_FILE}" ABSOLUTE)
+        list(APPEND ABS_EXCLUDE_FILES ${ABS_FILE})
+    endforeach()
 
-    # (EXCLUDE_FILES)
-    if(ARG_EXCLUDE_FILES)
-        list(REMOVE_ITEM ALL_SOURCES ${ARG_EXCLUDE_FILES})
-    endif()
+    # 4. Fallback Bulletproof Filter
+    foreach(SOURCE ${ALL_SOURCES})
+        set(SHOULD_EXCLUDE FALSE)
 
-    # (EXCLUDE_DIRS)
-    if(ARG_EXCLUDE_DIRS)
-        set(FILTERED_SOURCES "")
-        foreach(SRC_FILE ${ALL_SOURCES})
-            set(SHOULD_EXCLUDE FALSE)
-            foreach(DIR ${ARG_EXCLUDE_DIRS})
-                if(SRC_FILE MATCHES "^${DIR}/")
-                    set(SHOULD_EXCLUDE TRUE)
-                    break()
-                endif()
-            endforeach()
-            
+        # Check 1: File exclusion
+        if("${SOURCE}" IN_LIST ABS_EXCLUDE_FILES)
+            set(SHOULD_EXCLUDE TRUE)
+        endif()
+
+        # Check 2: Slash-agnostic directory kill-switch
             if(NOT SHOULD_EXCLUDE)
-                list(APPEND FILTERED_SOURCES ${SRC_FILE})
+                # Normalize source path to forward slashes
+                file(TO_CMAKE_PATH "${SOURCE}" SOURCE_NORMALIZED)
+
+                foreach(DIR ${ARG_EXCLUDE_DIRS})
+                    # SANITIZE USER INPUT: Strip any leading or trailing slashes from the argument
+                    string(REGEX REPLACE "^/|/$" "" CLEAN_DIR "${DIR}")
+
+                    # Match precise folder boundaries (handles /sfd/ anywhere in path safely)
+                    if("${SOURCE_NORMALIZED}" MATCHES "(^|/)${CLEAN_DIR}(/|$)")
+                        message(STATUS "[DEBUG] SUCCESS! EXCLUDING FILE: ${SOURCE}")
+                        set(SHOULD_EXCLUDE TRUE)
+                        break()
+                    endif()
+                endforeach()
+            endif()
+
+            if(NOT SHOULD_EXCLUDE)
+                list(APPEND FINAL_HEADERS_TO_INSTALL ${SOURCE})
             endif()
         endforeach()
-        set(ALL_SOURCES ${FILTERED_SOURCES})
-    endif()
 
     # Configure include directory boundaries universally
     target_include_directories(${TARGET_NAME} PUBLIC
@@ -87,11 +97,6 @@ function(register_module_component_strict TARGET_NAME)
             ARCHIVE DESTINATION lib
         )
 
-        # Collect local headers and push them to the designated install path
-        file(GLOB HEADERS_BE_INSTALLED "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
-        install(FILES ${HEADERS_BE_INSTALLED}
-            DESTINATION "${ARG_INSTALL_DESTINATION}"
-        )
     else()
         # Collect headers to export upwards into parent visibility scope
         file(GLOB LOCAL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
@@ -101,4 +106,9 @@ function(register_module_component_strict TARGET_NAME)
             PARENT_SCOPE
         )
     endif()
+
+    # Collect local headers and push them to the designated install path
+    install(FILES ${FINAL_HEADERS_TO_INSTALL}
+        DESTINATION "${ARG_INSTALL_DESTINATION}"
+    )
 endfunction()
