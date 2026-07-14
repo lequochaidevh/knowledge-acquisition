@@ -30,6 +30,7 @@ register_module_component_strict(pipe_object
     EXTRA_INCLUDES 
         "${BASE_SOURCE_PATH}/ipc/posix/pipe"
         "${BASE_SOURCE_PATH}"
+        "${INTERNAL_ROOT_SEARCH_PATH}/include/logging"
     EXTRA_LIBS
         "fmt::fmt"
     EXCLUDE_FILES

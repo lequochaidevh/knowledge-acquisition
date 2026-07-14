@@ -1,8 +1,5 @@
 #pragma once
 
-#include "std17pch.h"
-#include "logging/logger.h"
-
 #include "ipc_sender.h"
 #include "ipc_receiver.h"
 #include "ipc_msg_dispatcher.h"

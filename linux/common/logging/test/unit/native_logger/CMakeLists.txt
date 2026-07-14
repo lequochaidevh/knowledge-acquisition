@@ -11,18 +11,13 @@ include(GTestSetup)
 # 2. Register your executable directly using industry-standard explicit parameters
 enable_testing()
 
-register_gtest_target(client
+register_gtest_target(sandbox
     SOURCES
-        "${CMAKE_CURRENT_SOURCE_DIR}/client.cpp"
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
     INCLUDES
-        "${BASE_SOURCE_PATH}/"
-        "${BASE_SOURCE_PATH}/ipc/"
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/"
-        "${INTERNAL_ROOT_SEARCH_PATH}/include/logging"
+        "${BASE_SOURCE_PATH}/logging"
     LIBRARIES
         Threads::Threads
         fmt::fmt
         GTest::gtest_main
-        "${INTERNAL_ROOT_SEARCH_PATH}/lib/libcommand_util.a"
 )

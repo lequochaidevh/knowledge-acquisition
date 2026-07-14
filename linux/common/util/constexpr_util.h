@@ -95,16 +95,16 @@ class ConstexprUtil {
 // COMMANDER MACRO INTERFACES (Updated for Class syntax)
 // ============================================================================
 
-#define BUILD_LOG_LOCATION(msg)                                                  \
-    do {                                                                         \
-        constexpr auto file_name = ConstexprUtil::trim_source_path(__FILE__);    \
-        std::cout << "[" << file_name << ":" << __LINE__ << "] " << msg << "\n"; \
+#define BUILD_LOG_LOCATION(msg)                                                \
+    do {                                                                       \
+        constexpr auto file_name = ConstexprUtil::trim_source_path(__FILE__);  \
+        stdcout << "[" << file_name << ":" << __LINE__ << "] " << msg << "\n"; \
     } while (0)
 
-#define CMD_PRINT_TYPE(variable)                                                               \
-    do {                                                                                       \
-        constexpr auto type_name = ConstexprUtil::get_type_name<decltype(variable)>();         \
-        std::cout << "Variable '" << #variable << "' type resolved to: " << type_name << "\n"; \
+#define CMD_PRINT_TYPE(variable)                                                             \
+    do {                                                                                     \
+        constexpr auto type_name = ConstexprUtil::get_type_name<decltype(variable)>();       \
+        stdcout << "Variable '" << #variable << "' type resolved to: " << type_name << "\n"; \
     } while (0)
 
 }  // namespace HarisLinux

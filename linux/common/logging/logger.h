@@ -3,6 +3,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include "logging/native_logger.h"
 #include "util/command_util.h"
 
 namespace HarisLinux {

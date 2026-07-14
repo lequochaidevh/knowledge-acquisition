@@ -47,7 +47,7 @@ void heartbeat_task(TestPipeClient &client) {
     auto elapsed = current_time - last_heartbeat_time;
 
     if (elapsed >= 1000) {
-        std::cout << "Task Heart beat is running...\n";
+        stdcout << "Task Heart beat is running...\n";
         client.push_heartbeat();
 
         last_heartbeat_time = current_time;
