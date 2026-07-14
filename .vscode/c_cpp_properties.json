@@ -14,14 +14,15 @@
                 "-isystem",
                 "${workspaceFolder}/internal_root/include"
             ],
-            "compilerPath": "/usr/bin/gcc",
+            "compilerPath": "/usr/bin/g++",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64",
+            "cStandard": "c17",
             "configurationProvider": "ms-vscode.cmake-tools",
-            "cStandard": "c17"
+            "defines": [
+                "CONFIG_LOGGING_PATH=\"/home/vscode_mock_path.json\""
+            ]
         }
     ],
     "version": 4
 }
-// Reset config:
-//  Ctrl + Shift + P > C/C++: Reset IntelliSense Database

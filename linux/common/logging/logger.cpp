@@ -4,7 +4,12 @@ namespace HarisLinux {
 // --- Logger Implementation ---
 Logger::Logger(std::string name) : _name(std::move(name)), _level(LogLevel::Info) {}
 
-void Logger::set_level(LogLevel level) { _level = level; }
+void Logger::set_level(LogLevel level) {
+    std::cout << "module: " << _name << " - "              //
+              << "log level: " << static_cast<int>(level)  //
+              << "\n";
+    _level = level;
+}
 
 std::string Logger::format_thread_process_info() {
     // 1. Get current time point from system clock
@@ -105,6 +110,7 @@ void Logger::std_cerr_message(std::string_view error_msg) {
 // --- LogRegistry Implementation ---
 LogRegistry& LogRegistry::get_instance() {
     static LogRegistry instance;
+    static bool        call_once = load_config(instance);
     return instance;
 }
 
@@ -112,10 +118,50 @@ std::shared_ptr<Logger> LogRegistry::get_logger(const std::string& name) {
     auto it = _loggers.find(name);
     if (it == _loggers.end()) {
         auto new_logger = std::make_shared<Logger>(name);
-        _loggers[name]  = new_logger;
+
+        LogLevel assigned_level = _default_level;
+        if (auto cfg_it = _config_levels.find(name); cfg_it != _config_levels.end()) {
+            assigned_level = cfg_it->second;
+        }
+
+        _loggers[name] = new_logger;
+        _loggers[name]->set_level(assigned_level);
         return new_logger;
     }
     return it->second;
+}
+
+[[nodiscard]] LogLevel LogRegistry::string_to_log_level(const std::string& str) noexcept {
+    if (str == "Trace" || str == "trace") return LogLevel::Trace;
+    if (str == "Debug" || str == "debug") return LogLevel::Debug;
+    if (str == "Warn" || str == "warn") return LogLevel::Warn;
+    if (str == "Error" || str == "error") return LogLevel::Error;
+    if (str == "Critical" || str == "critical") return LogLevel::Critical;
+    return LogLevel::Info;
+}
+
+[[nodiscard]] bool LogRegistry::load_config(LogRegistry& instance) {
+    std::string    json_path = CONFIG_LOGGING_PATH;
+    nlohmann::json root;
+
+    if (!RuntimeUtil::Json::load_from_file(json_path, root)) {
+        return false;
+    }
+
+    std::string default_str = RuntimeUtil::Json::get_string(root, "Default", "Info");
+    instance._default_level = string_to_log_level(default_str);
+
+    if (root.contains("Modules") && root["Modules"].is_object()) {
+        const auto& modules_node = root["Modules"];
+        for (auto it = modules_node.begin(); it != modules_node.end(); ++it) {
+            std::string module_name = it.key();
+
+            std::string level_str = RuntimeUtil::Json::get_string(modules_node, module_name, default_str);
+
+            instance._config_levels[module_name] = string_to_log_level(level_str);
+        }
+    }
+    return true;
 }
 
 }  // namespace HarisLinux

@@ -1,0 +1,8 @@
+{
+    "Default": "Info",
+    "Modules": {
+        "PosixPipe": "Trace",
+        "PipeServer": "Error",
+        "PipeClient": "Trace"
+    }
+}
