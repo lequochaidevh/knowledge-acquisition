@@ -22,6 +22,12 @@ add_library(logging_object OBJECT
     ${SOURCES}
 )
 
+set(CONFIG_LOGGING_PATH "${CMAKE_CURRENT_SOURCE_DIR}/logging_config.json")
+
+target_compile_definitions(logging_object PRIVATE
+    CONFIG_LOGGING_PATH="${CONFIG_LOGGING_PATH}"
+)
+
 register_module_component_strict(logging_object
     LIB_NOT_MERGE 1 # Not merge lib
     STATIC_LIB_NAME logging
@@ -29,6 +35,7 @@ register_module_component_strict(logging_object
     INSTALL_DESTINATION "include/haris/linux/common/logging"
     EXTRA_INCLUDES
         "${BASE_SOURCE_PATH}"
+        "${INTERNAL_ROOT_SEARCH_PATH}/include/haris/linux/common/util"
     EXTRA_LIBS
         "fmt::fmt"
     EXCLUDE_FILES

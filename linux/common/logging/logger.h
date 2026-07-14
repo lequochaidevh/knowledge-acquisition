@@ -53,6 +53,8 @@ class Logger {
 class LogRegistry {
  public:
     static LogRegistry& get_instance();
+    // static constexpr std::string_view _config_json_path = CONFIG_LOGGING_PATH;
+    std::string _config_json_path;
 
     LogRegistry(const LogRegistry&) = delete;
     LogRegistry& operator=(const LogRegistry&) = delete;
@@ -60,9 +62,16 @@ class LogRegistry {
     // Create or get an existing logger for a module
     std::shared_ptr<Logger> get_logger(const std::string& name);
 
+    [[nodiscard]] static LogLevel string_to_log_level(const std::string& str) noexcept;
+
+    [[nodiscard]] static bool load_config(LogRegistry& instance);
+
  private:
     LogRegistry() = default;
     std::unordered_map<std::string, std::shared_ptr<Logger>> _loggers;
+
+    LogLevel                                  _default_level = LogLevel::Info;
+    std::unordered_map<std::string, LogLevel> _config_levels;
 };
 
 // Macros designed to use a local or module-specific logger variable named 'logger'

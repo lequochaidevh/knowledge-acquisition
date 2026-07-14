@@ -20,4 +20,5 @@ register_gtest_target(sandbox
         Threads::Threads
         fmt::fmt
         GTest::gtest_main
+        "${INTERNAL_ROOT_SEARCH_PATH}/lib/libcommand_util.a"
 )

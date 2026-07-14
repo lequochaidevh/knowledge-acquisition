@@ -10,7 +10,6 @@ PipeClient::PipeClient(const std::string& request_path, const std::string& id, I
       _old_upstream_path(request_path),
       _client_id(id) {
     INIT_LOGGER("PipeClient");
-    logger->set_level(LogLevel::Trace);
 }
 
 PipeClient::~PipeClient() {
