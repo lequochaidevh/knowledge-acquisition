@@ -32,12 +32,6 @@ function(register_gtest_target TARGET_NAME)
     endif()
 
     # 4. Locate system dependencies and third-party libraries
-    find_path(LOGGING_INCLUDE_DIR 
-        NAMES logger.h 
-        PATHS ${INTERNAL_ROOT_SEARCH_PATH}/include/logging 
-        NO_DEFAULT_PATH
-    )
-    
     find_library(LOGGING_LIBRARY 
         NAMES logging 
         PATHS ${INTERNAL_ROOT_SEARCH_PATH}/lib 
@@ -53,8 +47,7 @@ function(register_gtest_target TARGET_NAME)
     add_executable(${TARGET_NAME} ${RESOLVED_SOURCES})
 
     # 6. Apply include pathways
-    target_include_directories(${TARGET_NAME} PRIVATE 
-        ${LOGGING_INCLUDE_DIR}
+    target_include_directories(${TARGET_NAME} PRIVATE
         ${ARG_INCLUDES}
     )
 

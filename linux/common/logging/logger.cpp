@@ -5,9 +5,8 @@ namespace HarisLinux {
 Logger::Logger(std::string name) : _name(std::move(name)), _level(LogLevel::Info) {}
 
 void Logger::set_level(LogLevel level) {
-    std::cout << "module: " << _name << " - "              //
-              << "log level: " << static_cast<int>(level)  //
-              << "\n";
+    stdcout << "Module: " << _name << " - "  //
+            << "Config level: " << static_cast<int>(level);
     _level = level;
 }
 

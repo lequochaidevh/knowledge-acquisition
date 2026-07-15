@@ -27,7 +27,7 @@ class DataHandlerPolicy {
     DECLARE_LOGGER;
 
  public:
-    DataHandlerPolicy(const std::string& module) { INIT_LOGGER(module); };
+    explicit DataHandlerPolicy(const std::string& component_name) { REGISTER_LOGGER_COMPONENT(component_name); }
     virtual ~DataHandlerPolicy(){};
 
     void on_packet(const std::string& text) { HARIS_LOG_DEBUG("Data: \"{}\"", text); }

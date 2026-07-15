@@ -21,7 +21,7 @@ void RunServer() {
 
     // Server starts listening and processing events
     server.dispatch_events();
-    std::cout << "[Server] Done task. Close Server thread." << std::endl;
+    stdcout << "[Server] Done task. Close Server thread." << std::endl;
 }
 
 void RunClient01() {
@@ -43,7 +43,7 @@ void RunClient01() {
         // --- TEST 1: Send text data ---
         // No need to convert string to vector<uint8_t>, can send string data directly
         std::string text_msg = "Hello POSIX Pipe!";
-        std::cout << "\n[Client 01] Send text..." << std::endl;
+        stdcout << "\n[Client 01] Send text..." << std::endl;
         client.push_data(DataType::Text, text_msg);
 
         // Check for data loss from Server
@@ -56,7 +56,7 @@ void RunClient01() {
         // Send data directly using a raw array / string_view.
         int              number = 2026;
         std::string_view num_data(reinterpret_cast<const char *>(&number), sizeof(number));
-        std::cout << "\n[Client 01] Send number..." << std::endl;
+        stdcout << "\n[Client 01] Send number..." << std::endl;
         client.push_data(DataType::Number, num_data);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -67,7 +67,7 @@ void RunClient01() {
         // Still uses std::vector<uint8_t> for large raw data.
         // The function template automatically extracts the size information.
         std::vector<uint8_t> dummy_media = {0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02};
-        std::cout << "\n[Client 01] Send mock Media data..." << std::endl;
+        stdcout << "\n[Client 01] Send mock Media data..." << std::endl;
         client.push_data(DataType::Media, dummy_media);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -76,7 +76,7 @@ void RunClient01() {
 }
 
 void RunClient02() {
-    std::cout << "\n[Client 02] request: " << K_REQUEST_PIPE_PATH << "\n";
+    stdcout << "\n[Client 02] request: " << K_REQUEST_PIPE_PATH << "\n";
 
     // Configure client flags
     Ipc::Generic client_flags = Ipc::Client::Feedback | Ipc::Client::CheckLose;
@@ -95,7 +95,7 @@ void RunClient02() {
     while (cnt--) {
         // --- TEST 1: Send text data ---
         std::string text_msg = "----02----";
-        std::cout << "\n[Client 02] Send text..." << std::endl;
+        stdcout << "\n[Client 02] Send text..." << std::endl;
         client.push_data(DataType::Text, text_msg);
 
         // Check for data loss from Server
@@ -107,7 +107,7 @@ void RunClient02() {
 // --- GOOGLE TEST CASE ---
 
 TEST(PipeIpcTest, MultiClientCommunication) {
-    std::cout << "[Main Test] Init threads ..." << std::endl;
+    stdcout << "[Main Test] Init threads ..." << std::endl;
 
     // 1. Trigger SERVER thread
     std::thread server_thread(RunServer);

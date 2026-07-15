@@ -89,22 +89,67 @@ class ConstexprUtil {
         }
 #endif
     }
+
+    /**
+     * @brief Extracts the clean class name from a function signature at compile-time.
+     * @param func_sig The raw signature string from __PRETTY_FUNCTION__ or __FUNCSIG__.
+     * @return A std::string_view pointing to the isolated class name.
+     */
+    /**
+     * @brief Extracts the clean class name from a signature, stripping namespaces, methods, and templates at
+     * compile-time.
+     * @param func_sig The raw function signature string from __PRETTY_FUNCTION__ or __FUNCSIG__.
+     * @return A std::string_view pointing only to the raw class name.
+     */
+    static constexpr std::string_view get_class_name(std::string_view func_sig) {
+        // Step 1: Strip parameters by looking for the first open parenthesis '('
+        size_t           paren        = func_sig.find('(');
+        std::string_view dynamic_part = (paren != std::string_view::npos) ? func_sig.substr(0, paren) : func_sig;
+
+        // Step 2: Find the actual class-scope "::" separator right before the function name
+        size_t           last_space = dynamic_part.find_last_of(' ');
+        std::string_view method_sig =
+            (last_space != std::string_view::npos) ? dynamic_part.substr(last_space + 1) : dynamic_part;
+
+        size_t scope_pos = method_sig.find_last_of(':');
+
+        // If no "::" found or it's a malformed single colon, fallback to Global
+        if (scope_pos == std::string_view::npos || scope_pos == 0 || method_sig[scope_pos - 1] != ':') {
+            return "Global";
+        }
+
+        // Step 3: Class name with potential namespaces and templates is everything before "::"
+        std::string_view class_part = method_sig.substr(0, scope_pos - 1);
+
+        // Step 4: Extract only the class name if it resides inside nested namespaces
+        size_t           last_ns_pos = class_part.find_last_of(':');
+        std::string_view pure_class =
+            (last_ns_pos != std::string_view::npos) ? class_part.substr(last_ns_pos + 1) : class_part;
+
+        // Step 5: Strip template parameters (e.g., converts "PosixPipe<Modes>" to "PosixPipe")
+        size_t template_pos = pure_class.find('<');
+        if (template_pos != std::string_view::npos) {
+            return pure_class.substr(0, template_pos);
+        }
+
+        return pure_class;
+    }
 };
 
 // ============================================================================
 // COMMANDER MACRO INTERFACES (Updated for Class syntax)
 // ============================================================================
 
-#define BUILD_LOG_LOCATION(msg)                                                  \
-    do {                                                                         \
-        constexpr auto file_name = ConstexprUtil::trim_source_path(__FILE__);    \
-        std::cout << "[" << file_name << ":" << __LINE__ << "] " << msg << "\n"; \
+#define BUILD_LOG_LOCATION(msg)                                                \
+    do {                                                                       \
+        constexpr auto file_name = ConstexprUtil::trim_source_path(__FILE__);  \
+        stdcout << "[" << file_name << ":" << __LINE__ << "] " << msg << "\n"; \
     } while (0)
 
-#define CMD_PRINT_TYPE(variable)                                                               \
-    do {                                                                                       \
-        constexpr auto type_name = ConstexprUtil::get_type_name<decltype(variable)>();         \
-        std::cout << "Variable '" << #variable << "' type resolved to: " << type_name << "\n"; \
+#define CMD_PRINT_TYPE(variable)                                                             \
+    do {                                                                                     \
+        constexpr auto type_name = ConstexprUtil::get_type_name<decltype(variable)>();       \
+        stdcout << "Variable '" << #variable << "' type resolved to: " << type_name << "\n"; \
     } while (0)
 
 }  // namespace HarisLinux

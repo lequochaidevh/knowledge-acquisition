@@ -1,8 +1,5 @@
 #pragma once
 
-#include "std17pch.h"
-#include "logging/logger.h"
-
 #include "ipc_sender.h"
 #include "ipc_receiver.h"
 #include "ipc_msg_dispatcher.h"
@@ -40,7 +37,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
-        INIT_LOGGER("PosixPipe");
+        INITIALIZE_LOGGER_SELF;
     }
 
     /**
@@ -59,7 +56,7 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
           _upstream_path(path),
           _downstream_path(path + "_fb"),  // Retained suffix for physical file mapping
           _modes(modes) {
-        INIT_LOGGER("PosixPipe");
+        INITIALIZE_LOGGER_SELF;
     }
 
     virtual ~PosixPipe() {}

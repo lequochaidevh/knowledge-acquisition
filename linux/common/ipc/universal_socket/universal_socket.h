@@ -31,7 +31,7 @@ class UniversalSocket : public IPCSenderBase<Policy>, public IPCReceiverBase<Pol
           _tx_fd(Policy::init(_ctx, IoMode::Transmitter)) {
         IPCReceiverBase<Policy>::_shared_fd = SharedFileDescriptor<Policy>(_rx_fd);
         IPCSenderBase<Policy>::_shared_fd   = SharedFileDescriptor<Policy>(_tx_fd);
-        INIT_LOGGER("UnixSocket");
+        INITIALIZE_LOGGER_SELF("UnixSocket");
     }
 
     // === CLOSE STATE ===

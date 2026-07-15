@@ -4,7 +4,7 @@ namespace HarisLinux {
 PipeServer::PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes)
     :  //
       PosixPipe<Ipc::Server>(path, modes) {
-    INIT_LOGGER("PipeServer");
+    INITIALIZE_LOGGER_SELF;
     {
         PipeContext pipe_main_ctx{_upstream_path};
         SharedFileDescriptor<PipePolicy>::setup_communication(pipe_main_ctx);

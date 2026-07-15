@@ -14,15 +14,10 @@ enable_testing()
 register_gtest_target(sandbox
     SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.cpp"
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/posix_pipe.cpp"
     INCLUDES
-        "${BASE_SOURCE_PATH}/ipc/"
-        "${BASE_SOURCE_PATH}/ipc/posix/pipe/"
-        "${BASE_SOURCE_PATH}/"
-        "${INTERNAL_ROOT_SEARCH_PATH}/include/haris/linux/common/logging"
+        "${BASE_SOURCE_PATH}/logging"
     LIBRARIES
         Threads::Threads
         fmt::fmt
         GTest::gtest_main
-        "${INTERNAL_ROOT_SEARCH_PATH}/lib/libcommand_util.a"
 )
