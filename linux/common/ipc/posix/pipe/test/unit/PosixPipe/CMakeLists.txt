@@ -19,7 +19,7 @@ register_gtest_target(sandbox
         "${BASE_SOURCE_PATH}/ipc/"
         "${BASE_SOURCE_PATH}/ipc/posix/pipe/"
         "${BASE_SOURCE_PATH}/"
-        "${INTERNAL_ROOT_SEARCH_PATH}/include/logging"
+        "${INTERNAL_ROOT_SEARCH_PATH}/include/haris/linux/common/logging"
     LIBRARIES
         Threads::Threads
         fmt::fmt

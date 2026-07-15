@@ -9,7 +9,7 @@ PipeClient::PipeClient(const std::string& request_path, const std::string& id, I
       PosixPipe<Ipc::Client>(request_path, modes),
       _old_upstream_path(request_path),
       _client_id(id) {
-    INIT_LOGGER("PipeClient");
+    INITIALIZE_LOGGER_SELF;
 }
 
 PipeClient::~PipeClient() {

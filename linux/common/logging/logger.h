@@ -3,7 +3,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#include "logging/native_logger.h"
+#include "native_logger.h"
 #include "util/command_util.h"
 
 namespace HarisLinux {
@@ -78,48 +78,31 @@ class LogRegistry {
 // Macros designed to use a local or module-specific logger variable named 'logger'
 
 #define DECLARE_LOGGER inline static std::shared_ptr<Logger> logger
-#define INIT_LOGGER(module)                                      \
+#define REGISTER_LOGGER_COMPONENT(module)                        \
     if (!logger) {                                               \
         logger = LogRegistry::get_instance().get_logger(module); \
     }
+
+#define INITIALIZE_LOGGER_SELF                                                                                  \
+    if (!logger) {                                                                                              \
+        static constexpr std::string_view compiled_module = ConstexprUtil::get_class_name(__PRETTY_FUNCTION__); \
+        logger = LogRegistry::get_instance().get_logger(std::string(compiled_module));                          \
+    }
+
 // ============================================================================
 // HIGH-PERFORMANCE COMPILE-TIME LOGGING MACROS
 // ============================================================================
-
-#define HARIS_LOG_TRACE(fmt, ...)                                                                     \
-    do {                                                                                              \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);           \
-        logger->log(LogLevel::Trace, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
+#define HARIS_LOG_BASE_IMPL(level, fmt, ...)                                                \
+    do {                                                                                    \
+        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__); \
+        logger->log(level, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define HARIS_LOG_DEBUG(fmt, ...)                                                                     \
-    do {                                                                                              \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);           \
-        logger->log(LogLevel::Debug, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
-    } while (0)
-
-#define HARIS_LOG_INFO(fmt, ...)                                                                     \
-    do {                                                                                             \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);          \
-        logger->log(LogLevel::Info, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
-    } while (0)
-
-#define HARIS_LOG_WARN(fmt, ...)                                                                     \
-    do {                                                                                             \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);          \
-        logger->log(LogLevel::Warn, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
-    } while (0)
-
-#define HARIS_LOG_ERROR(fmt, ...)                                                                     \
-    do {                                                                                              \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);           \
-        logger->log(LogLevel::Error, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
-    } while (0)
-
-#define HARIS_LOG_CRITICAL(fmt, ...)                                                                     \
-    do {                                                                                                 \
-        constexpr std::string_view static_file = ConstexprUtil::trim_source_path(__FILE__);              \
-        logger->log(LogLevel::Critical, static_file.data(), __LINE__, __FUNCTION__, fmt, ##__VA_ARGS__); \
-    } while (0)
+#define HARIS_LOG_TRACE(fmt, ...)    HARIS_LOG_BASE_IMPL(LogLevel::Trace, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_DEBUG(fmt, ...)    HARIS_LOG_BASE_IMPL(LogLevel::Debug, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_INFO(fmt, ...)     HARIS_LOG_BASE_IMPL(LogLevel::Info, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_WARN(fmt, ...)     HARIS_LOG_BASE_IMPL(LogLevel::Warn, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_ERROR(fmt, ...)    HARIS_LOG_BASE_IMPL(LogLevel::Error, fmt, ##__VA_ARGS__)
+#define HARIS_LOG_CRITICAL(fmt, ...) HARIS_LOG_BASE_IMPL(LogLevel::Critical, fmt, ##__VA_ARGS__)
 
 }  // namespace HarisLinux
