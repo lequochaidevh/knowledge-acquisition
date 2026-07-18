@@ -14,6 +14,22 @@ bool PosixPipe<Modes>::receive_packet(PacketHeader& header, std::vector<uint8_t>
     PacketDispatcher<DataHandlerPolicy> dispatcher{"PosixPipe"};
     // Inspect the inner content payload variations
     dispatcher.dispatch(header, payload);
+
+    if (header.has_check_sum) {
+        HARIS_LOG_INFO("Check sum data from sender: {}", static_cast<uint32_t>(header.check_sum_calculated));
+        const uint8_t* payload_bytes = payload.data();
+
+        uint32_t runtime_checksum =  //
+            HarisLinux::ConstexprUtil::calculate_crc32(payload_bytes, header.payload_size);
+        if (runtime_checksum == header.check_sum_calculated) {
+            HARIS_LOG_DEBUG("Data integrity verified! Checksum matches.");
+        } else {
+            HARIS_LOG_ERROR("Data corrupted! Local: {} vs Sender: {}",  //
+                            static_cast<uint32_t>(runtime_checksum),    //
+                            static_cast<uint32_t>(header.check_sum_calculated));
+        }
+    }
+
     return result;
 }
 

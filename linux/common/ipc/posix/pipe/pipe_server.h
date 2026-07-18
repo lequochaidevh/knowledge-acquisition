@@ -163,6 +163,8 @@ class PipeServer : public PosixPipe<Ipc::Server> {
 
     void execute_housekeeping_phase();
 
+    bool has_check_sum() const override { return _modes.has(Ipc::Server::CheckLose); }
+
  public:
     PipeServer(const std::string& path, Ipc::Generic<Ipc::Server> modes);
 

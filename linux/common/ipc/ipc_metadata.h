@@ -1,5 +1,5 @@
 #pragma once
-#include "std17pch.h"
+#include "ipc_crc_expr.h"
 
 #include "logger.h"
 
@@ -9,16 +9,13 @@ enum class DataType : uint8_t { Number, Text, Command, Media, Heartbeat, Custom 
 
 enum class IoMode : uint8_t { Receiver, Transmitter };
 
-inline uint64_t get_current_timestamp_ms() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
-
 struct __attribute__((packed)) PacketHeader {
-    DataType type;          // 1 byte
-    uint32_t payload_size;  // 4 bytes
-    uint64_t timestamp_ms;  // 8 bytes // calc Hz
-    uint32_t sequence_id;   // 4 bytes // check lose data
+    DataType type;                  // 1 byte
+    uint32_t payload_size;          // 4 bytes
+    uint64_t timestamp_ms;          // 8 bytes // calc Hz
+    uint32_t sequence_id;           // 4 bytes // check lose data
+    uint8_t  has_check_sum;         // Declare need to check sum or not
+    uint32_t check_sum_calculated;  // Default is 0 if not has checksum
 };
 
 struct __attribute__((packed)) IPCRequestPayload {

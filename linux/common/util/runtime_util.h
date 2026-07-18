@@ -49,6 +49,17 @@ class RuntimeUtil {
     }
 
     /**
+     * @brief Retrieves the time element from the current system time.
+     * @return uint64_t current time (ms).
+     */
+    static uint64_t get_current_time_ms() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch())
+
+            .count();
+    }
+
+    /**
      * @brief Retrieves the day element from the current system calendar time.
      * @return int The current day of the month (1-31).
      */

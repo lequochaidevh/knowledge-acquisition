@@ -43,6 +43,8 @@ class PipeClient : public PosixPipe<Ipc::Client> {
         _current_seq++;
         return send_packet(_write_share_fd, type, data, _current_seq);  // call Send in base class
     }
+
+    bool has_check_sum() const override { return _modes.has(Ipc::Client::CheckLose); }
 };
 
 }  // namespace HarisLinux

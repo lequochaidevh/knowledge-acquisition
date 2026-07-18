@@ -9,3 +9,5 @@ my_manim_project/
 *.webm
 *.backup
 *.bk
+logging_config.json
+.gitignore

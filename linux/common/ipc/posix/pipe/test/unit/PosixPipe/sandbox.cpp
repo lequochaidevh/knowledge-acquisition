@@ -31,6 +31,28 @@ class TestPosixPipe : public HarisLinux::PosixPipe<Modes> {
 // ==============================================================================
 // GOOGLETEST FIXTURE
 // ==============================================================================
+
+/**
+ * @brief Authentication payload layout capturing continuous immutable string sequences.
+ * Utilizes std::string_view to maintain clean zero-allocation data pointers to fixed segments.
+ */
+struct AuthPayload {
+    std::string_view token =
+        "LARGE_MESSAGES_TOKEN_adslkhglasdfghjsgfkgagewfhawbetgjhwgkafkfhegjkah"
+        "slsllkhglasdfghjsasdfasfasfsfwqewgvvzxkafkfhegjkahdfasfasfsfwqewgv"
+        "galkhglasdfghjsgfkgagewasdfsaggjhwgkafkfhegasdfslggfasfasfsfwqewgv";  // Constant string token bound within
+                                                                               // the layout
+};
+
+/**
+ * @brief Global immutable structural anchor deployed to secure a fixed validation reference point.
+ * Built inline to ensure consistent cross-boundary pointer matching across all translation layers.
+ */
+inline constexpr AuthPayload STATIC_AUTH_DATA{};
+
+// Synchronize and register the data profile directly into the core validation subsystem
+REGISTER_STATIC_PACKET(AuthPayload, STATIC_AUTH_DATA);
+
 class IPCPosixPipeTest : public ::testing::Test {
  protected:
     pid_t child_pid = -1;
@@ -82,6 +104,7 @@ class IPCPosixPipeTest : public ::testing::Test {
         pipe_sender.send_packet(DataType::Number, system_code, 1);
 
         // Test case 2: Dispatch a standard string container
+        // Cache miss add new cache
         std::string alert_msg = "HarisLinux Pipe CRTP Engine Running!";
         pipe_sender.send_packet(DataType::Text, alert_msg, 2);
 
@@ -91,6 +114,12 @@ class IPCPosixPipeTest : public ::testing::Test {
         std::memcpy(struct_buffer.data(), &sensor_data, sizeof(SensorPayload));
         pipe_sender.send_packet(DataType::Custom, struct_buffer, 3);
 
+        pipe_sender.send_packet(DataType::Text, STATIC_AUTH_DATA, 4);
+
+        // Cache hit - old data stored
+        pipe_sender.send_packet(DataType::Text, alert_msg, 5);
+        pipe_sender.send_packet(DataType::Text, alert_msg, 6);
+        pipe_sender.send_packet(DataType::Text, alert_msg, 7);
         close(write_fd);
         std::exit(0);  // Explicitly terminate to prevent the child from entering the test harness loop
     }

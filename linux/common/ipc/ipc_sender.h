@@ -2,10 +2,32 @@
 #include "ipc_metadata.h"
 #include "sfd/smart_file_descriptor.h"
 
+/**Note:
+ * Get data from child:
+template <typename Derived>
+class IPCSenderBase {
+    void func() {
+        Derived* derived = static_cast<Derived*>(this);
+        auto buffer = derived->attribute_from_child;
+    }
+}
+
+
+ */
+
 namespace HarisLinux {
+
+// 1. Interface trung gian
+class ISenderData {
+ public:
+    // Call to the deepest derived class.
+    virtual bool has_check_sum() const = 0;
+    virtual ~ISenderData()             = default;
+};
+
 // 1. CRTP / Static Polymorphism (Zero-Overhead)
 template <typename Policy>
-class IPCSenderBase {
+class IPCSenderBase : public ISenderData {
  protected:
     // Internal variable with a leading underscore tracking shared reference lifecycles
     SharedFileDescriptor<Policy> _shared_fd{};
@@ -32,6 +54,10 @@ class IPCSenderBase {
             // payload_ptr  = local_stack_buffer;
             payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
             payload_size = static_cast<uint32_t>(sizeof(T));
+
+        } else if constexpr (std::is_trivially_copyable_v<T>) {
+            payload_ptr  = reinterpret_cast<const uint8_t*>(&data);
+            payload_size = static_cast<uint32_t>(sizeof(T));
         } else if constexpr (std::is_same_v<CleanedType, std::string> ||
                              std::is_same_v<CleanedType, std::vector<uint8_t>> ||
                              std::is_same_v<CleanedType, std::string_view>) {
@@ -45,10 +71,61 @@ class IPCSenderBase {
             static_assert(sizeof(T) == 0, "Unsupported compile-time type execution for IPC Sender!");
         }
 
-        PacketHeader header{data_type, payload_size, get_current_timestamp_ms(), seq};
+        // Initialize the packet header baselistd::cerrne configurations
+        PacketHeader header{data_type, payload_size, RuntimeUtil::get_current_time_ms(), seq, 0, 0};
+
+        // Conditional guard verifying if checksum validation is globally activated
+        if (this->has_check_sum()) {
+            header.has_check_sum = true;
+            using Traits         = StaticPacketTraits<T>;
+
+            if constexpr (Traits::is_static) {
+                // Fast-path: Verify object reference allocation to bypass content parsing entirely
+                if (&data == Traits::static_ptr) {
+                    header.check_sum_calculated = Traits::crc32;  // Directly assign pre-computed compile-time CRC32
+                    stdinfo << "Compile-time validation pathway matched.\n";
+                } else {
+                    // Fallback: Same structure template footprint but dynamic memory instances
+                    header.check_sum_calculated = ConstexprUtil::calculate_crc32(payload_ptr, payload_size);
+                }
+            } else {
+                stdinfo << "Runtime dynamic verification pathway executed.\n";
+
+                // Optimize dynamic message content streams via memory address cache pools
+                if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view>) {
+                    static std::array<RuntimeStringCache, 16> string_cache_pool{};
+                    static size_t                             cache_index    = 0;
+                    bool                                      found_in_cache = false;
+
+                    // Step 1: Scan historical allocation frames for matching underlying buffer positions
+                    for (const auto& slot : string_cache_pool) {
+                        if (slot.last_seen_ptr == payload_ptr) {
+                            header.check_sum_calculated = slot.cached_crc;  // Cache hit: O(1) assignment completed
+                            found_in_cache              = true;
+                            stdinfo << "Cache hit! Reusing calculated checksum: " << slot.cached_crc << "\n";
+                            break;
+                        }
+                    }
+
+                    // Step 2: Handle an unindexed or shifted string reference configuration
+                    if (!found_in_cache) {
+                        uint32_t new_crc            = ConstexprUtil::calculate_crc32(payload_ptr, payload_size);
+                        header.check_sum_calculated = new_crc;
+                        stdcout << "Cache miss! Generated new runtime checksum: " << new_crc << "\n";
+
+                        // Cycle the reference into the ring buffer database frame
+                        string_cache_pool[cache_index] = RuntimeStringCache{payload_ptr, new_crc};
+                        cache_index                    = (cache_index + 1) % string_cache_pool.size();
+                    }
+                } else {
+                    // General multi-byte sequential structs or primitive standard digital values
+                    header.check_sum_calculated = ConstexprUtil::calculate_crc32(payload_ptr, payload_size);
+                }
+            }
+        }
 
         struct iovec iov[2];
-        iov[0].iov_base = const_cast<PacketHeader*>(&header);
+        iov[0].iov_base = &header;
         iov[0].iov_len  = sizeof(PacketHeader);
         iov[1].iov_base = const_cast<uint8_t*>(payload_ptr);
         iov[1].iov_len  = payload_size;

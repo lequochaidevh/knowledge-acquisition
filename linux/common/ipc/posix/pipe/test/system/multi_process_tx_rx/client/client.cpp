@@ -41,8 +41,8 @@ class PipeClientTest : public ::testing::Test {
 // THE CLIENT TRANSACTION UNIT TEST
 // ==============================================================================
 void heartbeat_task(TestPipeClient &client) {
-    static auto last_heartbeat_time = get_current_timestamp_ms();
-    auto        current_time        = get_current_timestamp_ms();
+    static auto last_heartbeat_time = RuntimeUtil::get_current_time_ms();
+    auto        current_time        = RuntimeUtil::get_current_time_ms();
 
     auto elapsed = current_time - last_heartbeat_time;
 

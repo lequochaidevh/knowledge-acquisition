@@ -124,12 +124,14 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
         PacketHeader heartbeat_header{};
         heartbeat_header.type         = DataType::Heartbeat;
         heartbeat_header.payload_size = sizeof(self_id);  // <--- Zero payload allocation footprint!
-        heartbeat_header.timestamp_ms = get_current_timestamp_ms();
+        heartbeat_header.timestamp_ms = RuntimeUtil::get_current_time_ms();
         heartbeat_header.sequence_id  = seq;
 
         // Executes the lockless context switch guard and fires down the pipe channel
         return send_packet(shared_proxy_fd, DataType::Heartbeat, self_id, seq);
     }
+
+    virtual bool has_check_sum() const override { return true; }
 };
 
 }  // namespace HarisLinux

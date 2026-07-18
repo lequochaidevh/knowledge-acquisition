@@ -23,7 +23,7 @@ PipeServer::~PipeServer() {}
  * @brief Periodic background task executed on the main server runtime loop.
  */
 void PipeServer::execute_housekeeping_phase() {
-    uint64_t                    current_time_ms = get_current_timestamp_ms();
+    uint64_t                    current_time_ms = RuntimeUtil::get_current_time_ms();
     std::lock_guard<std::mutex> lock(_client_registry_mutex);
 
     // Use a clean iterator to safely erase items while traversing the map
@@ -146,7 +146,7 @@ bool PipeServer::accept_client() {
                                          std::forward_as_tuple(std::move(smart_read_fd),  //
                                                                std::move(smart_write_fd)));
                 ClientSession* target_session = &(_client_registry[client_id]);
-                target_session->register_heartbeat(get_current_timestamp_ms());
+                target_session->register_heartbeat(RuntimeUtil::get_current_time_ms());
             }
             HARIS_LOG_DEBUG("Connected to client successfully: {} ", client_id);
 
@@ -179,7 +179,7 @@ void PipeServer::process_client_packet(const std::string& client_id, SharedFileD
 
     // 1. Extract packet header and payload
     if (receive_packet(proxy_read_fd, header, data)) {
-        uint64_t current_time_ms = get_current_timestamp_ms();
+        uint64_t current_time_ms = RuntimeUtil::get_current_time_ms();
 
         // 2. Command the smart object to recalculate message frequencies autonomously
         target_session->evaluate_message_frequency(current_time_ms);
