@@ -45,7 +45,7 @@ class IPCSenderBase {
             static_assert(sizeof(T) == 0, "Unsupported compile-time type execution for IPC Sender!");
         }
 
-        PacketHeader header{data_type, payload_size, get_current_timestamp_ms(), seq};
+        PacketHeader header{data_type, payload_size, RuntimeUtil::get_current_time_ms(), seq};
 
         struct iovec iov[2];
         iov[0].iov_base = const_cast<PacketHeader*>(&header);
