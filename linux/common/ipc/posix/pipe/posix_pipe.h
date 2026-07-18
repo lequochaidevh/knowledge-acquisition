@@ -130,6 +130,8 @@ class PosixPipe : public IPCSenderBase<PipePolicy>, public IPCReceiverBase<PipeP
         // Executes the lockless context switch guard and fires down the pipe channel
         return send_packet(shared_proxy_fd, DataType::Heartbeat, self_id, seq);
     }
+
+    virtual bool has_check_sum() const override { return true; }
 };
 
 }  // namespace HarisLinux

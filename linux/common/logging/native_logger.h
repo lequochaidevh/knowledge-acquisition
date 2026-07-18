@@ -130,6 +130,7 @@ class NativeLogger {
 };
 
 // Macro replacement for std::cout using the stream approach
+#define stdinfo NativeLogger::get_instance().create_stream(LOG_COLOR_INFO)
 #define stdcout NativeLogger::get_instance().create_stream(LOG_COLOR_WARN)
 #define stdcerr NativeLogger::get_instance().create_stream(LOG_COLOR_ERROR)
 

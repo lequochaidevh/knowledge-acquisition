@@ -2,7 +2,7 @@
     "Default": "Info",
     "Modules": {
         "PosixPipe": "Trace",
-        "PipeServer": "Error",
+        "PipeServer": "Trace",
         "PipeClient": "Trace"
     }
 }

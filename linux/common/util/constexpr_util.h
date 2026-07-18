@@ -13,6 +13,28 @@ class ConstexprUtil {
     // Delete constructor to prevent instantiation of a pure utility/static class
     ConstexprUtil() = delete;
 
+    static constexpr uint32_t calculate_crc32(const uint8_t* data, uint32_t length) noexcept {
+        uint32_t crc = 0xFFFFFFFF;
+        for (uint32_t i = 0; i < length; ++i) {
+            crc ^= data[i];
+            for (int j = 0; j < 8; ++j) {
+                crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+            }
+        }
+        return ~crc;
+    }
+
+    static constexpr uint32_t calculate_crc32(std::string_view str) noexcept {
+        uint32_t crc = 0xFFFFFFFF;
+        for (char c : str) {
+            crc ^= static_cast<uint8_t>(c);
+            for (int j = 0; j < 8; ++j) {
+                crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+            }
+        }
+        return ~crc;
+    }
+
     /**
      * @brief Strips parent directory paths from a source file string.
      * @param filepath The raw path string from the compiler (usually via __FILE__).
