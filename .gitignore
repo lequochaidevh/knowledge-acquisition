@@ -10,4 +10,4 @@ my_manim_project/
 *.backup
 *.bk
 logging_config.json
-.gitignore
+private
