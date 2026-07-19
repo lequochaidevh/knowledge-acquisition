@@ -2,22 +2,9 @@
 #include "ipc_metadata.h"
 #include "sfd/smart_file_descriptor.h"
 
-/**Note:
- * Get data from child:
-template <typename Derived>
-class IPCSenderBase {
-    void func() {
-        Derived* derived = static_cast<Derived*>(this);
-        auto buffer = derived->attribute_from_child;
-    }
-}
-
-
- */
-
 namespace HarisLinux {
 
-// 1. Interface trung gian
+// 1. Interface
 class ISenderData {
  public:
     // Call to the deepest derived class.
