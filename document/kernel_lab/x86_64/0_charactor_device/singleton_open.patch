@@ -1,0 +1,42 @@
+diff --git a/document/kernel_lab/x86_64/0_charactor_device/adv_chardev.c b/document/kernel_lab/x86_64/0_charactor_device/adv_chardev.c
+index d61a060..433d2e2 100644
+--- a/document/kernel_lab/x86_64/0_charactor_device/adv_chardev.c
++++ b/document/kernel_lab/x86_64/0_charactor_device/adv_chardev.c
+@@ -29,6 +29,7 @@ struct advanced_dev {
+     size_t       size;
+     struct mutex buf_mutex;
+     struct cdev  cdev;
++    atomic_t     available; /* 0 = (Busy), 1 = (Available) */
+ };
+ 
+ static dev_t                dev_num;
+@@ -37,14 +38,28 @@ static struct advanced_dev *my_dev    = NULL;
+ 
+ /* Open implementation */
+ static int dev_open(struct inode *inode, struct file *file) {
++    struct advanced_dev *dev;
++    dev                = container_of(inode->i_cdev, struct advanced_dev, cdev);
++    file->private_data = dev;
++    /*
++     * atomic_cmpxchg(&v, old, new) will check:
++     */
++    if (atomic_cmpxchg(&dev->available, 1, 0) == 0) {
++        pr_warn("%s: Device is already open by another process!\n", DEVICE_NAME);
++        return -EBUSY; /* Error Device or resource busy Linux Standard */
++    }
++
+     /* Store device pointer inside private_data for subsequent read/write/ioctl operations */
+-    file->private_data = container_of(inode->i_cdev, struct advanced_dev, cdev);
+     pr_info("%s: Device opened successfully\n", DEVICE_NAME);
+     return 0;
+ }
+ 
+ /* Close implementation */
+ static int dev_release(struct inode *inode, struct file *file) {
++    struct advanced_dev *dev = file->private_data;
++
++    atomic_set(&dev->available, 1);
++
+     pr_info("%s: Device closed\n", DEVICE_NAME);
+     return 0;
+ }

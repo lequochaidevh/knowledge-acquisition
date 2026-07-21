@@ -8,7 +8,7 @@ if [ -z "$1" ]; then
     LOG_ERROR "Need param contain file .txt or .md to copy"
     exit 0
 elif [ "$1" == "--help" ]; then
-    cat __help.md
+    cat "$DES_COPPY/../script/apps/__help.md"
     exit 0
 elif [ "$1" == "--list" ]; then
     ls $DES_COPPY
