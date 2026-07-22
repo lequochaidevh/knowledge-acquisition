@@ -114,26 +114,39 @@ class SharedFileDescriptor {
 
     ~SharedFileDescriptor() { reset(); }
 
-    SharedFileDescriptor(const SharedFileDescriptor& other) : _fd(other._fd) {
+    // 1. COPY CONSTRUCTOR
+    // Used when a new object is created as a copy of an existing lvalue.
+    SharedFileDescriptor(const SharedFileDescriptor& other) : _fd(other._fd), _ctx(other._ctx) {
         if (_fd >= 0) Registry::retain(_fd);
     }
 
+    // 2. COPY ASSIGNMENT OPERATOR
+    // Used when an existing object is assigned the value of another existing lvalue.
     SharedFileDescriptor& operator=(const SharedFileDescriptor& other) {
-        if (this != &other) {
+        if (this != &other) {  // Prevent self-assignment
             reset();
-            _fd = other._fd;
+            _fd  = other._fd;
+            _ctx = other._ctx;
             if (_fd >= 0) Registry::retain(_fd);
         }
         return *this;
     }
 
-    SharedFileDescriptor(SharedFileDescriptor&& other) noexcept : _fd(other._fd) { other._fd = -1; }
+    // 3. MOVE CONSTRUCTOR
+    // Used when a new object is created by stealing resources from a temporary rvalue.
+    SharedFileDescriptor(SharedFileDescriptor&& other) noexcept
+        : _fd(other._fd), _ctx(std::move(other._ctx)) {  // Transfer context ownership
+        other._fd = -1;                                  // Leave source in a safe, empty state
+    }
 
+    // 4. MOVE ASSIGNMENT OPERATOR
+    // Used when an existing object steals resources from a temporary rvalue.
     SharedFileDescriptor& operator=(SharedFileDescriptor&& other) noexcept {
-        if (this != &other) {
-            reset();
+        if (this != &other) {  // Prevent self-assignment
+            reset();           // Release current resource
             _fd       = other._fd;
-            other._fd = -1;
+            _ctx      = std::move(other._ctx);  // Transfer context ownership
+            other._fd = -1;                     // Leave source in a safe, empty state
         }
         return *this;
     }
