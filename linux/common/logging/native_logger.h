@@ -3,6 +3,27 @@
 #include "std17pch.h"
 
 namespace HarisLinux {
+
+// --- ANSI Colors ---
+#define RESET "\033[0m"
+#define BOLD  "\033[1m"
+
+// Regular Colors
+#define RED     "\033[0;31m"
+#define GREEN   "\033[0;32m"
+#define YELLOW  "\033[0;33m"
+#define BLUE    "\033[0;34m"
+#define MAGENTA "\033[0;35m"
+#define CYAN    "\033[0;36m"
+
+// Bold Colors
+#define BOLD_RED     "\033[1;31m"
+#define BOLD_GREEN   "\033[1;32m"
+#define BOLD_YELLOW  "\033[1;33m"
+#define BOLD_BLUE    "\033[1;34m"
+#define BOLD_MAGENTA "\033[1;35m"
+#define BOLD_CYAN    "\033[1;36m"
+
 // ANSI color codes for console output
 #define LOG_COLOR_RESET "\033[0m"
 #define LOG_COLOR_INFO  "\033[32m"  // Green
@@ -138,6 +159,8 @@ class NativeLogger {
 #define native_log_info  NativeLogger::get_instance().create_stream(LOG_COLOR_INFO)
 #define native_log_warn  NativeLogger::get_instance().create_stream(LOG_COLOR_WARN)
 #define native_log_error NativeLogger::get_instance().create_stream(LOG_COLOR_ERROR)
+
+#define native_cout_display NativeLogger::get_instance().create_stream(RESET)
 
 // Macro helpers for formatted log levels
 #define native_print_info(fmt, ...)  NativeLogger::get_instance().log_fmt(LOG_COLOR_INFO, fmt, ##__VA_ARGS__)
