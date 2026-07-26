@@ -160,7 +160,7 @@ class NativeLogger {
 #define native_log_warn  NativeLogger::get_instance().create_stream(LOG_COLOR_WARN)
 #define native_log_error NativeLogger::get_instance().create_stream(LOG_COLOR_ERROR)
 
-#define native_cout_display NativeLogger::get_instance().create_stream(RESET)
+#define native_cout_display NativeLogger::get_instance().create_stream("")
 
 // Macro helpers for formatted log levels
 #define native_print_info(fmt, ...)  NativeLogger::get_instance().log_fmt(LOG_COLOR_INFO, fmt, ##__VA_ARGS__)

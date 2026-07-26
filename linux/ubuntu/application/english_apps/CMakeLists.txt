@@ -20,6 +20,10 @@ add_executable(english_challenge
     ${SOURCES}
 )
 
+# If wanna add debug symbol
+# target_compile_options(english_challenge PRIVATE -g -O0)
+# OR: cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
 # 3. Parse param and add to object
 register_module_component_strict(english_challenge
     LIB_NOT_MERGE "0"
