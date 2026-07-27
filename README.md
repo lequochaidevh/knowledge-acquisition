@@ -148,7 +148,11 @@ make install
 
 ### Linux Embedded (todo)
 
-### Linux Ubuntu (todo)
+### Linux Ubuntu (Basic app)
++ English Challenge
 
-  
 </details>
+
+### Intergration
+**Terminal UI - Debug tool - Preview**
+![alt text](document/c_cpp_lab/cpp/unit/terminal_ui/preview/image.png)
