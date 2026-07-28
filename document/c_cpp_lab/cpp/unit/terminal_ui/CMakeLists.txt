@@ -11,7 +11,7 @@ list(APPEND CMAKE_PREFIX_PATH "$ENV{LOCAL_MINOR_ROOT}")
 # Locate the installed FTXUI package
 find_package(ftxui REQUIRED)
 
-add_executable(ftxui_test main.cpp)
+add_executable(ftxui_test 01_split_window.cpp)
 
 # Link against the single consolidated target
 target_link_libraries(ftxui_test PRIVATE ftxui::ftxui)
