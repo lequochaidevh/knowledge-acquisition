@@ -56,7 +56,7 @@ std::vector<Word> loadWords(const std::string& filename) {
 }
 
 // Append a misspelled word to the review queue file
-void saveToReviewQueue(const Word& w, const std::string& review_file) {
+void saveToReviewQueue(std::vector<Word>& queue, const Word& w, const std::string& review_file) {
     std::vector<Word> currentReview = loadWords(review_file);
     // Prevent duplicate entries in the review queue
     for (const auto& item : currentReview) {
@@ -64,7 +64,8 @@ void saveToReviewQueue(const Word& w, const std::string& review_file) {
     }
     std::ofstream file(review_file, std::ios::app);
     if (file.is_open()) {
-        file << w.word << "\t" << w.ipa << "\t" << w.description << "";
+        file << w.word << "\t" << w.ipa << "\t" << w.description << "\n";
+        queue.push_back(w);
     }
 }
 
@@ -72,7 +73,7 @@ void saveToReviewQueue(const Word& w, const std::string& review_file) {
 void refreshReviewQueue(const std::vector<Word>& remainingQueue, const std::string& review_file) {
     std::ofstream file(review_file, std::ios::trunc);
     for (const auto& w : remainingQueue) {
-        file << w.word << "\t" << w.ipa << "\t" << w.description << "";
+        file << w.word << "\t" << w.ipa << "\t" << w.description << "\n";
     }
 }
 
@@ -217,7 +218,7 @@ int main(int argc, char* argv[]) {
                 HarisLinux::stdcerr << " Incorrect! The correct answer was: " << currentQuestion.word << "";
                 HarisLinux::native_cout_display << "Added to review_queue.txt for future reminder.";
 
-                saveToReviewQueue(currentQuestion, review_queue_path_str);
+                saveToReviewQueue(reviewQueue, currentQuestion, review_queue_path_str);
             }
             HarisLinux::native_cout_display << "-------------------------------------------\n";
         }
