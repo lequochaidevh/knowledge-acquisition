@@ -13,7 +13,7 @@ find_package(Threads REQUIRED)
 # Define the standalone macro for all targets globally
 add_compile_definitions(ASIO_STANDALONE)
 
-add_executable(sandbox 01_read_limit_network.cpp)
+add_executable(sandbox 02_benmark.cpp)
 
 target_include_directories(sandbox PRIVATE $ENV{LOCAL_MINOR_ROOT}/include)
 # Link with the system threads target
