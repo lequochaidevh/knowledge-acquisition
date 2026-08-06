@@ -1,0 +1,97 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Language and Encoding Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+
+% --- Page Layout and Margins ---
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    total={170mm,257mm},
+    left=20mm,
+    top=20mm,
+}
+
+% --- Math and Scientific Packages ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs} % For professional-quality tables
+\usepackage{hyperref} % For hyperlinks within the document
+
+% --- Bibliography / Citation Configuration ---
+\usepackage[style=authoryear,backend=biber]{biblatex}
+\addbibresource{references.bib} % Path to your bibliography file
+
+% --- Title and Author Metadata ---
+\title{\textbf{A Modern LaTeX Template for Scientific Documents}}
+\author{
+    \textbf{John Doe}\thanks{Corresponding author: john.doe@email.com} \\
+    Department of Science, University of Knowledge \\
+    \and
+    \textbf{Jane Smith} \\
+    Research Lab, Institute of Technology
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% --- Abstract Section ---
+\begin{abstract}
+This is a concise abstract for your scientific document. It should briefly state the background, objective, methodology, key findings, and main conclusion of your research. Keep it between 150 to 250 words without citations.
+\end{abstract}
+
+\textbf{Keywords:} LaTeX template, Scientific writing, Academic research, Document layout.
+
+% --- Main Content ---
+\section{Introduction}
+The introduction sets the stage for your paper. You can introduce the problem, discuss its significance, and outline your research goals. 
+
+To add a citation, you can use \textcite{author2026} for inline citations or \parencite{author2026} for parenthetical ones.
+
+\section{Methodology}
+Explain your methods clearly so others can replicate your work. 
+
+\subsection{Mathematical Formulations}
+You can write inline equations like $E = mc^2$ or block equations using standard LaTeX syntax:
+\begin{equation}
+    f(x) = \int_{-\infty}^{\infty} e^{-x^2} \, dx
+\end{equation}
+
+\section{Results and Discussion}
+Present your findings using figures and tables.
+
+\subsection{Tables and Figures}
+Table~\ref{tab:example} shows a clean, scientific table layout using the \texttt{booktabs} package.
+
+\begin{table}[htbp]
+\centering
+\caption{Example of a professional scientific table.}
+\label{tab:example}
+\begin{tabular}{lcr}
+\toprule
+\textbf{Item} & \textbf{Quantity} & \textbf{Price (\$)} \\
+\midrule
+Component A & 10 & 150.00 \\
+Component B & 5  & 75.50  \\
+Component C & 2  & 320.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+Summarize your main findings and suggest future research directions.
+
+% --- Acknowledgments ---
+\section*{Acknowledgments}
+Place your funding information or personal thanks here.
+
+% --- References ---
+\printbibliography
+
+\end{document}

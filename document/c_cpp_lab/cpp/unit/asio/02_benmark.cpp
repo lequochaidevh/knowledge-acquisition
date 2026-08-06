@@ -32,16 +32,17 @@ class Session : public std::enable_shared_from_this<Session> {
 
  private:
     void do_read() {
-        auto self(shared_from_this());
+        auto self(shared_from_this());  // <--- Keeps the Session alive in memory!
         // Read data asynchronously. The call returns instantly.
         // asio::bind_executor ensures the callback executes safely inside the strand.
         socket_.async_read_some(asio::buffer(data_, max_length),
+                                // Asio creates 'ec' and 'length'
                                 asio::bind_executor(strand_, [this, self](std::error_code ec, std::size_t length) {
                                     if (!ec) {
                                         std::cout << "[Thread " << std::this_thread::get_id() << "] Received from "
                                                   << client_address_ << ": " << std::string(data_, length);
                                         if (data_[length - 1] != '\n') std::cout << std::endl;
-
+                                        // Data arrived! Process it.
                                         do_write(length);
                                     } else {
                                         std::cout << "[Thread " << std::this_thread::get_id()
