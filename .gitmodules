@@ -19,3 +19,6 @@
 [submodule "third-party/gst-build"]
 	path = third-party/gst-build
 	url = https://github.com/GStreamer/gst-build.git
+[submodule "third-party/libexif"]
+	path = third-party/libexif
+	url = https://github.com/libexif/libexif.git
