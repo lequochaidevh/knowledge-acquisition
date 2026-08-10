@@ -9,6 +9,9 @@ set(ENV{PKG_CONFIG_PATH} "$ENV{LOCAL_MINOR_ROOT}/lib/pkgconfig:$ENV{LOCAL_MINOR_
 
 pkg_check_modules(LIBEXIF REQUIRED IMPORTED_TARGET libexif)
 
-add_executable(sandbox 00_main.cpp)
+add_executable(sandbox 02_write_exif.cpp)
 
 target_link_libraries(sandbox PRIVATE PkgConfig::LIBEXIF)
+
+add_executable(reader 01_read_exif.cpp)
+target_link_libraries(reader PRIVATE PkgConfig::LIBEXIF)
