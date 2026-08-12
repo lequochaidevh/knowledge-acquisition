@@ -16,6 +16,8 @@ Welcome to the central documentation repository. This page provides quick links 
 
 *   [asio](guide_asset/asio_intergration_guide.md)
 
+*   [exif](guide_asset/exif_intergration_guide.md)
+
 ## Quick Start
 1. Click the links above to access specific documents.
 2. Follow `guide_asset/*.md` guidelines when install new third-party or creating new docs.
