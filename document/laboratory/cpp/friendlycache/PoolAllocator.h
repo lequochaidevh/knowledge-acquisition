@@ -147,8 +147,9 @@ class MemoryFriendlyLRUCache {
 
     // Configured pool allocators for list elements and map indexing elements
     using ListAllocator = PoolAllocator<CacheItem, Capacity>;
-    using CacheList     = std::list<CacheItem, ListAllocator>;
-    using ListIterator  = typename CacheList::iterator;
+    // template< typename T, typename Allocator = std::allocator<T> > class list;
+    using CacheList    = std::list<CacheItem, ListAllocator>;
+    using ListIterator = typename CacheList::iterator;
 
     using MapItem      = std::pair<const Key, ListIterator>;
     using MapAllocator = PoolAllocator<MapItem, Capacity>;
