@@ -22,3 +22,27 @@
 [submodule "third-party/libexif"]
 	path = third-party/libexif
 	url = https://github.com/libexif/libexif.git
+[submodule "third-party/gz-math"]
+	path = third-party/gz-math
+	url = https://github.com/gazebosim/gz-math.git
+[submodule "third-party/gz-cmake"]
+	path = third-party/gz-cmake
+	url = https://github.com/gazebosim/gz-cmake.git
+[submodule "third-party/gz-utils"]
+	path = third-party/gz-utils
+	url = https://github.com/gazebosim/gz-utils
+[submodule "third-party/CLI11"]
+	path = third-party/CLI11
+	url = https://github.com/CLIUtils/CLI11.git
+[submodule "third-party/spdlog"]
+	path = third-party/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "third-party/swig"]
+	path = third-party/swig
+	url = https://github.com/swig/swig.git
+[submodule "third-party/libxt"]
+	path = third-party/libxt
+	url = https://github.com/deepin-community/libxt.git
+[submodule "third-party/xorg-util-macros"]
+	path = third-party/xorg-util-macros
+	url = https://github.com/iplinux/xorg-util-macros.git
