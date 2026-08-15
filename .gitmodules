@@ -46,3 +46,12 @@
 [submodule "third-party/xorg-util-macros"]
 	path = third-party/xorg-util-macros
 	url = https://github.com/iplinux/xorg-util-macros.git
+[submodule "third-party/libxmu"]
+	path = third-party/libxmu
+	url = https://github.com/deepin-community/libxmu.git
+[submodule "third-party/libxaw"]
+	path = third-party/libxaw
+	url = https://github.com/deepin-community/libxaw.git
+[submodule "third-party/libxpm"]
+	path = third-party/libxpm
+	url = https://github.com/winlibs/libxpm.git
