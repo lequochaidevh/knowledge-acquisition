@@ -153,6 +153,10 @@ make install
 
 </details>
 
-### Intergration
+### Feature Intergration
 **Terminal UI - Debug tool - Preview**
-![alt text](document/c_cpp_lab/cpp/unit/terminal_ui/preview/image.png)
+- Accept on_click signal by the mouse.
+![alt text](document/laboratory/cpp/unit/terminal_ui/preview/image.png)
+
+**ROS2 - Kitty - Test - Preview**
+![alt text](docker/runtime/ros2/learn/preview/image.png)
