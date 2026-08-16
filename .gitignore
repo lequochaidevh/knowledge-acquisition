@@ -11,4 +11,5 @@ my_manim_project/
 *.bk
 logging_config.json
 private
-workspace
+workspace/
+project_builder_mount/
