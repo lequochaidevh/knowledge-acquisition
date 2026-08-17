@@ -5,7 +5,7 @@ FOLDER=""
 IS_INSIDE_DOCKER=false
 BRANCH="main"
 
-mkdir project_builder_mount
+mkdir $DOCKER_WORKER/project_builder_mount
 set -e
 
 for arg in "$@"; do
@@ -35,7 +35,7 @@ fi
 # Main logic flow split between Host environment and Docker environment
 if [ "$IS_INSIDE_DOCKER" = "false" ]; then
     # Host execution context
-    source ./lib.sh
+    source $SRIPT_ROOT/lib.sh
     echo -e "${BLUE}[HOST] Routing tasks to Docker Handler...${NC}"
     source ./docker_handler.sh
     run_in_docker "$FOLDER" "--branch=$BRANCH"

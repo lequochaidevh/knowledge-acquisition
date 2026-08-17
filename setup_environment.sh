@@ -18,3 +18,12 @@ export SRIPT_ROOT=$(pwd)
 echo "CMake utils path: $SRIPT_ROOT"
 cd $SETUP_ENV_SCRIPT_PATH
 
+cd docker/
+export DOCKER_WORKER=$(pwd)
+echo "CMake docker worker path: $DOCKER_WORKER"
+cd $SETUP_ENV_SCRIPT_PATH
+
+cd util/docker_start/
+export DOCKER_SCRIPT=$(pwd)
+echo "CMake docker helpful script path: $DOCKER_SCRIPT"
+cd $SETUP_ENV_SCRIPT_PATH
