@@ -38,7 +38,12 @@ if [ "$IS_INSIDE_DOCKER" = "false" ]; then
     source $SRIPT_ROOT/lib.sh
     echo -e "${BLUE}[HOST] Routing tasks to Docker Handler...${NC}"
     source ./docker_handler.sh
+    if [ $FOLDER == "ROS2" ]; then
+        run_in_docker_compose "$FOLDER" "--branch=$BRANCH"
+        exit 0
+    fi
     run_in_docker "$FOLDER" "--branch=$BRANCH"
+
 else
     # Docker execution context
     source /workspace/scripts/lib.sh

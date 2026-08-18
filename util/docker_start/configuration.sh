@@ -9,6 +9,9 @@ configure_env() {
             export IMAGE_NAME="builder:ubuntu22"
             export PROJECT_ASSET="builder:ubuntu22"
             ;;
+        "ROS2")
+            export IMAGE_NAME="osrf/ros:humble-desktop-full"
+            ;;
         "TempUbuntu24")
             export IMAGE_NAME="builder:ubuntu24"
             ;;

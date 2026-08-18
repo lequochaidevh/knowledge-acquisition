@@ -45,3 +45,28 @@ run_in_docker() {
 
     rm -rf $host_script_dir
 }
+
+# Todo: restructure
+run_in_docker_compose() {
+    xhost +local:root
+
+    local folder=$1
+    local extra_args=$2
+
+    # Load image configuration
+    configure_env "$folder"
+
+    # Check if Docker image exists; build it using the static Dockerfile inside the folder if missing
+    if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+        echo -e "${YELLOW}[INFO] Image $IMAGE_NAME not found. \
+         Building from $DOCKER_WORKER/runtime/ros2 ...${NC}"
+        local back_work=$(pwd)
+        cd $DOCKER_WORKER/runtime/ros2
+        docker compose up -d
+        cd $back_work
+    else
+        echo -e "${GREEN}[INFO] Image $IMAGE_NAME already exists.${NC}"
+    fi
+
+    docker exec -it ros2_humble_container bash
+}
