@@ -8,3 +8,9 @@ else
     echo "[ERROR] Source file missing inside build volume."
     exit 1
 fi
+
+if [ $1 == "ROS2" ]; then
+    # setup
+    source "/opt/ros/humble/setup.bash"
+    bash
+fi

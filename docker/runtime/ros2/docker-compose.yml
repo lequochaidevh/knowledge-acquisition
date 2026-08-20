@@ -15,6 +15,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /dev:/dev:rw
       - ./workspace:/home/ros/workspace:rw
+      - ${DOCKER_WORKER}/docker_share:/workspace/scripts:ro
     stdin_open: true
     tty: true
     restart: unless-stopped

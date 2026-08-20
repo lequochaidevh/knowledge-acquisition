@@ -13,3 +13,4 @@ logging_config.json
 private
 workspace/
 project_builder_mount/
+docker_share/

@@ -51,12 +51,12 @@ else
     echo -e "${GREEN}[DOCKER] Target Folder: $FOLDER | Branch: $BRANCH${NC}"
     
     # Navigate to the writable workspace build directory
-    cd /workspace/project_builder_mount || exit 1
+    # cd /workspace/project_builder_mount || exit 1
 
     # Execute build lifecycle scripts from the mapped scripts directory
     echo -e "${YELLOW}[DOCKER] Step 1: Running get_source.sh...${NC}"
     /workspace/scripts/get_source.sh "$BRANCH"
 
     echo -e "${YELLOW}[DOCKER] Step 2: Running build.sh...${NC}"
-    /workspace/scripts/build.sh
+    /workspace/scripts/build.sh "$FOLDER"
 fi

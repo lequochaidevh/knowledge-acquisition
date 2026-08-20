@@ -53,11 +53,17 @@ run_in_docker_compose() {
     local folder=$1
     local extra_args=$2
 
+    # Collect all script
+    local host_script_dir="$DOCKER_WORKER/docker_share/"
+    mkdir -p $host_script_dir
+    cp "$DOCKER_SCRIPT"/*.sh $host_script_dir
+    cp "$SRIPT_ROOT"/*.sh $host_script_dir
+
     # Load image configuration
     configure_env "$folder"
 
     # Check if Docker image exists; build it using the static Dockerfile inside the folder if missing
-    if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    if [[ "$(docker images -a | grep $IMAGE_NAME 2> /dev/null)" != "" ]]; then
         echo -e "${YELLOW}[INFO] Image $IMAGE_NAME not found. \
          Building from $DOCKER_WORKER/runtime/ros2 ...${NC}"
         local back_work=$(pwd)
@@ -68,5 +74,8 @@ run_in_docker_compose() {
         echo -e "${GREEN}[INFO] Image $IMAGE_NAME already exists.${NC}"
     fi
 
-    docker exec -it ros2_humble_container bash
+    docker exec -it ros2_humble_container \
+    /workspace/scripts/get_source_and_build.sh \
+    --folder="$folder" $extra_args --is-inside-docker=true
+
 }
