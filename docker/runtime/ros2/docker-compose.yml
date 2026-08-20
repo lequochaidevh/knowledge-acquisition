@@ -16,6 +16,12 @@ services:
       - /dev:/dev:rw
       - ./workspace:/home/ros/workspace:rw
       - ${DOCKER_WORKER}/docker_share:/workspace/scripts:ro
+    devices:
+      - /dev/dri:/dev/dri
+    deploy:
+      resources:
+        limits:
+          cpus: '5'
     stdin_open: true
     tty: true
     restart: unless-stopped
