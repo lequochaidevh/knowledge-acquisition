@@ -39,7 +39,7 @@ run_in_docker() {
         -v "$host_script_dir:/workspace/scripts:ro" \
         -v "$volume_name:/workspace/project_builder_mount" \
         "$IMAGE_NAME" \
-        /workspace/scripts/get_source_and_build.sh --folder="$folder" $extra_args --is-inside-docker=true
+        /workspace/scripts/get_source_build_run.sh --folder="$folder" $extra_args --is-inside-docker=true
 
         # bash
 
@@ -51,13 +51,15 @@ run_in_docker_compose() {
     xhost +local:root
 
     local folder=$1
+    # TODO: auto array
     local extra_args=$2
+    local extra_args3=$3
 
     # Collect all script
     local host_script_dir="$DOCKER_WORKER/docker_share/"
     mkdir -p $host_script_dir
-    cp "$DOCKER_SCRIPT"/*.sh $host_script_dir
-    cp "$SRIPT_ROOT"/*.sh $host_script_dir
+    cp -rf "$DOCKER_SCRIPT"/* $host_script_dir
+    cp -rf "$SRIPT_ROOT"/*.sh $host_script_dir
 
     # Load image configuration
     configure_env "$folder"
@@ -75,7 +77,7 @@ run_in_docker_compose() {
     fi
 
     docker exec -it ros2_humble_container \
-    /workspace/scripts/get_source_and_build.sh \
-    --folder="$folder" $extra_args --is-inside-docker=true
+    /workspace/scripts/get_source_build_run.sh \
+    --folder="$folder" $extra_args $extra_args3 --is-inside-docker=true
 
 }

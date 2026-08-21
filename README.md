@@ -154,9 +154,12 @@ make install
 </details>
 
 ### Feature Intergration
+##### Third-party Solutions
 **Terminal UI - Debug tool - Preview**
 - Accept on_click signal by the mouse.
 ![alt text](document/laboratory/cpp/unit/terminal_ui/preview/image.png)
 
-**ROS2 - Kitty - Test - Preview**
+##### Utils helper - Support Simulation
+**Docker auto setup + ROS2 + Kitty**
+![alt text](util/docker_start/franka/preview/test.png)
 ![alt text](docker/runtime/ros2/learn/preview/image.png)

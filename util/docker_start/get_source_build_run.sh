@@ -4,6 +4,7 @@
 FOLDER=""
 IS_INSIDE_DOCKER=false
 BRANCH="main"
+ROS2_MODEL=""
 
 mkdir $DOCKER_WORKER/project_builder_mount
 set -e
@@ -18,6 +19,10 @@ for arg in "$@"; do
             BRANCH="${arg#*=}"
             shift
             ;;
+        --ros=*)
+            ROS2_MODEL="${arg#*=}"
+            shift
+            ;;
         --is-inside-docker=*)
             IS_INSIDE_DOCKER="${arg#*=}"
             shift
@@ -28,7 +33,7 @@ done
 # Check required argument
 if [ -z "$FOLDER" ]; then
     echo "[ERROR] Missing mandatory flag: --folder=<folder_name>"
-    echo "Usage: ./get_source_and_build.sh --folder=X11Ubuntu22"
+    echo "Usage: ./get_source_build_run.sh --folder=X11Ubuntu22"
     exit 1
 fi
 
@@ -36,10 +41,10 @@ fi
 if [ "$IS_INSIDE_DOCKER" = "false" ]; then
     # Host execution context
     source $SRIPT_ROOT/lib.sh
-    echo -e "${BLUE}[HOST] Routing tasks to Docker Handler...${NC}"
+    echo -e "${BLUE} $ROS2_MODEL [HOST] Routing tasks to Docker Handler...${NC}"
     source ./docker_handler.sh
     if [ $FOLDER == "ROS2" ]; then
-        run_in_docker_compose "$FOLDER" "--branch=$BRANCH"
+        run_in_docker_compose "$FOLDER" "--branch=$BRANCH" "--ros=$ROS2_MODEL"
         exit 0
     fi
     run_in_docker "$FOLDER" "--branch=$BRANCH"
@@ -56,7 +61,7 @@ else
     # Execute build lifecycle scripts from the mapped scripts directory
     echo -e "${YELLOW}[DOCKER] Step 1: Running get_source.sh...${NC}"
     /workspace/scripts/get_source.sh "$BRANCH"
-
+    echo -e "${BLUE} $ROS2_MODEL [HOST] Routing tasks to Docker Handler...${NC}"
     echo -e "${YELLOW}[DOCKER] Step 2: Running build.sh...${NC}"
-    /workspace/scripts/build.sh "$FOLDER"
+    /workspace/scripts/build.sh "$FOLDER" "$ROS2_MODEL"
 fi

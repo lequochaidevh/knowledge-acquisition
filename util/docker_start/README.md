@@ -4,8 +4,8 @@
 ```sh
 export LOCAL_ASSET_PATH=/path/to/asset
 # Ex: export LOCAL_ASSET_PATH=$DOCKER_WORKER/dummy_asset
-# ./get_source_and_build.sh --folder=X11Ubuntu22 --branch=main
-./get_source_and_build.sh --folder=ROS2 --branch=main
+# ./get_source_build_run.sh --folder=X11Ubuntu22 --branch=main
+./get_source_build_run.sh --folder=ROS2 --branch=main
 ```
 
 ```sh

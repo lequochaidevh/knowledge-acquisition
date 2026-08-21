@@ -9,8 +9,11 @@ else
     exit 1
 fi
 
-if [ $1 == "ROS2" ]; then
+if [[ $1 == "ROS2" ]]; then
     # setup
     source "/opt/ros/humble/setup.bash"
+    if [[ $2 == "franka" ]]; then
+        /workspace/scripts/franka/run.sh
+    fi
     bash
 fi
