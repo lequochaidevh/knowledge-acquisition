@@ -34,10 +34,28 @@ index 7b09156..33d39c2 100644
 \ No newline at end of file
 +</robot>
 diff --git a/launch/launch_sim.launch.py b/launch/launch_sim.launch.py
-index e08f972..0db2f6e 100755
+index e08f972..52b1ef2 100755
 --- a/launch/launch_sim.launch.py
 +++ b/launch/launch_sim.launch.py
-@@ -57,13 +57,13 @@ def generate_launch_description():
+@@ -23,6 +23,7 @@ def generate_launch_description():
+                 PythonLaunchDescriptionSource([os.path.join(
+                     get_package_share_directory(package_name),'launch','rsp.launch.py'
+                 )]), launch_arguments={'use_sim_time': 'true', 'use_ros2_control': 'true'}.items()
++                
+     )
+ 
+     joystick = IncludeLaunchDescription(
+@@ -45,7 +46,8 @@ def generate_launch_description():
+     gazebo = IncludeLaunchDescription(
+                 PythonLaunchDescriptionSource([os.path.join(
+                     get_package_share_directory('gazebo_ros'), 'launch', 'gazebo.launch.py')]),
+-                    launch_arguments={'extra_gazebo_args': '--ros-args --params-file ' + gazebo_params_file}.items()
++                    launch_arguments={'gui': 'false', 'server': 'true'}.items()
++                    # launch_arguments={'extra_gazebo_args': '--ros-args --params-file ' + gazebo_params_file}.items()
+              )
+ 
+     # Run the spawner node from the gazebo_ros package. The entity name doesn't really matter if you only have a single robot.
+@@ -57,13 +59,13 @@ def generate_launch_description():
  
      diff_drive_spawner = Node(
          package="controller_manager",

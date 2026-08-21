@@ -23,7 +23,7 @@ sudo apt update && sudo apt install -y \
   ros-humble-ros2-controllers \
   ros-humble-gazebo-ros2-control \
   git vim
-  
+
 # sudo apt install ros-humble-gazebo-ros-pkgs -y
 
 cd /path/to/ros2_ws
@@ -54,7 +54,8 @@ ros2 launch articubot_one launch_sim.launch.py world:=./src/articubot_one/worlds
 
 ```sh
 # Terminal 2
-ros2 run rviz2 rviz2 -d src/articubot_one/config/view_bot.rviz
+ros2 topic list
+ros2 run rviz2 rviz2 -d articubot_one/config/view_bot.rviz
 # Terminal 3
 source /opt/ros/humble/setup.bash
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
