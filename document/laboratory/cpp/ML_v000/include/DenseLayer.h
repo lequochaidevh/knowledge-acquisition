@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Tensor2D.h"
+#include "Layer.h"
 
-class DenseLayer {
+class DenseLayer : public Layer {
  public:
     Tensor2D weights;
     Tensor2D bias;
@@ -86,5 +86,26 @@ class DenseLayer {
         Tensor2D d_input   = incoming_gradient.matmul(weights_T);
 
         return d_input;
+    }
+
+    // Expose local weights/biases dynamically to the registry system
+    std::map<std::string, Tensor2D*> get_parameters(const std::string& prefix) override {
+        std::map<std::string, Tensor2D*> params;
+        params[prefix + ".weights"] = &this->weights;
+        params[prefix + ".bias"]    = &this->bias;
+        return params;
+    }
+
+    void update_parameters(float learning_rate) override {
+        // 1. Update weight matrix elements
+        for (size_t i = 0; i < weights.get_rows(); ++i) {
+            for (size_t j = 0; j < weights.get_cols(); ++j) {
+                weights.at(i, j) -= learning_rate * d_weights.at(i, j);
+            }
+        }
+        // 2. Update bias matrix elements
+        for (size_t j = 0; j < bias.get_cols(); ++j) {
+            bias.at(0, j) -= learning_rate * d_bias.at(0, j);
+        }
     }
 };

@@ -34,6 +34,7 @@
 #include <atomic>
 #include <iomanip>
 #include <condition_variable>  // queue -> async log
+#include <stdexcept>
 
 // C libs
 #include <stdint.h>

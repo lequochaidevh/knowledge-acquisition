@@ -1,8 +1,8 @@
-#include "../../include/Tensor2D.h"
-#include "../../include/DenseLayer.h"
-#include "../../include/Loss.h"
-#include "../../include/Optimizer.h"
-#include "../../include/ModelCheckpoint.h"
+#include "../../../include/Tensor2D.h"
+#include "../../../include/DenseLayer.h"
+#include "../../../include/Loss.h"
+#include "../../../include/Optimizer.h"
+#include "../../../include/ModelCheckpoint.h"
 
 int main() {
     // 1. Data Setup: 4 samples, 3 features each

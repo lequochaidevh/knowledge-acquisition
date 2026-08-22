@@ -1,0 +1,81 @@
+
+    // 1. Data Setup: Expanded to 12 samples, 3 features each
+    // Features array layout: [Income, Purchase Frequency, Account Age]
+    size_t   num_train_samples = 12;
+    Tensor2D input(num_train_samples, 3);
+    Tensor2D target(num_train_samples, 1);
+
+    // --- CLASS 1: VIP CUSTOMERS (Target = 1.0f) ---
+    // Targets: 1 output neuron (1.0 = VIP, 0.0 = Normal)
+    // Sample 0: High income, highly active, long-standing account
+    input.at(0, 0)  = 5.0f;
+    input.at(0, 1)  = 9.0f;
+    input.at(0, 2)  = 2.0f;
+    target.at(0, 0) = 1.0f;
+
+    // Sample 1: Medium-high income, very frequent shopping patterns
+    input.at(1, 0)  = 4.2f;
+    input.at(1, 1)  = 8.0f;
+    input.at(1, 2)  = 1.8f;
+    target.at(1, 0) = 1.0f;
+
+    // Sample 2: Ultra-high income, moderate frequency, stable age
+    input.at(2, 0)  = 7.5f;
+    input.at(2, 1)  = 5.0f;
+    input.at(2, 2)  = 3.0f;
+    target.at(2, 0) = 1.0f;
+
+    // Sample 3: Extremely loyal and highly frequent buyer despite moderate income
+    input.at(3, 0)  = 2.5f;
+    input.at(3, 1)  = 9.5f;
+    input.at(3, 2)  = 4.5f;
+    target.at(3, 0) = 1.0f;
+
+    // Sample 4: Classic high-end spender layout profile
+    input.at(4, 0)  = 6.0f;
+    input.at(4, 1)  = 8.0f;
+    input.at(4, 2)  = 3.0f;
+    target.at(4, 0) = 1.0f;
+
+    // Sample 5: High income corporate profile account
+    input.at(5, 0)  = 5.8f;
+    input.at(5, 1)  = 7.2f;
+    input.at(5, 2)  = 2.2f;
+    target.at(5, 0) = 1.0f;
+
+    // --- CLASS 0: NORMAL CUSTOMERS (Target = 0.0f) ---
+    // Sample 6: Low income, low frequency shopping behavior
+    input.at(6, 0)  = 1.0f;
+    input.at(6, 1)  = 2.0f;
+    input.at(6, 2)  = 0.5f;
+    target.at(6, 0) = 0.0f;
+
+    // Sample 7: Low income, completely new setup account
+    input.at(7, 0)  = 1.5f;
+    input.at(7, 1)  = 1.0f;
+    input.at(7, 2)  = 1.0f;
+    target.at(7, 0) = 0.0f;
+
+    // Sample 8: Medium income but almost zero engagement activity
+    input.at(8, 0)  = 3.0f;
+    input.at(8, 1)  = 0.5f;
+    input.at(8, 2)  = 0.2f;
+    target.at(8, 0) = 0.0f;
+
+    // Sample 9: Low profile bargain hunter layout configuration
+    input.at(9, 0)  = 0.5f;
+    input.at(9, 1)  = 3.0f;
+    input.at(9, 2)  = 0.8f;
+    target.at(9, 0) = 0.0f;
+
+    // Sample 10: Inactive user profile pattern
+    input.at(10, 0)  = 2.0f;
+    input.at(10, 1)  = 1.2f;
+    input.at(10, 2)  = 1.5f;
+    target.at(10, 0) = 0.0f;
+
+    // Sample 11: Decent income but zero platform interactions
+    input.at(11, 0)  = 4.0f;
+    input.at(11, 1)  = 0.8f;
+    input.at(11, 2)  = 0.3f;
+    target.at(11, 0) = 0.0f;

@@ -1,8 +1,8 @@
-#include "../../include/Tensor2D.h"
-#include "../../include/DenseLayer.h"
-#include "../../include/Loss.h"
-#include "../../include/Optimizer.h"
-#include "../../include/ModelCheckpoint.h"
+#include "../../../include/Tensor2D.h"
+#include "../../../include/DenseLayer.h"
+#include "../../../include/Loss.h"
+#include "../../../include/Optimizer.h"
+#include "../../../include/ModelCheckpoint.h"
 
 int main() {
     std::cout << "--- PRODUCTION INFERENCE APPLICATION ---\n";
