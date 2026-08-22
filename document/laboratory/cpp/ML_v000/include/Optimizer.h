@@ -8,6 +8,8 @@ class SGDOptimizer {
  public:
     SGDOptimizer(float lr = 0.01f) : learning_rate(lr) {}
 
+    void zero_grad(DenseLayer& layer) { layer.zero_gradients(); }
+
     void step(DenseLayer& layer) {
         // 1. Update weight: W = W - lr * dW
         for (size_t i = 0; i < layer.weights.get_rows(); ++i) {

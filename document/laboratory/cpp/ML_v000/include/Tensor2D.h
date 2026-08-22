@@ -89,4 +89,57 @@ class Tensor2D {
         }
         return result;
     }
+
+    // Forward pass: Apply sigmoid element-wise
+    Tensor2D sigmoid() const {
+        Tensor2D result(rows, cols);
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                float x         = this->at(i, j);
+                result.at(i, j) = 1.0f / (1.0f + std::exp(-x));
+            }
+        }
+        return result;
+    }
+
+    // Backward pass: Compute gradient through sigmoid layer
+    Tensor2D sigmoid_backward(const Tensor2D& incoming_gradient) const {
+        Tensor2D d_input(rows, cols);
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t j = 0; j < cols; ++j) {
+                float x   = this->at(i, j);
+                float sig = 1.0f / (1.0f + std::exp(-x));
+
+                // local_gradient = sig * (1.0f - sig)
+                d_input.at(i, j) = incoming_gradient.at(i, j) * sig * (1.0f - sig);
+            }
+        }
+        return d_input;
+    }
+
+    // Write raw memory buffer directly to a stream
+    void write_binary(std::ostream& os) const {
+        // Write metadata shapes first
+        os.write(reinterpret_cast<const char*>(&rows), sizeof(rows));
+        os.write(reinterpret_cast<const char*>(&cols), sizeof(cols));
+
+        // Write continuous float data array directly
+        // Assuming your data is stored in a contiguous std::vector<float> data
+        os.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(float));
+    }
+
+    // Read raw memory buffer directly from a stream
+    void read_binary(std::istream& is) {
+        size_t in_rows, in_cols;
+        is.read(reinterpret_cast<char*>(&in_rows), sizeof(in_rows));
+        is.read(reinterpret_cast<char*>(&in_cols), sizeof(in_cols));
+
+        // Verify matrix dimension alignment before loading
+        if (in_rows != this->rows || in_cols != this->cols) {
+            throw std::runtime_error("Checkpoint dimension mismatch during load.");
+        }
+
+        // Read payload array directly into memory buffer
+        is.read(reinterpret_cast<char*>(data.data()), data.size() * sizeof(float));
+    }
 };

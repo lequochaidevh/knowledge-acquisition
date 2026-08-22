@@ -1,8 +1,8 @@
-#include "../include/Tensor2D.h"
-#include "../include/DenseLayer.h"
-#include "../include/Loss.h"
-#include "../include/Optimizer.h"
-#include <iostream>
+#include "../../include/Tensor2D.h"
+#include "../../include/DenseLayer.h"
+#include "../../include/Loss.h"
+#include "../../include/Optimizer.h"
+#include "../../include/ModelCheckpoint.h"
 
 int main() {
     // 1. Data Setup: 4 samples, 3 features each
@@ -67,20 +67,16 @@ int main() {
         optimizer.step(layer2);
     }
 
-    // 4. Inference / Recognition test on a brand new unknown sample
-    std::cout << "\n--- RECOGNITION TEST ON NEW DATA ---\n";
-    Tensor2D new_customer(1, 3);
-    new_customer.at(0, 0) = 5.5f;
-    new_customer.at(0, 1) = 8.5f;
-    new_customer.at(0, 2) = 2.5f;  // Looks like a VIP
+    // End of training phase inside your main script
+    ModelCheckpoint checkpoint;
+    checkpoint.register_parameter("layer1.weights", layer1.weights);
+    checkpoint.register_parameter("layer1.bias", layer1.bias);
+    checkpoint.register_parameter("layer2.weights", layer2.weights);
+    checkpoint.register_parameter("layer2.bias", layer2.bias);
 
-    Tensor2D out_h1     = layer1.forward(new_customer);
-    Tensor2D out_h1_act = out_h1.relu();
-    Tensor2D out_final  = layer2.forward(out_h1_act);
-    Tensor2D final_pred = out_final.sigmoid();
-
-    std::cout << "Input features: [5.5, 8.5, 2.5]\n";
-    std::cout << "Predicted Score (Closer to 1.0 means VIP): " << final_pred.at(0, 0) << "\n";
+    // Save everything into one unified model file
+    checkpoint.save("mymodel.safetensors");
+    std::cout << "Model state_dict successfully saved to mymodel.safetensors\n";
 
     return 0;
 }

@@ -29,6 +29,19 @@ class DenseLayer {
         }
     }
 
+    void zero_gradients() {
+        // (Assuming d_weights and d_bias share the same dimensions as weights and bias)
+        for (size_t i = 0; i < d_weights.get_rows(); ++i) {
+            for (size_t j = 0; j < d_weights.get_cols(); ++j) {
+                this->d_weights.at(i, j) = 0.0f;
+            }
+        }
+
+        for (size_t j = 0; j < d_bias.get_cols(); ++j) {
+            this->d_bias.at(0, j) = 0.0f;
+        }
+    }
+
     // Forward pass with input caching
     Tensor2D forward(const Tensor2D& input) {
         this->input_cache = input;  // Store input for backward pass
@@ -47,27 +60,28 @@ class DenseLayer {
 
     // Backward pass computing gradients
     Tensor2D backward(const Tensor2D& incoming_gradient) {
-        // 1. d_weights = input^T * incoming_gradient
-        Tensor2D input_T = this->input_cache.transpose();
-        this->d_weights  = input_T.matmul(incoming_gradient);
+        // (Instead of using '=', accumulate the matrix multiplication result
+        // into d_weights)
+        Tensor2D input_T           = this->input_cache.transpose();
+        Tensor2D current_d_weights = input_T.matmul(incoming_gradient);
 
-        // 2. d_bias = sum of incoming_gradient columns across rows
-        size_t rows = incoming_gradient.get_rows();
-        size_t cols = incoming_gradient.get_cols();
-
-        // Reset d_bias to 0
-        for (size_t j = 0; j < cols; ++j) {
-            this->d_bias.at(0, j) = 0.0f;
+        // (Accumulate into existing d_weights)
+        for (size_t i = 0; i < d_weights.get_rows(); ++i) {
+            for (size_t j = 0; j < d_weights.get_cols(); ++j) {
+                this->d_weights.at(i, j) += current_d_weights.at(i, j);
+            }
         }
 
-        // Accumulate bias gradients
+        // (Same for bias: Remove the zero-reset loop from here, just accumulate directly into d_bias)
+        size_t rows = incoming_gradient.get_rows();
+        size_t cols = incoming_gradient.get_cols();
         for (size_t i = 0; i < rows; ++i) {
             for (size_t j = 0; j < cols; ++j) {
                 this->d_bias.at(0, j) += incoming_gradient.at(i, j);
             }
         }
 
-        // 3. Gradient to pass to the previous layer: incoming_gradient * weights^T
+        // (Calculate gradient to pass back)
         Tensor2D weights_T = this->weights.transpose();
         Tensor2D d_input   = incoming_gradient.matmul(weights_T);
 

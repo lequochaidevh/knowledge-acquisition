@@ -26,12 +26,13 @@ int main() {
     target.at(2, 1) = 0.5f;  // Target for Sample 3
 
     // 3. Initialize neural network components
-    DenseLayer   layer(3, 12);  // 3 input features, 2 output neurons
+    DenseLayer   layer(3, 2);  // 3 input features, 2 output neurons
     MSELoss      criterion;
     SGDOptimizer optimizer(0.05f);  // Learning rate = 0.05
 
     // 4. Run training loop for 150 epochs
     for (int epoch = 0; epoch < 150; ++epoch) {
+        optimizer.zero_grad(layer);
         // Forward pass: (3x3) * (3x2) = (3x2) output matrix
         Tensor2D pred = layer.forward(input);
 

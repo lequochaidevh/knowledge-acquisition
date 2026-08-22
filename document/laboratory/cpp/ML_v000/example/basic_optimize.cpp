@@ -15,6 +15,7 @@ int main() {
 
     // 3. Run training loop for 5 epochs
     for (int epoch = 0; epoch < 5; ++epoch) {
+        optimizer.zero_grad(layer);
         // Forward pass
         Tensor2D pred = layer.forward(input);
         float    loss = criterion.forward(pred, target);
