@@ -35,6 +35,7 @@
 #include <iomanip>
 #include <condition_variable>  // queue -> async log
 #include <stdexcept>
+#include <numeric>
 
 // C libs
 #include <stdint.h>

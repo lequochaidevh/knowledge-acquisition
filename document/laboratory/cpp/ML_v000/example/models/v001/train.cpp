@@ -2,6 +2,7 @@
 
 #include "../../../include/DenseLayer.h"
 #include "../../../include/ReLULayer.h"
+#include "../../../include/LeakyReLULayer.h"
 #include "../../../include/SigmoidLayer.h"
 #include "../../../include/Sequential.h"
 
@@ -9,6 +10,7 @@
 #include "../../../include/Optimizer.h"
 
 #include "../../../include/ModelCheckpoint.h"
+#include "../../../include/DataLoader.h"
 
 // Helper function to automatically generate large-scale realistic customer datasets
 void generate_customer_data(Tensor2D& input, Tensor2D& target, size_t num_samples) {
@@ -48,20 +50,26 @@ int main() {
     std::cout << "--- INITIALIZING DEEP LEARNING TRAINING PIPELINE ---\n\n";
 
     // 1. Scalable Data Setup: Allocating a big batch matrix directly
-    const size_t TOTAL_SAMPLES = 200;  // Easily upscale this to 1000 or more
-    Tensor2D     input(TOTAL_SAMPLES, 3);
-    Tensor2D     target(TOTAL_SAMPLES, 1);
+    const size_t TOTAL_SAMPLES = 2000;  // Easily upscale this to 1000 or more
+    Tensor2D     global_input(TOTAL_SAMPLES, 3);
+    Tensor2D     global_target(TOTAL_SAMPLES, 1);
 
     // Automatically populate the tensors with simulated data patterns
     std::cout << "Generating " << TOTAL_SAMPLES << " synthetic client profiles...\n";
-    generate_customer_data(input, target, TOTAL_SAMPLES);
+    generate_customer_data(global_input, global_target, TOTAL_SAMPLES);
     std::cout << "Data matrices successfully allocated and populated.\n\n";
 
-    // 2. Network Construction using the Sequential wrapper
+    // 2. Initialize the PyTorch-style DataLoader container
+    // Configuration: Processing 200 rows in mini-batches of 32 rows each with active shuffling
+    size_t     batch_size = 100;
+    DataLoader dataloader(global_input, global_target, batch_size, true);
+
+    // 3. Network Architecture Topology setup
     // Architecture: 3 Inputs -> 14 Hidden Units (ReLU) -> 1 Output (Sigmoid Probability)
     Sequential model;
     model.add(new DenseLayer(3, 14));
     model.add(new ReLULayer());
+    // model.add(new LeakyReLULayer()); // same relu
     model.add(new DenseLayer(14, 1));
     model.add(new SigmoidLayer());
 
@@ -69,34 +77,67 @@ int main() {
     // MSELoss      criterion;
     BCELoss criterion;  // Using Binary Cross-Entropy Loss now
     // SGDOptimizer optimizer(0.01f);  // Learning rate = 0.01
-    SGDOptimizer optimizer(0.006f);  // Learning rate = 0.01
+    float        LEARNING_RATE = 0.006f;
+    SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
 
     // 4. Execution Core: Main Training Loop
-    const int TOTAL_EPOCHS = 1330;
+    const int TOTAL_EPOCHS = 70;
     std::cout << "--- STARTING MODEL TRAINING ---\n";
 
+    // Test Scenario A: Your failing stable freeze configuration (120 epochs, small updates)
+    // Formula: (200 / 32) * 120 * 0.01 = 7.5 (Mathematical boundary is ok, but failed due to dead ReLU)
+    HyperparameterAnalyzer::check_stability(200, 32, 0.01f, 120);
+
+    // Test Scenario B: Your exploded NaN configuration (2000 epochs, high learning rate)
+    // Formula: (200 / 32) * 2000 * 0.03 = 375.0 (Massive overshoot -> NaN alert)
+    HyperparameterAnalyzer::check_stability(200, 32, 0.03f, 2000);
+
+    // Test Scenario C: Your perfect convergence setup (Slowing step limits down)
+    // Formula: (200 / 100) * 500 * 0.005 = 5.0 (Perfect balanced configuration)
+    HyperparameterAnalyzer::check_stability(200, 100, 0.005f, 500);
+
+    // Test Scenario D: Upscaling dataset simulation check (1500 samples)
+    // Formula: (1500 / 250) * 400 * 0.002 = 4.8 (Stable and safe configuration)
+    HyperparameterAnalyzer::check_stability(1500, 250, 0.002f, 400);
+
+    HyperparameterAnalyzer::check_stability(TOTAL_SAMPLES, batch_size,  //
+                                            LEARNING_RATE, TOTAL_EPOCHS);
+
     for (int epoch = 0; epoch < TOTAL_EPOCHS; ++epoch) {
-        // Step A: Reset and clear accumulated gradients from previous iteration
-        model.zero_grad();
+        // Reset loader tracking indices and reshuffle rows sequence at each epoch boundary
+        dataloader.reset();
 
-        // Step B: Execution of Forward Pass through the whole layer stack
-        Tensor2D pred = model.forward(input);
+        // Placeholders to pull data chunks out of the stream
+        Tensor2D batch_inputs(0, 0);
+        Tensor2D batch_targets(0, 0);
 
-        // Step C: Calculate the loss metric
-        float loss = criterion.forward(pred, target);
+        // Inner Loop: Step through individual mini-batch pieces continuously
+        while (dataloader.next_batch(batch_inputs, batch_targets)) {
+            // Step A: Reset and wipe structural parameter gradient records
+            model.zero_grad();
+            float  epoch_cumulative_loss = 0.0f;
+            size_t batch_counter         = 0;
+            // Step B: Forward pass processing localized chunk dimensions (e.g., 32x3)
+            Tensor2D pred = model.forward(batch_inputs);
 
-        // Log training telemetry information every 10 epochs
-        if (epoch % 10 == 0 || epoch == TOTAL_EPOCHS - 1) {
-            std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] - Batch Loss: " << loss << "\n";
+            // Step C: Track and evaluate continuous performance loss metrics
+            float loss = criterion.forward(pred, batch_targets);
+            epoch_cumulative_loss += loss;
+            batch_counter++;
+
+            // Step D: Run reverse backpropagation passes over the local batch
+            Tensor2D loss_grad = criterion.backward(pred, batch_targets);
+            model.backward(loss_grad);
+
+            // Log training telemetry information every 70 epochs
+            if (epoch % 70 == 0 || epoch == TOTAL_EPOCHS - 1) {
+                std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] - Batch Loss: " << loss << "\n";
+            }
+
+            // Step E: Apply gradient descent parameter updates to all layers
+            // Note: Pass the model container directly so the optimizer can update its internal layers
+            optimizer.step(model);
         }
-
-        // Step D: Execution of Backward Pass (Compute gradients in reverse order)
-        Tensor2D loss_grad = criterion.backward(pred, target);
-        model.backward(loss_grad);
-
-        // Step E: Apply gradient descent parameter updates to all layers
-        // Note: Pass the model container directly so the optimizer can update its internal layers
-        optimizer.step(model);
     }
     std::cout << "--- TRAINING LOOP SUCCESSFULLY COMPLETED ---\n\n";
 
