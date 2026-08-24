@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Layer.h"
+#include "WeightInitializer.h"
 
 class DenseLayer : public Layer {
  public:
@@ -12,20 +13,43 @@ class DenseLayer : public Layer {
     Tensor2D d_weights;
     Tensor2D d_bias;
 
-    DenseLayer(size_t in_features, size_t out_features)
+    Tensor2D m_w;               // 1st moment for weights
+    Tensor2D v_w;               // 2nd moment for weights
+    Tensor2D m_b;               // 1st moment for biases
+    Tensor2D v_b;               // 2nd moment for biases
+    bool     adam_initialized;  // Flag to check if Adam parameters are allocated
+
+    // Added activation_hint parameter ("relu" or "sigmoid") to allocate weights cleanly
+    DenseLayer(size_t in_features, size_t out_features, const std::string& activation_hint = "relu")
         : weights(in_features, out_features, 0.0f),
           bias(1, out_features, 0.0f),
           input_cache(0, 0),
           d_weights(in_features, out_features, 0.0f),
-          d_bias(1, out_features, 0.0f) {
-        std::random_device              rd;
-        std::mt19937                    gen(rd());
-        std::normal_distribution<float> d(0.0f, 0.1f);
+          d_bias(1, out_features, 0.0f),
+          m_w(0, 0),
+          v_w(0, 0),
+          m_b(0, 0),
+          v_b(0, 0),  // Initialize empty placeholders
+          adam_initialized(false) {
+        if (activation_hint == "sigmoid") {
+            WeightInitializer::xavier_normal(this->weights, in_features, out_features);
+        } else {
+            // Default to Kaiming Normal for LeakyReLU/ReLU layer stacks
+            WeightInitializer::kaiming_normal(this->weights, in_features);
+        }
+        // Initialize bias matrix array elements safely to absolute zero
+        for (size_t j = 0; j < out_features; ++j) {
+            this->bias.at(0, j) = 0.0f;
+        }
+    }
 
-        for (size_t i = 0; i < in_features; ++i) {
-            for (size_t j = 0; j < out_features; ++j) {
-                weights.at(i, j) = d(gen);
-            }
+    void init_adam_states() {
+        if (!adam_initialized) {
+            m_w              = Tensor2D(weights.get_rows(), weights.get_cols(), 0.0f);
+            v_w              = Tensor2D(weights.get_rows(), weights.get_cols(), 0.0f);
+            m_b              = Tensor2D(1, bias.get_cols(), 0.0f);
+            v_b              = Tensor2D(1, bias.get_cols(), 0.0f);
+            adam_initialized = true;
         }
     }
 

@@ -8,6 +8,7 @@
 
 #include "../../../include/Loss.h"
 #include "../../../include/Optimizer.h"
+#include "../../../include/AdamOptimizer.h"
 
 #include "../../../include/ModelCheckpoint.h"
 #include "../../../include/DataLoader.h"
@@ -74,19 +75,18 @@ int main() {
     // 3. Network Architecture Topology setup
     // Architecture: 3 Inputs -> 14 Hidden Units (ReLU) -> 1 Output (Sigmoid Probability)
     Sequential model;
-    model.add(new DenseLayer(3, 14));
+    model.add(new DenseLayer(3, 14, "relu"));
     model.add(new ReLULayer());
     // model.add(new LeakyReLULayer()); // same relu
-    model.add(new DenseLayer(14, 1));
+    model.add(new DenseLayer(14, 1, "sigmoid"));
     model.add(new SigmoidLayer());
 
     // 3. Evaluation and Optimization criteria setup
     // MSELoss      criterion;
     BCELoss criterion;  // Using Binary Cross-Entropy Loss now
-    // SGDOptimizer optimizer(0.01f);  // Learning rate = 0.01
     float        LEARNING_RATE = 0.006f;
-    SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
-
+    // SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
+    AdamOptimizer optimizer(LEARNING_RATE);
     // 4. Execution Core: Main Training Loop
     const int TOTAL_EPOCHS = 120;
     std::cout << "--- STARTING MODEL TRAINING ---\n";

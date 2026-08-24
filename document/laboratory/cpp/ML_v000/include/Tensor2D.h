@@ -12,6 +12,8 @@ class Tensor2D {
     // Init r * c
     Tensor2D(size_t r, size_t c, float initial_value = 0.0f) : rows(r), cols(c), data(r * c, initial_value) {}
 
+    Tensor2D() : rows(0), cols(0), data() {}
+
     // access data
     float& at(size_t r, size_t c) {
         if (r >= rows || c > cols) {
