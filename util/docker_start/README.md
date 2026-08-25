@@ -26,6 +26,10 @@ sudo apt update && sudo apt install -y \
 
 # sudo apt install ros-humble-gazebo-ros-pkgs -y
 
+# franka
+sudo apt-get update
+sudo apt-get install -y ros-humble-moveit-core
+# franka
 cd /path/to/ros2_ws
 
 git clone https://github.com/joshnewans/articubot_one.git
