@@ -45,6 +45,8 @@ class Tensor2D {
         }
         Tensor2D result(this->rows, other.cols, 0.0f);
 
+        // CRITICAL HARDWARE ACCELERATION: Force compiler to unroll loops across all CPU cores
+#pragma omp parallel for collapse(2)
         for (size_t i = 0; i < this->rows; ++i) {
             for (size_t j = 0; j < other.cols; ++j) {
                 float sum = 0.0f;
