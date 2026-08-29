@@ -1,10 +1,10 @@
 /**
- * @file haris_math.h
+ * @file matrix.h
  * @brief High-performance compile-time Matrix Library for ML pipelines.
  * Compatible with C++17 standards and above.
  */
 
-#include "../include/std17pch.h"
+#include "../../MachineLearning/include/std17pch.h"
 
 // Forward declaration of Matrix to allow template usage
 template <size_t Rows, size_t Cols = Rows>
@@ -136,15 +136,33 @@ struct DominantEigen {
     std::array<double, N> eigenvector;
 };
 
+// Add this helper function above your power_iteration function
+[[nodiscard]] constexpr double constexpr_sqrt(double x) {
+    if (x < 0.0) return 0.0; // Simplistic error handling for negative values
+    if (x == 0.0 || x == 1.0) return x;
+
+    double curr = x;
+    double prev = 0.0;
+
+    // Newton's method loop (guaranteed to converge quickly for sqrt)
+    // We cannot use std::abs here either, so use explicit conditional checks
+    while ((curr - prev > 1e-15) || (prev - curr > 1e-15)) {
+        prev = curr;
+        curr = 0.5 * (curr + (x / curr));
+    }
+    return curr;
+}
+
+
 // Power Iteration Algorithm for general N x N Square Matrices
 template <size_t N>
-[[nodiscard]] DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 1000,
+[[nodiscard]] constexpr
+DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 1000,
                                                double tolerance = 1e-7) {
     static_assert(N > 0, "Matrix size must be greater than 0");
 
     // Step 1: Initialize a random/default guess vector (all 1.0s)
-    std::array<double, N> b_k;
-    b_k.fill(1.0);
+    std::array<double, N> b_k{1.0};
 
     double eigenvalue = 0.0;
 
@@ -162,7 +180,9 @@ template <size_t N>
         for (size_t i = 0; i < N; ++i) {
             norm += b_k1[i] * b_k1[i];
         }
-        norm = std::sqrt(norm);
+	// norm = std::sqrt(norm);
+
+	norm = constexpr_sqrt(norm);
 
         // Avoid division by zero if matrix is singular
         if (norm < 1e-12) break;
@@ -183,7 +203,18 @@ template <size_t N>
         }
 
         // Step 6: Check for convergence
-        if (std::abs(next_eigenvalue - eigenvalue) < tolerance) {
+      //if (std::abs(next_eigenvalue - eigenvalue) < tolerance) {
+      //    eigenvalue = next_eigenvalue;
+      //    b_k        = b_k1;
+      //    break;
+      //}
+
+	// Replace std::abs with a standard C++17 ternary operator
+        double diff = next_eigenvalue - eigenvalue;
+        double abs_diff = (diff < 0.0) ? -diff : diff;
+
+        // Step 6: Check for convergence
+        if (abs_diff < tolerance) {
             eigenvalue = next_eigenvalue;
             b_k        = b_k1;
             break;
@@ -192,6 +223,6 @@ template <size_t N>
         eigenvalue = next_eigenvalue;
         b_k        = b_k1;
     }
-
+    
     return {eigenvalue, b_k};
 }

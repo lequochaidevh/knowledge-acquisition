@@ -1,4 +1,4 @@
-// g++ matrix_sandbox.cpp -std=gnu++17
+// g++ test.cpp -std=gnu++17
 #include "matrix.h"
 
 int main() {
@@ -49,7 +49,7 @@ int main() {
     std::cout << "Rect Matrix Result (0,0): " << RectResult(0, 0) << "\n";
 
     // Calculate the dominant eigenvalue and eigenvector at runtime
-    auto resultEigenv = power_iteration(A);
+    constexpr DominantEigen resultEigenv = power_iteration(A);
 
     std::cout << "--- 3x3 Matrix Eigen-Result ---\n";
     std::cout << "Dominant Eigenvalue: " << resultEigenv.eigenvalue << "\n";
@@ -58,5 +58,6 @@ int main() {
         std::cout << val << " ";
     }
     std::cout << "]\n";
+    // static_assert(resultEigenv.eigenvalue < 7.0, "Calculation failed at compile time!");
     return 0;
 }
