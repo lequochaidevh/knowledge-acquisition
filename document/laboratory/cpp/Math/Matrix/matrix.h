@@ -3,7 +3,7 @@
  * @brief High-performance compile-time Matrix Library for ML pipelines.
  * Compatible with C++17 standards and above.
  */
-
+#pragma once
 #include "../../MachineLearning/include/std17pch.h"
 
 // Forward declaration of Matrix to allow template usage
@@ -138,7 +138,7 @@ struct DominantEigen {
 
 // Add this helper function above your power_iteration function
 [[nodiscard]] constexpr double constexpr_sqrt(double x) {
-    if (x < 0.0) return 0.0; // Simplistic error handling for negative values
+    if (x < 0.0) return 0.0;  // Simplistic error handling for negative values
     if (x == 0.0 || x == 1.0) return x;
 
     double curr = x;
@@ -153,12 +153,10 @@ struct DominantEigen {
     return curr;
 }
 
-
 // Power Iteration Algorithm for general N x N Square Matrices
 template <size_t N>
-[[nodiscard]] constexpr
-DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 1000,
-                                               double tolerance = 1e-7) {
+[[nodiscard]] constexpr DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 1000,
+                                                         double tolerance = 1e-7) {
     static_assert(N > 0, "Matrix size must be greater than 0");
 
     // Step 1: Initialize a random/default guess vector (all 1.0s)
@@ -180,9 +178,9 @@ DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 
         for (size_t i = 0; i < N; ++i) {
             norm += b_k1[i] * b_k1[i];
         }
-	// norm = std::sqrt(norm);
+        // norm = std::sqrt(norm);
 
-	norm = constexpr_sqrt(norm);
+        norm = constexpr_sqrt(norm);
 
         // Avoid division by zero if matrix is singular
         if (norm < 1e-12) break;
@@ -203,14 +201,14 @@ DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 
         }
 
         // Step 6: Check for convergence
-      //if (std::abs(next_eigenvalue - eigenvalue) < tolerance) {
-      //    eigenvalue = next_eigenvalue;
-      //    b_k        = b_k1;
-      //    break;
-      //}
+        // if (std::abs(next_eigenvalue - eigenvalue) < tolerance) {
+        //    eigenvalue = next_eigenvalue;
+        //    b_k        = b_k1;
+        //    break;
+        //}
 
-	// Replace std::abs with a standard C++17 ternary operator
-        double diff = next_eigenvalue - eigenvalue;
+        // Replace std::abs with a standard C++17 ternary operator
+        double diff     = next_eigenvalue - eigenvalue;
         double abs_diff = (diff < 0.0) ? -diff : diff;
 
         // Step 6: Check for convergence
@@ -223,6 +221,6 @@ DominantEigen<N> power_iteration(const Matrix<N, N>& A, size_t max_iterations = 
         eigenvalue = next_eigenvalue;
         b_k        = b_k1;
     }
-    
+
     return {eigenvalue, b_k};
 }

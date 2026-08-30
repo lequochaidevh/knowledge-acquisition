@@ -3,7 +3,7 @@
  * @brief High-performance compile-time Matrix Library for ML pipelines.
  * Compatible with C++17 standards and above.
  */
-
+#pragma once
 #include "../../MachineLearning/include/std17pch.h"
 
 // Higher-order constexpr derivative calculator
