@@ -1,6 +1,39 @@
 // g++ test.cpp -std=c++17 && ./a.out && rm a.out
 #include "compile_time_math.h"
 
+// 4. COMPILE-TIME AND RUNTIME VERIFICATION
+// =========================================================================
+int geoCircleEllips_Complex() {
+    // 1. Validate Geometry Structures at Compile-Time
+    constexpr CompileTimeMath::geometry::Circle<double>  circle{5.0};
+    constexpr CompileTimeMath::geometry::Ellipse<double> ellipse{5.0, 3.0};
+
+    static_assert(circle.area() > 78.5 && circle.area() < 78.6);
+    static_assert(ellipse.area() > 47.1 && ellipse.area() < 47.2);
+
+    // 2. Validate Complex Arithmetic at Compile-Time
+    constexpr CompileTimeMath::Complex<double> z1{3.0, 4.0};   // 3 + 4i
+    constexpr CompileTimeMath::Complex<double> z2{1.0, -2.0};  // 1 - 2i
+
+    constexpr auto z_add = z1.add(z2);  // 4 + 2i
+    constexpr auto z_mul = z1.mul(z2);  // 11 - 2i
+    static_assert(z_add.real == 4.0 && z_add.imag == 2.0);
+    static_assert(z_mul.real == 11.0 && z_mul.imag == -2.0);
+    static_assert(z1.magnitude_sq() == 25.0);
+
+    // Print values out to the runtime window
+    std::cout << "=== ADVANCED MATHEMATICAL STRUCTS INITIALIZED ===\n\n";
+    std::cout << "[Circle] Arc length (angle=90 deg / PI/2): " << circle.arc_length(CompileTimeMath::PI / 2.0) << "\n";
+    std::cout << "[Ellipse] Accurate Ramanujan Perimeter: " << ellipse.perimeter_ramanujan() << "\n";
+    std::cout << "[Ellipse] Boundary Point coordinate at 45 deg: (" << ellipse.point_at(CompileTimeMath::PI / 4.0).x
+              << ", " << ellipse.point_at(CompileTimeMath::PI / 4.0).y << ")\n\n";
+
+    std::cout << "[Complex] Division result (z1 / z2): " << z1.div(z2).real << " + (" << z1.div(z2).imag << "i)\n";
+    std::cout << "[Complex] Absolute magnitude |z1|: " << z1.magnitude() << "\n";
+
+    return 0;
+}
+
 int main() {
     // -------------------------------------------------------------------------
     // COMPILE-TIME CHECKS (Silent if successful)
@@ -88,5 +121,8 @@ int main() {
     std::cout << "[Quartic] x^4 - 5x^2 + 4 = 0 roots count: " << quart_roots.root_count << "\n";
     std::cout << "          Roots: " << quart_roots.roots[0] << ", " << quart_roots.roots[1] << ", "
               << quart_roots.roots[2] << ", " << quart_roots.roots[3] << "\n";
+
+    geoCircleEllips_Complex();
+
     return 0;
 }

@@ -71,6 +71,21 @@ nvim scp://user@remote-ip//path/to/folder/
   ```vim
   :s/^/"string"/
   ```
+####  Method 3: 
+```sh
+The Visual Block Method (Recommended)
+Place your cursor on the first character of the first line.
+Press Ctrl + v to enter Visual Block mode.
+Use j or the down arrow to select the lines.
+Press Shift + i (capital I).
+(
+  Press Ctrl + v and then press Tab. 
+    This forces Vim to insert a literal \
+     tab rather than moving the cursor or inserting spaces
+  Type //. (You will only see it appear on the first line initially
+)
+Press Esc and wait a split second.
+```
 
 #### Multi-Line Deletion
 * Highlight your target vertical lines using block mode, then execute the deletion sequence (e.g., delete 2 characters):
