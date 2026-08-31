@@ -50,6 +50,38 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point<T>::val
     return value < 0.0 ? -current : current;
 }
 
+// High-precision compile-time Logarithm implementation using Halley's Method
+// Computes natural logarithm ln(x) dynamically at compile-time (Compatible with C++14/17/20)
+[[nodiscard]] constexpr double log(double x) {
+    if (x <= 0.0) return 0.0;  // Simple safety clamp for domain constraint
+
+    // 1. Range normalization: map x to an optimal convergence window near 1.0
+    double k = 0.0;
+    while (x > 1.5) {
+        x /= 2.718281828459045;  // Divide by Euler's constant 'e'
+        k += 1.0;
+    }
+    while (x < 0.5) {
+        x *= 2.718281828459045;
+        k -= 1.0;
+    }
+
+    // 2. Halley's Iterative Method for fast cubic convergence
+    double y = x - 1.0;  // Initial guess setup
+    for (int iter = 0; iter < 10; ++iter) {
+        double ey   = 1.0;  // Computing Taylor/exponential proxy approximation
+        double term = 1.0;
+        for (int i = 1; i <= 15; ++i) {
+            term *= y / i;
+            ey += term;
+        }
+        // Halley's correction step formula
+        y = y + 2.0 * (x - ey) / (x + ey);
+    }
+
+    return y + k;
+}
+
 // ADVANCED CONSTEXPR MATH FOUNDATION
 // High-precision compile-time PI representation
 constexpr double PI = 3.14159265358979323846;

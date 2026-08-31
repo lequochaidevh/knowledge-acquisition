@@ -63,6 +63,9 @@ struct Matrix {
             std::cout << " ]\n";
         }
     }
+
+    // Zero out all elements in the matrix (Essential for initializing velocity)
+    constexpr void zero_fill() { data.fill(0.0); }
 };
 
 // --- DETERMINANT CORNER (Safe for both Square & Non-Square) ---
