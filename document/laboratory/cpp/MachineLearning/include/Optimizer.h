@@ -1,6 +1,7 @@
 #pragma once
 #include "DenseLayer.h"
 
+// Stochastic Gradient Descent
 class SGDOptimizer {
  private:
     float learning_rate;

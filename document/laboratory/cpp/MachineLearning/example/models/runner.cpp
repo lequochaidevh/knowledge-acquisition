@@ -1,14 +1,14 @@
-#include "../../../include/Tensor2D.h"
+#include "../../include/Tensor2D.h"
 
-#include "../../../include/DenseLayer.h"
-#include "../../../include/ReLULayer.h"
-#include "../../../include/SigmoidLayer.h"
-#include "../../../include/Sequential.h"
+#include "../../include/DenseLayer.h"
+#include "../../include/ReLULayer.h"
+#include "../../include/SigmoidLayer.h"
+#include "../../include/Sequential.h"
 
-#include "../../../include/Loss.h"
-#include "../../../include/Optimizer.h"
+#include "../../include/Loss.h"
+#include "../../include/Optimizer.h"
 
-#include "../../../include/ModelCheckpoint.h"
+#include "../../include/ModelCheckpoint.h"
 
 int main() {
     std::cout << "==================================================\n";
@@ -18,9 +18,10 @@ int main() {
     // 1. Reconstruct the EXACT same layer topology as used in training
     // Topology blueprint: 3 Inputs -> 14 Hidden Units (ReLU) -> 1 Output (Sigmoid)
     Sequential model;
-    model.add(new DenseLayer(3, 14));
+    model.add(new DenseLayer(3, 14, "relu"));
     model.add(new ReLULayer());
-    model.add(new DenseLayer(14, 1));
+    // model.add(new LeakyReLULayer()); // same relu
+    model.add(new DenseLayer(14, 1, "sigmoid"));
     model.add(new SigmoidLayer());
 
     // 2. Hydrate model parameters directly from the serialized file checkpoint
@@ -50,7 +51,7 @@ int main() {
     new_customers.at(1, 2) = 0.2f;
 
     // Customer 2: Medium-high income, medium frequency -> Borderline case
-    new_customers.at(2, 0) = 4.0f;
+    new_customers.at(2, 0) = 6.0f;
     new_customers.at(2, 1) = 5.0f;
     new_customers.at(2, 2) = 1.5f;
 

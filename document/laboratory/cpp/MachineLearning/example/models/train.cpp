@@ -1,18 +1,18 @@
-#include "../../../include/Tensor2D.h"
+#include "../../include/Tensor2D.h"
 
-#include "../../../include/DenseLayer.h"
-#include "../../../include/ReLULayer.h"
-#include "../../../include/LeakyReLULayer.h"
-#include "../../../include/SigmoidLayer.h"
-#include "../../../include/Sequential.h"
+#include "../../include/DenseLayer.h"
+#include "../../include/ReLULayer.h"
+#include "../../include/LeakyReLULayer.h"
+#include "../../include/SigmoidLayer.h"
+#include "../../include/Sequential.h"
 
-#include "../../../include/Loss.h"
-#include "../../../include/Optimizer.h"
-#include "../../../include/AdamOptimizer.h"
+#include "../../include/Loss.h"
+#include "../../include/Optimizer.h"
+#include "../../include/AdamOptimizer.h"
 
-#include "../../../include/ModelCheckpoint.h"
-#include "../../../include/DataLoader.h"
-#include "../../../include/DatasetUtils.h"
+#include "../../include/ModelCheckpoint.h"
+#include "../../include/DataLoader.h"
+#include "../../include/DatasetUtils.h"
 
 // Helper function to automatically generate large-scale realistic customer datasets
 void generate_customer_data(Tensor2D& input, Tensor2D& target, size_t num_samples) {
@@ -62,14 +62,14 @@ int main() {
     std::cout << "Data matrices successfully allocated and populated.\n\n";
 
     // Segment data into independent subsets (80% train, 20% validation)
-    Tensor2D train_input(0,0), train_target(0,0), val_input(0,0), val_target(0,0);
+    Tensor2D train_input(0, 0), train_target(0, 0), val_input(0, 0), val_target(0, 0);
     DatasetUtils::train_test_split(global_input, global_target, train_input, train_target, val_input, val_target, 0.2f);
     std::cout << "Data split complete: Train samples = " << train_input.get_rows()
-	    << " | Validation samples = " << val_input.get_rows() << "\n\n";
-    
+              << " | Validation samples = " << val_input.get_rows() << "\n\n";
+
     // 2. Initialize the PyTorch-style DataLoader container
     // Configuration: Processing 200 rows in mini-batches of 32 rows each with active shuffling
-    size_t     batch_size = 100;
+    size_t     batch_size = 60;
     DataLoader dataloader(train_input, train_target, batch_size, true);
 
     // 3. Network Architecture Topology setup
@@ -82,13 +82,13 @@ int main() {
     model.add(new SigmoidLayer());
 
     // 3. Evaluation and Optimization criteria setup
-    // MSELoss      criterion;
-    BCELoss criterion;  // Using Binary Cross-Entropy Loss now
-    float        LEARNING_RATE = 0.006f;
+    MSELoss criterion;
+    // BCELoss criterion;  // Using Binary Cross-Entropy Loss now
+    float LEARNING_RATE = 0.16f;
     // SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
     AdamOptimizer optimizer(LEARNING_RATE);
     // 4. Execution Core: Main Training Loop
-    const int TOTAL_EPOCHS = 120;
+    const int TOTAL_EPOCHS = 240;
     std::cout << "--- STARTING MODEL TRAINING ---\n";
 
     // Test Scenario A: Your failing stable freeze configuration (120 epochs, small updates)
@@ -137,22 +137,20 @@ int main() {
             model.backward(loss_grad);
 
             // Log training telemetry information every 70 epochs
-		// EVALUATION HOOK: Calculate performance and accuracy every 50 epochs
-	       	if (epoch % 50 == 0 || epoch == TOTAL_EPOCHS - 1) {
-	       	    float avg_train_loss = epoch_cumulative_loss / static_cast<float>(batch_counter);
-	       	    
-	       	    // CRITICAL STEP: Run a forward-only pass over the unseen Validation set (NO backward, NO step)
-	       	    Tensor2D val_predictions = model.forward(val_input);
-	       	    float val_loss = criterion.forward(val_predictions, val_target);
-	       	    
-	       	    // Calculate accuracy metric percentage over the unseen validation array
-	       	    float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
-	
-	       	    std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 
-	       	              << "] | Train Loss: " << avg_train_loss 
-	       	              << " | Val Loss: " << val_loss 
-	       	              << " | Val Accuracy: " << val_accuracy << "%\n";
-	       	}
+            // EVALUATION HOOK: Calculate performance and accuracy every 50 epochs
+            if (epoch % 50 == 0 || epoch == TOTAL_EPOCHS - 1) {
+                float avg_train_loss = epoch_cumulative_loss / static_cast<float>(batch_counter);
+
+                // CRITICAL STEP: Run a forward-only pass over the unseen Validation set (NO backward, NO step)
+                Tensor2D val_predictions = model.forward(val_input);
+                float    val_loss        = criterion.forward(val_predictions, val_target);
+
+                // Calculate accuracy metric percentage over the unseen validation array
+                float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
+
+                std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] | Train Loss: " << avg_train_loss
+                          << " | Val Loss: " << val_loss << " | Val Accuracy: " << val_accuracy << "%\n";
+            }
             // Step E: Apply gradient descent parameter updates to all layers
             // Note: Pass the model container directly so the optimizer can update its internal layers
             optimizer.step(model);
