@@ -69,7 +69,7 @@ int main() {
 
     // 2. Initialize the PyTorch-style DataLoader container
     // Configuration: Processing 200 rows in mini-batches of 32 rows each with active shuffling
-    size_t     batch_size = 60;
+    size_t     batch_size = 100;
     DataLoader dataloader(train_input, train_target, batch_size, true);
 
     // 3. Network Architecture Topology setup
@@ -88,27 +88,28 @@ int main() {
     // SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
     AdamOptimizer optimizer(LEARNING_RATE);
     // 4. Execution Core: Main Training Loop
-    const int TOTAL_EPOCHS = 240;
+    const int TOTAL_EPOCHS = 100;
+    // 200 will lag at 150. CPU used upto 1000% => todo fix
     std::cout << "--- STARTING MODEL TRAINING ---\n";
 
-    // Test Scenario A: Your failing stable freeze configuration (120 epochs, small updates)
-    // Formula: (200 / 32) * 120 * 0.01 = 7.5 (Mathematical boundary is ok, but failed due to dead ReLU)
-    HyperparameterAnalyzer::check_stability(200, 32, 0.01f, 120);
+    // // Test Scenario A: Your failing stable freeze configuration (120 epochs, small updates)
+    // // Formula: (200 / 32) * 120 * 0.01 = 7.5 (Mathematical boundary is ok, but failed due to dead ReLU)
+    // HyperparameterAnalyzer::check_stability(200, 32, 0.01f, 120);
 
-    // Test Scenario B: Your exploded NaN configuration (2000 epochs, high learning rate)
-    // Formula: (200 / 32) * 2000 * 0.03 = 375.0 (Massive overshoot -> NaN alert)
-    HyperparameterAnalyzer::check_stability(200, 32, 0.03f, 2000);
+    // // Test Scenario B: Your exploded NaN configuration (2000 epochs, high learning rate)
+    // // Formula: (200 / 32) * 2000 * 0.03 = 375.0 (Massive overshoot -> NaN alert)
+    // HyperparameterAnalyzer::check_stability(200, 32, 0.03f, 2000);
 
-    // Test Scenario C: Your perfect convergence setup (Slowing step limits down)
-    // Formula: (200 / 100) * 500 * 0.005 = 5.0 (Perfect balanced configuration)
-    HyperparameterAnalyzer::check_stability(200, 100, 0.005f, 500);
+    // // Test Scenario C: Your perfect convergence setup (Slowing step limits down)
+    // // Formula: (200 / 100) * 500 * 0.005 = 5.0 (Perfect balanced configuration)
+    // HyperparameterAnalyzer::check_stability(200, 100, 0.005f, 500);
 
-    // Test Scenario D: Upscaling dataset simulation check (1500 samples)
-    // Formula: (1500 / 250) * 400 * 0.002 = 4.8 (Stable and safe configuration)
-    HyperparameterAnalyzer::check_stability(1500, 250, 0.002f, 400);
+    // // Test Scenario D: Upscaling dataset simulation check (1500 samples)
+    // // Formula: (1500 / 250) * 400 * 0.002 = 4.8 (Stable and safe configuration)
+    // HyperparameterAnalyzer::check_stability(1500, 250, 0.002f, 400);
 
-    HyperparameterAnalyzer::check_stability(TOTAL_SAMPLES, batch_size,  //
-                                            LEARNING_RATE, TOTAL_EPOCHS);
+    // HyperparameterAnalyzer::check_stability(TOTAL_SAMPLES, batch_size,  //
+    //                                         LEARNING_RATE, TOTAL_EPOCHS);
 
     for (int epoch = 0; epoch < TOTAL_EPOCHS; ++epoch) {
         // Reset loader tracking indices and reshuffle rows sequence at each epoch boundary
@@ -118,12 +119,15 @@ int main() {
         Tensor2D batch_inputs(0, 0);
         Tensor2D batch_targets(0, 0);
 
+        float  epoch_cumulative_loss = 0.0f;
+        size_t batch_counter         = 0;
+
         // Inner Loop: Step through individual mini-batch pieces continuously
         while (dataloader.next_batch(batch_inputs, batch_targets)) {
             // Step A: Reset and wipe structural parameter gradient records
             model.zero_grad();
-            float  epoch_cumulative_loss = 0.0f;
-            size_t batch_counter         = 0;
+            epoch_cumulative_loss = 0.0f;
+            batch_counter         = 0;
             // Step B: Forward pass processing localized chunk dimensions (e.g., 32x3)
             Tensor2D pred = model.forward(batch_inputs);
 
@@ -136,24 +140,25 @@ int main() {
             Tensor2D loss_grad = criterion.backward(pred, batch_targets);
             model.backward(loss_grad);
 
-            // Log training telemetry information every 70 epochs
-            // EVALUATION HOOK: Calculate performance and accuracy every 50 epochs
-            if (epoch % 50 == 0 || epoch == TOTAL_EPOCHS - 1) {
-                float avg_train_loss = epoch_cumulative_loss / static_cast<float>(batch_counter);
-
-                // CRITICAL STEP: Run a forward-only pass over the unseen Validation set (NO backward, NO step)
-                Tensor2D val_predictions = model.forward(val_input);
-                float    val_loss        = criterion.forward(val_predictions, val_target);
-
-                // Calculate accuracy metric percentage over the unseen validation array
-                float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
-
-                std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] | Train Loss: " << avg_train_loss
-                          << " | Val Loss: " << val_loss << " | Val Accuracy: " << val_accuracy << "%\n";
-            }
             // Step E: Apply gradient descent parameter updates to all layers
             // Note: Pass the model container directly so the optimizer can update its internal layers
             optimizer.step(model);
+        }
+
+        // Log training telemetry information every 70 epochs
+        // EVALUATION HOOK: Calculate performance and accuracy every 50 epochs
+        if (epoch % 10 == 0 || epoch == TOTAL_EPOCHS - 1) {
+            float avg_train_loss = epoch_cumulative_loss / static_cast<float>(batch_counter);
+
+            // CRITICAL STEP: Run a forward-only pass over the unseen Validation set (NO backward, NO step)
+            Tensor2D val_predictions = model.forward(val_input);
+            float    val_loss        = criterion.forward(val_predictions, val_target);
+
+            // Calculate accuracy metric percentage over the unseen validation array
+            float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
+
+            std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] | Train Loss: " << avg_train_loss
+                      << " | Val Loss: " << val_loss << " | Val Accuracy: " << val_accuracy << "%\n";
         }
     }
     std::cout << "--- TRAINING LOOP SUCCESSFULLY COMPLETED ---\n\n";

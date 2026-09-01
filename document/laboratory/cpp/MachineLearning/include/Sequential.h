@@ -20,7 +20,8 @@ class Sequential {
     void add(Layer* layer) { layers.push_back(layer); }
 
     // Forward pass: loop through layers from index 0 to N
-    Tensor2D forward(Tensor2D input) {
+    Tensor2D forward(const Tensor2D& input) {
+        // Copy but will optimize if need
         Tensor2D current_activation = input;
         for (Layer* layer : layers) {
             current_activation = layer->forward(current_activation);
@@ -29,7 +30,8 @@ class Sequential {
     }
 
     // Backward pass: reverse loop through layers from index N to 0
-    Tensor2D backward(Tensor2D loss_gradient) {
+    Tensor2D backward(const Tensor2D& loss_gradient) {
+        // Copy but will optimize if need
         Tensor2D current_gradient = loss_gradient;
         for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
             current_gradient = (*it)->backward(current_gradient);
