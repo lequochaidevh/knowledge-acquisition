@@ -9,8 +9,8 @@ class ReLULayer : public Layer {
     ReLULayer() : input_cache(0, 0) {}
 
     Tensor2D forward(const Tensor2D& input) override {
-        this->input_cache = input;
-        return input.relu();
+        this->input_cache = std::move(input.relu());
+        return this->input_cache;
     }
     Tensor2D backward(const Tensor2D& incoming_gradient) override {
         return this->input_cache.relu_backward(incoming_gradient);

@@ -5,9 +5,9 @@ _BUILD_DIR="${_ROOT_DIR}/build/"
 
 mkdir "${_BUILD_DIR}"
 
-g++ train.cpp -o build/builder -std=gnu++17 -O3 -fopenmp
+g++ train.cpp -o build/builder -std=gnu++17 -O3 -fopenmp -mavx2 
 
-g++ runner.cpp -o build/runner -std=gnu++17 -O3 -fopenmp
+g++ runner.cpp -o build/runner -std=gnu++17 -O3 -fopenmp -mavx2 
 
 cd "${_BUILD_DIR}"
 
@@ -15,6 +15,7 @@ cd "${_BUILD_DIR}"
 
 ./runner
 
+# careful with build/builder compile not fulfill
 rm -rf "${_BUILD_DIR}"
 
 sync

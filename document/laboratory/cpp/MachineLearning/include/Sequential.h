@@ -24,7 +24,7 @@ class Sequential {
         // Copy but will optimize if need
         Tensor2D current_activation = input;
         for (Layer* layer : layers) {
-            current_activation = layer->forward(current_activation);
+            current_activation = std::move(layer->forward(current_activation));
         }
         return current_activation;
     }
@@ -34,7 +34,7 @@ class Sequential {
         // Copy but will optimize if need
         Tensor2D current_gradient = loss_gradient;
         for (auto it = layers.rbegin(); it != layers.rend(); ++it) {
-            current_gradient = (*it)->backward(current_gradient);
+            current_gradient = std::move((*it)->backward(current_gradient));
         }
         return current_gradient;
     }

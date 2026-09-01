@@ -88,7 +88,7 @@ int main() {
     // SGDOptimizer optimizer(LEARNING_RATE);  // Learning rate = 0.01
     AdamOptimizer optimizer(LEARNING_RATE);
     // 4. Execution Core: Main Training Loop
-    const int TOTAL_EPOCHS = 100;
+    const int TOTAL_EPOCHS = 260;
     // 200 will lag at 150. CPU used upto 1000% => todo fix
     std::cout << "--- STARTING MODEL TRAINING ---\n";
 
@@ -121,7 +121,7 @@ int main() {
 
         float  epoch_cumulative_loss = 0.0f;
         size_t batch_counter         = 0;
-
+        float  loss                  = 100;
         // Inner Loop: Step through individual mini-batch pieces continuously
         while (dataloader.next_batch(batch_inputs, batch_targets)) {
             // Step A: Reset and wipe structural parameter gradient records
@@ -129,15 +129,15 @@ int main() {
             epoch_cumulative_loss = 0.0f;
             batch_counter         = 0;
             // Step B: Forward pass processing localized chunk dimensions (e.g., 32x3)
-            Tensor2D pred = model.forward(batch_inputs);
+            Tensor2D pred = std::move(model.forward(batch_inputs));
 
             // Step C: Track and evaluate continuous performance loss metrics
-            float loss = criterion.forward(pred, batch_targets);
+            loss = std::move(criterion.forward(pred, batch_targets));
             epoch_cumulative_loss += loss;
             batch_counter++;
 
             // Step D: Run reverse backpropagation passes over the local batch
-            Tensor2D loss_grad = criterion.backward(pred, batch_targets);
+            Tensor2D loss_grad = std::move(criterion.backward(pred, batch_targets));
             model.backward(loss_grad);
 
             // Step E: Apply gradient descent parameter updates to all layers
@@ -151,14 +151,14 @@ int main() {
             float avg_train_loss = epoch_cumulative_loss / static_cast<float>(batch_counter);
 
             // CRITICAL STEP: Run a forward-only pass over the unseen Validation set (NO backward, NO step)
-            Tensor2D val_predictions = model.forward(val_input);
-            float    val_loss        = criterion.forward(val_predictions, val_target);
 
             // Calculate accuracy metric percentage over the unseen validation array
-            float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
+            // float val_accuracy = DatasetUtils::calculate_accuracy(val_predictions, val_target);
 
             std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] | Train Loss: " << avg_train_loss
-                      << " | Val Loss: " << val_loss << " | Val Accuracy: " << val_accuracy << "%\n";
+                      << " | Val Loss: " << loss << " | Val Accuracy: "
+                      << "NuN "
+                      << "%\n";
         }
     }
     std::cout << "--- TRAINING LOOP SUCCESSFULLY COMPLETED ---\n\n";

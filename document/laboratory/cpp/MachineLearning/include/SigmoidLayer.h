@@ -9,7 +9,7 @@ class SigmoidLayer : public Layer {
     SigmoidLayer() : output_cache(0, 0) {}
 
     Tensor2D forward(const Tensor2D& input) override {
-        this->output_cache = input.sigmoid();
+        this->output_cache = std::move(input.sigmoid());
         return this->output_cache;
     }
     Tensor2D backward(const Tensor2D& incoming_gradient) override {

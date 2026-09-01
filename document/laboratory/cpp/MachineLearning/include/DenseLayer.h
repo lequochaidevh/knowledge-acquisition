@@ -55,25 +55,19 @@ class DenseLayer : public Layer {
 
     void zero_gradients() {
         // (Assuming d_weights and d_bias share the same dimensions as weights and bias)
-        for (size_t i = 0; i < d_weights.get_rows(); ++i) {
-            for (size_t j = 0; j < d_weights.get_cols(); ++j) {
-                this->d_weights.at(i, j) = 0.0f;
-            }
-        }
-
-        for (size_t j = 0; j < d_bias.get_cols(); ++j) {
-            this->d_bias.at(0, j) = 0.0f;
-        }
+        this->d_weights.fill_zero();
+        this->d_bias.fill_zero();
     }
 
     // Forward pass with input caching
     Tensor2D forward(const Tensor2D& input) {
         this->input_cache = input;  // Store input for backward pass
 
-        Tensor2D output = input.matmul(weights);
+        Tensor2D output = std::move(input.matmul(weights));
         size_t   rows   = output.get_rows();
         size_t   cols   = output.get_cols();
 
+#pragma omp parallel for if (rows * cols > 256) schedule(static)
         for (size_t i = 0; i < rows; ++i) {
             for (size_t j = 0; j < cols; ++j) {
                 output.at(i, j) += bias.at(0, j);
@@ -86,11 +80,13 @@ class DenseLayer : public Layer {
     Tensor2D backward(const Tensor2D& incoming_gradient) {
         // (Instead of using '=', accumulate the matrix multiplication result
         // into d_weights)
-        Tensor2D input_T           = this->input_cache.transpose();
-        Tensor2D current_d_weights = input_T.matmul(incoming_gradient);
+        Tensor2D input_T           = std::move(this->input_cache.transpose());
+        Tensor2D current_d_weights = std::move(input_T.matmul(incoming_gradient));
 
         // (Accumulate into existing d_weights)
-        for (size_t i = 0; i < d_weights.get_rows(); ++i) {
+        size_t w_size = d_weights.get_rows();
+#pragma omp parallel for if (w_size > 256) schedule(static)
+        for (size_t i = 0; i < w_size; ++i) {
             for (size_t j = 0; j < d_weights.get_cols(); ++j) {
                 this->d_weights.at(i, j) += current_d_weights.at(i, j);
             }
@@ -99,6 +95,8 @@ class DenseLayer : public Layer {
         // (Same for bias: Remove the zero-reset loop from here, just accumulate directly into d_bias)
         size_t rows = incoming_gradient.get_rows();
         size_t cols = incoming_gradient.get_cols();
+
+#pragma omp parallel for if (rows * cols > 256) schedule(static)
         for (size_t i = 0; i < rows; ++i) {
             for (size_t j = 0; j < cols; ++j) {
                 this->d_bias.at(0, j) += incoming_gradient.at(i, j);
