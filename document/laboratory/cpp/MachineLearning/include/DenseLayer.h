@@ -53,7 +53,7 @@ class DenseLayer : public Layer {
         }
     }
 
-    void zero_gradients() {
+    void zero_gradients() override {
         // (Assuming d_weights and d_bias share the same dimensions as weights and bias)
         this->d_weights.fill_zero();
         this->d_bias.fill_zero();

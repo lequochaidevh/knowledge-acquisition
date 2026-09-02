@@ -28,7 +28,7 @@ public:
 		train_in = Tensor2D(train_samples, num_features);
 		train_tgt = Tensor2D(train_samples, num_targets);
 		val_in = Tensor2D(val_samples, num_features);
-		val_tgt =Tensor2D(val_samples,num_targets);
+		val_tgt = Tensor2D(val_samples,num_targets);
 		
 		// 4. Hydrate Train Matrix structures
 		for(size_t i=0; i < train_samples; ++i) {

@@ -5,7 +5,7 @@ _BUILD_DIR="${_ROOT_DIR}/build/"
 
 mkdir "${_BUILD_DIR}"
 
-g++ train.cpp -o build/builder -std=gnu++17 -O3 -fopenmp -mavx2 
+g++ train_optimize.cpp -o build/builder -std=gnu++17 -O3 -fopenmp -mavx2 
 
 g++ runner.cpp -o build/runner -std=gnu++17 -O3 -fopenmp -mavx2 
 

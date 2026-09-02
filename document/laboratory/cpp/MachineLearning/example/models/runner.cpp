@@ -16,12 +16,12 @@ int main() {
     std::cout << "==================================================\n\n";
 
     // 1. Reconstruct the EXACT same layer topology as used in training
-    // Topology blueprint: 3 Inputs -> 14 Hidden Units (ReLU) -> 1 Output (Sigmoid)
+    // Topology blueprint: 3 Inputs -> 9 Hidden Units (ReLU) -> 1 Output (Sigmoid)
     Sequential model;
-    model.add(new DenseLayer(3, 14, "relu"));
+    model.add(new DenseLayer(3, 9, "relu"));
     model.add(new ReLULayer());
     // model.add(new LeakyReLULayer()); // same relu
-    model.add(new DenseLayer(14, 1, "sigmoid"));
+    model.add(new DenseLayer(9, 1, "sigmoid"));
     model.add(new SigmoidLayer());
 
     // 2. Hydrate model parameters directly from the serialized file checkpoint

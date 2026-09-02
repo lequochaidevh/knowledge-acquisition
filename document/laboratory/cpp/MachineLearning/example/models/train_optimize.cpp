@@ -14,37 +14,72 @@
 #include "../../include/DataLoader.h"
 #include "../../include/DatasetUtils.h"
 
-// Helper function to automatically generate large-scale realistic customer datasets
-void generate_customer_data(Tensor2D& input, Tensor2D& target, size_t num_samples) {
+const size_t TOTAL_SAMPLES   = 1000;  // Easily upscale this to 1000 or more
+const size_t CACHE_POOL_SIZE = TOTAL_SAMPLES;
+
+struct DataCachePool {
+    std::vector<float> normal_income;
+    std::vector<float> normal_freq;
+    std::vector<float> normal_age;
+
+    std::vector<float> vip_income;
+    std::vector<float> vip_freq;
+    std::vector<float> vip_age;
+};
+
+DataCachePool initialize_global_cache() {
+    DataCachePool cache;
+    cache.normal_income.resize(CACHE_POOL_SIZE);
+    cache.normal_freq.resize(CACHE_POOL_SIZE);
+    cache.normal_age.resize(CACHE_POOL_SIZE);
+    cache.vip_income.resize(CACHE_POOL_SIZE);
+    cache.vip_freq.resize(CACHE_POOL_SIZE);
+    cache.vip_age.resize(CACHE_POOL_SIZE);
+
     std::random_device rd;
     std::mt19937       gen(rd());
 
-    // Statistical profiles for Normal customers (Low-mid income, low frequency, new accounts)
-    std::normal_distribution<float> normal_income(1.5f, 0.8f);
-    std::normal_distribution<float> normal_freq(2.0f, 1.0f);
-    std::normal_distribution<float> normal_age(0.8f, 0.4f);
+    std::normal_distribution<float> d_normal_income(1.5f, 0.8f);
+    std::normal_distribution<float> d_normal_freq(2.0f, 1.0f);
+    std::normal_distribution<float> d_normal_age(0.8f, 0.4f);
 
-    // Statistical profiles for VIP customers (High income, high frequency, mature accounts)
-    std::normal_distribution<float> vip_income(5.5f, 1.2f);
-    std::normal_distribution<float> vip_freq(8.0f, 1.5f);
-    std::normal_distribution<float> vip_age(3.0f, 0.8f);
+    std::normal_distribution<float> d_vip_income(5.5f, 1.2f);
+    std::normal_distribution<float> d_vip_freq(8.0f, 1.5f);
+    std::normal_distribution<float> d_vip_age(3.0f, 0.8f);
 
+    for (size_t i = 0; i < CACHE_POOL_SIZE; ++i) {
+        cache.normal_income[i] = std::max(0.1f, d_normal_income(gen));
+        cache.normal_freq[i]   = std::max(0.1f, d_normal_freq(gen));
+        cache.normal_age[i]    = std::max(0.1f, d_normal_age(gen));
+
+        cache.vip_income[i] = std::max(0.1f, d_vip_income(gen));
+        cache.vip_freq[i]   = std::max(0.1f, d_vip_freq(gen));
+        cache.vip_age[i]    = std::max(0.1f, d_vip_age(gen));
+    }
+    return cache;
+}
+void generate_customer_data_fast(Tensor2D& input, Tensor2D& target, size_t num_samples, const DataCachePool& cache) {
     size_t half_samples = num_samples / 2;
 
-    for (size_t i = 0; i < num_samples; ++i) {
-        if (i < half_samples) {
-            // Generate synthetic Normal Customers (Class 0.0)
-            input.at(i, 0)  = std::max(0.1f, normal_income(gen));  // Clamp to avoid negative values
-            input.at(i, 1)  = std::max(0.1f, normal_freq(gen));
-            input.at(i, 2)  = std::max(0.1f, normal_age(gen));
-            target.at(i, 0) = 0.0f;
-        } else {
-            // Generate synthetic VIP Customers (Class 1.0)
-            input.at(i, 0)  = std::max(0.1f, vip_income(gen));
-            input.at(i, 1)  = std::max(0.1f, vip_freq(gen));
-            input.at(i, 2)  = std::max(0.1f, vip_age(gen));
-            target.at(i, 0) = 1.0f;
-        }
+    // RANDOM
+    size_t start_offset = std::rand() % CACHE_POOL_SIZE;
+
+    for (size_t i = 0; i < half_samples; ++i) {
+        size_t idx = (start_offset + i) % CACHE_POOL_SIZE;
+
+        input.at(i, 0)  = cache.normal_income[idx];
+        input.at(i, 1)  = cache.normal_freq[idx];
+        input.at(i, 2)  = cache.normal_age[idx];
+        target.at(i, 0) = 0.0f;
+    }
+
+    for (size_t i = half_samples; i < num_samples; ++i) {
+        size_t idx = (start_offset + i) % CACHE_POOL_SIZE;
+
+        input.at(i, 0)  = cache.vip_income[idx];
+        input.at(i, 1)  = cache.vip_freq[idx];
+        input.at(i, 2)  = cache.vip_age[idx];
+        target.at(i, 0) = 1.0f;
     }
 }
 
@@ -52,13 +87,12 @@ int main() {
     std::cout << "--- INITIALIZING DEEP LEARNING TRAINING PIPELINE ---\n\n";
 
     // 1. Scalable Data Setup: Allocating a big batch matrix directly
-    const size_t TOTAL_SAMPLES = 70;  // Easily upscale this to 1000 or more
-    Tensor2D     global_input(TOTAL_SAMPLES, 3);
-    Tensor2D     global_target(TOTAL_SAMPLES, 1);
-
+    Tensor2D      global_input(TOTAL_SAMPLES, 3);
+    Tensor2D      global_target(TOTAL_SAMPLES, 1);
+    DataCachePool global_cache = initialize_global_cache();
     // Automatically populate the tensors with simulated data patterns
     std::cout << "Generating " << TOTAL_SAMPLES << " synthetic client profiles...\n";
-    generate_customer_data(global_input, global_target, TOTAL_SAMPLES);
+    generate_customer_data_fast(global_input, global_target, TOTAL_SAMPLES, global_cache);
     std::cout << "Data matrices successfully allocated and populated.\n\n";
 
     // Segment data into independent subsets (80% train, 20% validation)
@@ -69,7 +103,7 @@ int main() {
 
     // 2. Initialize the PyTorch-style DataLoader container
     // Configuration: Processing 200 rows in mini-batches of 32 rows each with active shuffling
-    size_t     batch_size = 24;
+    size_t     batch_size = 200;
     DataLoader dataloader(train_input, train_target, batch_size, true);
 
     // 3. Network Architecture Topology setup
@@ -89,27 +123,7 @@ int main() {
     AdamOptimizer optimizer(LEARNING_RATE);
     // 4. Execution Core: Main Training Loop
     const int TOTAL_EPOCHS = 260;
-    // 200 will lag at 150. CPU used upto 1000% => todo fix
     std::cout << "--- STARTING MODEL TRAINING ---\n";
-
-    // // Test Scenario A: Your failing stable freeze configuration (120 epochs, small updates)
-    // // Formula: (200 / 32) * 120 * 0.01 = 7.5 (Mathematical boundary is ok, but failed due to dead ReLU)
-    // HyperparameterAnalyzer::check_stability(200, 32, 0.01f, 120);
-
-    // // Test Scenario B: Your exploded NaN configuration (2000 epochs, high learning rate)
-    // // Formula: (200 / 32) * 2000 * 0.03 = 375.0 (Massive overshoot -> NaN alert)
-    // HyperparameterAnalyzer::check_stability(200, 32, 0.03f, 2000);
-
-    // // Test Scenario C: Your perfect convergence setup (Slowing step limits down)
-    // // Formula: (200 / 100) * 500 * 0.005 = 5.0 (Perfect balanced configuration)
-    // HyperparameterAnalyzer::check_stability(200, 100, 0.005f, 500);
-
-    // // Test Scenario D: Upscaling dataset simulation check (1500 samples)
-    // // Formula: (1500 / 250) * 400 * 0.002 = 4.8 (Stable and safe configuration)
-    // HyperparameterAnalyzer::check_stability(1500, 250, 0.002f, 400);
-
-    // HyperparameterAnalyzer::check_stability(TOTAL_SAMPLES, batch_size,  //
-    //                                         LEARNING_RATE, TOTAL_EPOCHS);
 
     for (int epoch = 0; epoch < TOTAL_EPOCHS; ++epoch) {
         // Reset loader tracking indices and reshuffle rows sequence at each epoch boundary
@@ -160,7 +174,7 @@ int main() {
             std::cout << "Epoch [" << epoch << "/" << TOTAL_EPOCHS - 1 << "] | Train Loss: " << avg_train_loss
                       << " | Val Loss: " << loss << " | Val Accuracy: " << val_accuracy << "%\n";
 
-            if (loss < 0.0001) break;  // MSELoss only
+            if (loss < 0.000001) break;  // MSELoss only
         }
     }
     std::cout << "--- TRAINING LOOP SUCCESSFULLY COMPLETED ---\n\n";
