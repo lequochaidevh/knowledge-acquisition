@@ -1,7 +1,8 @@
 # How to intergrate terminal ui to the system.
 
 ## Description
-- Intergrate terminal ui to internal system of the project for testing, (todo CICD).
+- Intergrate terminal ui to internal system of the project.
+- Terminal can use UI basic, mouse on-click.
 
 ## Install terminal ui for internal project.
 

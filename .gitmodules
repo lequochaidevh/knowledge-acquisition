@@ -22,3 +22,6 @@
 [submodule "third-party/libexif"]
 	path = third-party/libexif
 	url = https://github.com/libexif/libexif.git
+[submodule "third-party/stb"]
+	path = third-party/stb
+	url = https://github.com/nothings/stb.git
