@@ -16,3 +16,8 @@ Ctrl + H (J,K,L)
 ```sh
 Ctrl + Alt + F5
 ```
+
+### Open kitty and RUN COMMAND: open image in terminal
+```sh
+kitty --hold sh -c "kitten icat ~/Desktop/_kitty"
+```

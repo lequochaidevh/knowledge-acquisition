@@ -62,6 +62,7 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/syscall.h>  // Required for SYS_gettid on Linux embedded/ubuntu
+#include <sys/ioctl.h>
 
 template <typename T>
 using Shared = std::shared_ptr<T>;
