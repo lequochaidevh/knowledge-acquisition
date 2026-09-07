@@ -1,0 +1,34 @@
+#version 430 core
+
+// Define Local Work Group size (Optimized for most GPU architectures: 16x16 = 256 threads)
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// Matrix dimension uniforms passed from C++ host application
+layout(location = 0) uniform int M; // Rows of Matrix A / Rows of Matrix C
+layout(location = 1) uniform int N; // Columns of Matrix A / Rows of Matrix B
+layout(location = 2) uniform int K; // Columns of Matrix B / Columns of Matrix C
+
+// SSBOs: Large buffer objects residing directly on VRAM
+layout(std430, binding = 0) readonly buffer BufferA { float A[]; };
+layout(std430, binding = 1) readonly buffer BufferB { float B[]; };
+layout(std430, binding = 2) writeonly buffer BufferC { float C[]; };
+
+void main() {
+    // Determine global row and column index of the element this thread is responsible for
+    int row = int(gl_GlobalInvocationID.y);
+    int col = int(gl_GlobalInvocationID.x);
+
+    // Boundary check to prevent out-of-bounds VRAM access 
+    // (Crucial if matrix dimensions are not perfect multiples of 16)
+    if (row < M && col < K) {
+        float sum = 0.0;
+        
+        // Compute dot product of row A and column B
+        for (int i = 0; i < N; ++i) {
+            sum += A[row * N + i] * B[i * K + col];
+        }
+        
+        // Store computed result into Matrix C
+        C[row * K + col] = sum;
+    }
+}
