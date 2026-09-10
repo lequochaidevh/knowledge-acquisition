@@ -19,7 +19,7 @@ class TaskQueue {
         TaskFunc  func;
         TimePoint execute_at;
 
-        // Operator for priority_queue: earliest execution time goes to the top
+        // Custom comparator for min-heap execution order
         bool operator>(const TaskItem& other) const { return execute_at > other.execute_at; }
     };
 
@@ -29,6 +29,7 @@ class TaskQueue {
     std::condition_variable                                                      _cv;
     bool                                                                         _is_shutdown = false;
 
+    // Main event loop runner executed by worker threads
     void worker_loop() {
         while (true) {
             TaskFunc task;
@@ -47,18 +48,19 @@ class TaskQueue {
                         auto& top_task = _tasks.top();
 
                         if (now >= top_task.execute_at) {
-                            // Task is ready
+                            // Extract task data bypassing priority queue const restrictions safely
                             task = std::move(const_cast<TaskItem&>(top_task).func);
                             _tasks.pop();
                             break;
                         } else {
-                            // Future task, thread should sleep until the exact timepoint
+                            // Sleep until the exact deadline arrives
                             _cv.wait_until(lock, top_task.execute_at);
                         }
                     }
                 }
             }
 
+            // Fire task callback outside the locked area to avoid contention
             if (task) {
                 task();
             }
@@ -75,7 +77,7 @@ class TaskQueue {
 
     ~TaskQueue() { shutdown(); }
 
-    // 1. (Immediate Task)
+    // Schedules a task for immediate execution
     void push(TaskFunc&& f) {
         {
             std::lock_guard<std::mutex> lock(_mutex);
@@ -85,7 +87,7 @@ class TaskQueue {
         _cv.notify_one();
     }
 
-    // 2. Delayed Task - ComLink Timeout/Retry
+    // Schedules a task with a forced execution offset
     void push_delayed(TaskFunc&& f, std::chrono::milliseconds delay) {
         {
             std::lock_guard<std::mutex> lock(_mutex);

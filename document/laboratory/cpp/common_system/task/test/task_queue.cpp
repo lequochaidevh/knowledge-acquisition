@@ -2,9 +2,18 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <memory>
+#include "../UdpTransport.h"
 #include "../TaskQueue.h"
 
 using namespace std::chrono_literals;
+
+int test_2();
+
+int main() {
+    test_2();
+    return 0;
+}
 
 // Helper to print logs with timestamp to verify timing precision
 void log_message(const std::string& msg) {
@@ -18,7 +27,7 @@ void log_message(const std::string& msg) {
     std::cout << "[" << (time_t_now % 60) << ":" << ms.count() << "] " << msg << std::endl;
 }
 
-int main() {
+int test_1() {
     log_message("[Main] Starting intense TaskQueue Testing...");
 
     // Initialize TaskQueue with 3 parallel worker threads
@@ -47,7 +56,7 @@ int main() {
     // TEST CASE 3: Stress Test & Concurrency
     // Create 5 external threads simultaneously throwing 20 tasks to check for race conditions.
     // =========================================================================
-    std::this_thread::sleep_for(1500ms);  // Chờ các test trước xả hết dữ liệu
+    std::this_thread::sleep_for(1500ms);
     log_message("[Test 3] Starting Stress Test with multiple producer threads...");
 
     std::vector<std::thread> producers;
@@ -76,5 +85,38 @@ int main() {
     log_message("[Main] Shutting down TaskQueue.");
     event_loop.shutdown();
 
+    return 0;
+}
+
+int test_2() {
+    // Instantiate core modules using abstraction interfaces for high maintainability
+    TaskQueue                    event_loop(2);
+    std::unique_ptr<IOInterface> transport = std::make_unique<UdpTransport>();
+
+    // Register a lambda callback to process incoming raw network data asynchronously
+    transport->register_read_callback([&event_loop](const uint8_t* data, size_t size) {
+        // Create an optimized local copy of raw buffer data to pass to the queue safely
+        std::vector<uint8_t> packet_buffer(data, data + size);
+
+        // Offload execution to the background worker pool instantly
+        event_loop.push([payload = std::move(packet_buffer)]() {
+            std::cout << "[Worker] Processing received raw data chunk of size: " << payload.size() << " bytes.\n";
+
+            // Future step: Feed 'payload' into MavlinkParser here safely
+        });
+    });
+
+    // Fire up the socket connection (Binds locally to 14550 - typical MAVLink port)
+    if (!transport->connect("127.0.0.1", 14550)) {
+        return -1;
+    }
+
+    std::cout << "[Main] System operational. Send real UDP bytes to port 14550 to test.\n";
+    std::cout << "[Main] Press enter to terminate code clean...\n";
+    std::cin.get();
+
+    // Clean teardown resource pipeline
+    transport->disconnect();
+    event_loop.shutdown();
     return 0;
 }
