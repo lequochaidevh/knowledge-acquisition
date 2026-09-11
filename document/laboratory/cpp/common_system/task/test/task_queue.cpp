@@ -5,13 +5,18 @@
 #include <memory>
 #include "../UdpTransport.h"
 #include "../TaskQueue.h"
+#include "../ComLink.h"
+#include "../UdpTransport.h"
+#include "fork_n_task.h"
 
 using namespace std::chrono_literals;
 
-int test_2();
+int test_3();
 
 int main() {
-    test_2();
+    // test_3();
+
+    test_3_2();
     return 0;
 }
 
@@ -118,5 +123,28 @@ int test_2() {
     // Clean teardown resource pipeline
     transport->disconnect();
     event_loop.shutdown();
+    return 0;
+}
+
+void handle_telemetry(const Packet& pkt) {
+    std::cout << "[Telemetry Received] System: " << static_cast<int>(pkt.system_id)
+              << ", Payload Size: " << pkt.payload.size() << " bytes.\n";
+}
+
+int test_3() {
+    auto com_link = std::make_shared<ComLink>(std::make_unique<UdpTransport>(), 2);
+
+    // Subscribe to custom MsgID 1001 safely
+    com_link->dispatcher().subscribe(1001, handle_telemetry);
+
+    if (!com_link->start("127.0.0.1", 14550)) {
+        return -1;
+    }
+
+    std::cout << "[Generic ComLink Engine Running] No MAVLink dependencies included.\n";
+    std::cout << "Press enter to exit...\n";
+    std::cin.get();
+
+    com_link->stop();
     return 0;
 }

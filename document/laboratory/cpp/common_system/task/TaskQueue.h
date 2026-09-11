@@ -54,7 +54,12 @@ class TaskQueue {
                             break;
                         } else {
                             // Sleep until the exact deadline arrives
-                            _cv.wait_until(lock, top_task.execute_at);
+                            auto status = _cv.wait_until(lock, top_task.execute_at);
+
+                            // If it wakes up because time expired, loop again to execute it instantly
+                            if (status == std::cv_status::timeout) {
+                                continue;
+                            }
                         }
                     }
                 }
