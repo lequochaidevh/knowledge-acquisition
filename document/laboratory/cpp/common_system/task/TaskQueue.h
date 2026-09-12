@@ -31,6 +31,9 @@ class TaskQueue {
 
     // Main event loop runner executed by worker threads
     void worker_loop() {
+        // Standard execution limit threshold (e.g., 100 milliseconds)
+        // Any task taking longer than this is considered an execution overflow
+        const auto execution_threshold = std::chrono::milliseconds(100);
         while (true) {
             TaskFunc task;
             {
@@ -66,8 +69,22 @@ class TaskQueue {
             }
 
             // Fire task callback outside the locked area to avoid contention
+            // Execute task outside the lock area and detect execution overflow
             if (task) {
+                auto start_time = Clock::now();
+
+                // Fire the actual callback
                 task();
+
+                auto end_time           = Clock::now();
+                auto execution_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+                // Trigger alert if the callback overshot the latency threshold
+                if (execution_duration > execution_threshold) {
+                    std::cerr << "[TASK OVERFLOW DETECTED] A callback stalled worker thread ["
+                              << std::this_thread::get_id() << "] for " << execution_duration.count()
+                              << " ms! (Threshold: " << execution_threshold.count() << " ms)\n";
+                }
             }
         }
     }

@@ -59,11 +59,24 @@ void execute_task_1_producer(int write_file_descriptor) {
 
     std::cout << "[Task 1 (Parent)] Sending serialized frame over IPC pipe stream...\n";
 
-    // Write raw bytes directly into the IPC pipe file descriptor
-    ssize_t bytes_written = write(write_file_descriptor, frame.data(), frame.size());
+    ssize_t bytes_written;
+    int     brk_cnt = 0;
+    while (brk_cnt++ < 5) {
+        // Write raw bytes directly into the IPC pipe file descriptor
+        bytes_written = write(write_file_descriptor, frame.data(), frame.size());
+        if (bytes_written < 0) {
+            std::cerr << "[Task 1 (Parent)] Write failure to IPC channel.\n";
+        }
+
+        usleep(1000000);
+    }
+    bytes_written = write(write_file_descriptor, frame.data(), frame.size());
     if (bytes_written < 0) {
         std::cerr << "[Task 1 (Parent)] Write failure to IPC channel.\n";
     }
+
+    usleep(5000000);
+    usleep(5000000);
 
     // Always close the descriptor when finished to signal End-Of-File (EOF) to the reader
     close(write_file_descriptor);
@@ -78,7 +91,6 @@ std::atomic<uint64_t> _last_received_time_ms{0};
 std::atomic<bool>     _is_timeout_triggered{false};
 
 // Helper helper utility to convert current time to raw milliseconds
-// Hàm helper chuyển đổi thời gian hiện tại thành số miligiây thô
 uint64_t get_current_time_ms() {
     auto now = Clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -133,6 +145,13 @@ void execute_task_2_consumer(int read_file_descriptor) {
     ssize_t bytes_read = 0;
 
     std::cout << "[Task 2 (Child)] Listening to IPC channel stream...\n";
+
+    // Simulate pushing an unoptimized, heavy task into the event loop
+    worker_pool.push([]() {
+        std::cout << "[User Task] Starting a heavy processing operation...\n";
+        // Force worker thread to block for 250ms, deliberately overshooting the 100ms threshold
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    });
 
     // Main data polling loop reading from the POSIX pipe descriptor
     while ((bytes_read = read(read_file_descriptor, &buffer, sizeof(buffer))) > 0) {

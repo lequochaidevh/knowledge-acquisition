@@ -7,9 +7,18 @@
 
 class ComlinkParser {
  private:
-    enum class State { WAIT_STX, WAIT_SYS_ID, WAIT_MSG_ID_H, WAIT_MSG_ID_L, WAIT_LENGTH, WAIT_PAYLOAD, WAIT_CHECKSUM };
+    // Enumeration using fully-spelled names for state indicators
+    enum class State {
+        WaitStartOfTransmission,
+        WaitSystemIdentifier,
+        WaitMessageIdentifierHighByte,
+        WaitMessageIdentifierLowByte,
+        WaitPayloadLength,
+        WaitPayloadData,
+        WaitChecksumVerification
+    };
 
-    State   _state = State::WAIT_STX;
+    State   _state = State::WaitStartOfTransmission;
     Packet  _current_packet;
     uint8_t _payload_length = 0;
     uint8_t _bytes_read     = 0;
@@ -17,56 +26,57 @@ class ComlinkParser {
  public:
     ComlinkParser() = default;
 
-    // Custom binary stream state machine parser
+    // Custom binary stream state machine parser updated with full-name state variables
     std::optional<Packet> parse_byte(uint8_t byte) {
         switch (_state) {
-            case State::WAIT_STX:
-                if (byte == 0xAA) {  // Start transmission delimiter
+            case State::WaitStartOfTransmission:
+                if (byte == 0xAA) {
                     _current_packet = Packet();
-                    _state          = State::WAIT_SYS_ID;
+                    _state          = State::WaitSystemIdentifier;
                 }
                 break;
 
-            case State::WAIT_SYS_ID:
+            case State::WaitSystemIdentifier:
                 _current_packet.system_id = byte;
-                _state                    = State::WAIT_MSG_ID_H;
+                _state                    = State::WaitMessageIdentifierHighByte;
                 break;
 
-            case State::WAIT_MSG_ID_H:
+            case State::WaitMessageIdentifierHighByte:
                 _current_packet.msg_id = static_cast<uint16_t>(byte << 8);
-                _state                 = State::WAIT_MSG_ID_L;
+                _state                 = State::WaitMessageIdentifierLowByte;
                 break;
 
-            case State::WAIT_MSG_ID_L:
+            case State::WaitMessageIdentifierLowByte:
                 _current_packet.msg_id |= byte;
-                _state = State::WAIT_LENGTH;
+                _state = State::WaitPayloadLength;
                 break;
 
-            case State::WAIT_LENGTH:
+            case State::WaitPayloadLength:
                 _payload_length = byte;
                 if (_payload_length > 0) {
                     _current_packet.payload.reserve(_payload_length);
                     _bytes_read = 0;
-                    _state      = State::WAIT_PAYLOAD;
+                    _state      = State::WaitPayloadData;
                 } else {
-                    _state = State::WAIT_CHECKSUM;
+                    _state = State::WaitChecksumVerification;
                 }
                 break;
 
-            case State::WAIT_PAYLOAD:
+            case State::WaitPayloadData:
                 _current_packet.payload.push_back(byte);
                 _bytes_read++;
                 if (_bytes_read >= _payload_length) {
-                    _state = State::WAIT_CHECKSUM;
+                    _state = State::WaitChecksumVerification;
                 }
                 break;
 
-            case State::WAIT_CHECKSUM:
+            case State::WaitChecksumVerification:
                 // For simplicity, treat this single byte as a dummy checksum verification check
                 _current_packet.checksum = byte;
-                _state                   = State::WAIT_STX;  // Reset state machine
-                return std::move(_current_packet);           // Yield complete custom packet
+                _state                   = State::WaitStartOfTransmission;  // Reset state machine
+                return std::move(_current_packet);                          // Yield complete custom packet
         }
+
         return std::nullopt;
     }
 };
