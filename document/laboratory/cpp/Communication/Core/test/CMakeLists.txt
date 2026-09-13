@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 
 # Define your executable and its source files
-add_executable(sandbox task_queue.cpp)
+add_executable(sandbox main_test.cpp)
 
 # Specify the directory for header files
 target_include_directories(sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../)

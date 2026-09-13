@@ -7,16 +7,13 @@
 #include "../TaskQueue.h"
 #include "../ComLink.h"
 #include "../UdpTransport.h"
-#include "fork_n_task.h"
+#include "1_fork_n_task.h"
+#include "2_Serializer.h"
 
 using namespace std::chrono_literals;
 
-int test_3();
-
 int main() {
-    // test_3();
-
-    test_3_2();
+    SerializerTest::main();
     return 0;
 }
 
