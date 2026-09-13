@@ -25,4 +25,11 @@ g++ ../DecompessQOI.cpp \
 
 ./DecompessQOI
 
+g++ ../qoi_to_gst.cpp -std=c++17 -O3 \
+`pkg-config --cflags --libs \
+gstreamer-1.0 gstreamer-app-1.0` \
+-o qoi_gstreamer
+
+./qoi_gstreamer
+
 sync

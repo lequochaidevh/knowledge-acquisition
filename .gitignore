@@ -17,3 +17,4 @@ docker_share/
 *.tar.gz
 onnxruntime-linux-x64-1.29.0/
 *_ignore/
+.vscode/settings.json
