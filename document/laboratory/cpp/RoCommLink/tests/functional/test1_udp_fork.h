@@ -1,18 +1,8 @@
-#include <iostream>
-#include <vector>
-#include <cstdint>
-#include <cstring>
-#include <atomic>
+#include "transport/udp_transport.h"
+#include "common/task_queue.h"
+#include "service/rocommlink.h"
 
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
-#include "../UdpTransport.h"
-#include "../TaskQueue.h"
-#include "../ComLink.h"
-#include "../UdpTransport.h"
-
+namespace UDP_InterfaceTest {
 /**
  * [Task 1 (Parent Process)]
        │ (Sends bytes via pipe)
@@ -43,7 +33,7 @@ void execute_task_1_producer(int write_file_descriptor) {
     packet.payload   = {0xDE, 0xAD, 0xBE, 0xEF};  // 4 bytes of data
     packet.checksum  = 0xFF;
 
-    // Serialize packet into a raw byte stream matching ComlinkParser rules
+    // Serialize packet into a raw byte stream matching RoCommLinkParser rules
     std::vector<uint8_t> frame;
     frame.reserve(6 + packet.payload.size());
     frame.push_back(0xAA);
@@ -98,6 +88,7 @@ uint64_t get_current_time_ms() {
 
 // High-level application subscriber callback
 void handle_incoming_custom_packet(const Packet& packet) {
+    (void)packet;
     std::cout << "[Subscriber] Valid frame intercepted. Resetting watchdog timer clock.\n";
 }
 
@@ -127,11 +118,11 @@ void schedule_watchdog_monitor(TaskQueue& pool) {
 void execute_task_2_consumer(int read_file_descriptor) {
     std::cout << "[Task 2 (Child)] Initializing Parallel Engine...\n";
 
-    TaskQueue         worker_pool(3);
-    ComlinkDispatcher dispatcher;
+    TaskQueue            worker_pool(3);
+    RoCommLinkDispatcher dispatcher;
 
     dispatcher.subscribe(1001, handle_incoming_custom_packet);
-    auto parser = std::make_shared<ComlinkParser>();
+    auto parser = std::make_shared<RoCommLinkParser>();
 
     // Seed initial startup baseline clock time
     _last_received_time_ms.store(get_current_time_ms());
@@ -175,7 +166,7 @@ void execute_task_2_consumer(int read_file_descriptor) {
     std::cout << "[Task 2 (Child)] Core engine exited cleanly.\n";
 }
 
-int test_3_2() {
+int main() {
     // Array to hold the pipe file descriptors: indices [0] = Read, [1] = Write
     int pipe_file_descriptors[2];
 
@@ -219,3 +210,4 @@ int test_3_2() {
 
     return 0;
 }
+}  // namespace UDP_InterfaceTest

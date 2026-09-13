@@ -1,21 +1,6 @@
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <atomic>
-#include <memory>
-#include "../UdpTransport.h"
-#include "../TaskQueue.h"
-#include "../ComLink.h"
-#include "../UdpTransport.h"
-#include "1_fork_n_task.h"
-#include "2_Serializer.h"
-
-using namespace std::chrono_literals;
-
-int main() {
-    SerializerTest::main();
-    return 0;
-}
+#include "transport/udp_transport.h"
+#include "common/task_queue.h"
+#include "service/rocommlink.h"
 
 // Helper to print logs with timestamp to verify timing precision
 void log_message(const std::string& msg) {
@@ -129,7 +114,7 @@ void handle_telemetry(const Packet& pkt) {
 }
 
 int test_3() {
-    auto com_link = std::make_shared<ComLink>(std::make_unique<UdpTransport>(), 2);
+    auto com_link = std::make_shared<RoCommLink>(std::make_unique<UdpTransport>(), 2);
 
     // Subscribe to custom MsgID 1001 safely
     com_link->dispatcher().subscribe(1001, handle_telemetry);
@@ -138,7 +123,7 @@ int test_3() {
         return -1;
     }
 
-    std::cout << "[Generic ComLink Engine Running] No MAVLink dependencies included.\n";
+    std::cout << "[Generic RoCommLink Engine Running] No MAVLink dependencies included.\n";
     std::cout << "Press enter to exit...\n";
     std::cin.get();
 

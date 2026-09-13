@@ -36,6 +36,7 @@
 #include <condition_variable>  // queue -> async log
 #include <stdexcept>
 #include <numeric>
+#include <shared_mutex>
 
 // C libs
 #include <stdint.h>

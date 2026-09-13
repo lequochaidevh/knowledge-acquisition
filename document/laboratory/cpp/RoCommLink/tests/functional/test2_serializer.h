@@ -1,18 +1,7 @@
-#include <iostream>
-#include <vector>
-#include <cstdint>
-#include <cstring>
-#include <atomic>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
-#include "../UdpTransport.h"
-#include "../TaskQueue.h"
-#include "../ComLink.h"
-#include "../UdpTransport.h"
-#include "../PacketSerializer.h"
+#include "transport/udp_transport.h"
+#include "common/task_queue.h"
+#include "service/rocommlink.h"
+#include "protocol/packet_serializer.h"
 
 namespace SerializerTest {
 // Define a realistic packed struct representing drone flight states
@@ -43,15 +32,16 @@ void execute_task_1_producer(int write_file_descriptor) {
               << " bytes. Sending over IPC pipe...\n";
 
     // 4. Inject into the communication pipe channel
-    write(write_file_descriptor, complete_wire_frame.data(), complete_wire_frame.size());
+    bool result = write(write_file_descriptor, complete_wire_frame.data(), complete_wire_frame.size());
+    (void)result;
     close(write_file_descriptor);
 }
 
 void execute_task_2_consumer(int read_file_descriptor) {
     std::cout << "[Task 2 (Child)] Listener online.\n";
 
-    ComlinkParser parser;
-    uint8_t       stream_byte;
+    RoCommLinkParser parser;
+    uint8_t          stream_byte;
 
     while (read(read_file_descriptor, &stream_byte, 1) > 0) {
         if (auto packet_optional = parser.parse_byte(stream_byte); packet_optional.has_value()) {

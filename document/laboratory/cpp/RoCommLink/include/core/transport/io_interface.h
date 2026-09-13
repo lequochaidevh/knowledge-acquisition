@@ -1,8 +1,5 @@
 #pragma once
-#include <vector>
-#include <cstdint>
-#include <functional>
-#include <string>
+#include "std17pch.h"
 
 class IOInterface {
  public:

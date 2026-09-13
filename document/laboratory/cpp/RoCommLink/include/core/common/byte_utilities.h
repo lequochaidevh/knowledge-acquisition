@@ -1,6 +1,5 @@
 #pragma once
-#include <cstdint>
-#include <cstring>
+#include "std17pch.h"
 
 class ByteUtilities {
  public:

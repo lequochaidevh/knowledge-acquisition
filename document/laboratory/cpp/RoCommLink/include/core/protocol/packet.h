@@ -1,6 +1,5 @@
 #pragma once
-#include <vector>
-#include <cstdint>
+#include "std17pch.h"
 
 struct Packet {
     uint8_t              system_id = 0;
