@@ -4,7 +4,7 @@ o/O: below/above at cursor.
 d/y/p: cut/copy/past -> dd/yy apply for all of a line.
 
 w/b/e: next/back/end word.
-0/$: start/end line.
+0/$ : start/end line.  (/) : start/stop paragraph
 gg/G : start/end file
 Number Motion: 2w, 3e or :+2 / :-2 :jump next/back to 2 lines.
 

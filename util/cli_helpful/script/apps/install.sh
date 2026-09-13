@@ -3,7 +3,7 @@
 UTILS_PATH=$(pwd)
 DOCS_DIR=$(realpath "$UTILS_PATH")
 # Define the list of files
-FILES_TO_LINK=("catcmdhelp" "batcmdhelp" "adddocshelp")
+FILES_TO_LINK=("catcmdhelp" "editcmdhelp" "batcmdhelp" "adddocshelp")
 
 cd ../../../script_root
 
