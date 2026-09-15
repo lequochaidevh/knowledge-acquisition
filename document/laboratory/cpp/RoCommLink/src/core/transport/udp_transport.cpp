@@ -1,14 +1,24 @@
 #include "transport/udp_transport.h"
 
 void UdpTransport::receive_loop() {
-    uint8_t            buffer[65535];
-    struct sockaddr_in src_addr {};
-    socklen_t          addr_len = sizeof(src_addr);
+    static constexpr size_t MAX_UDP_PACKET = 65535;
+    auto                    buffer         = std::make_unique<uint8_t[]>(MAX_UDP_PACKET);
+    struct sockaddr_in      src_addr {};
+    socklen_t               addr_len = sizeof(src_addr);
 
     while (_is_running) {
-        ssize_t bytes_received = recvfrom(_sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&src_addr, &addr_len);
+        ssize_t bytes_received =
+            recvfrom(_sockfd, buffer.get(), MAX_UDP_PACKET, 0, (struct sockaddr*)&src_addr, &addr_len);
 
         if (bytes_received < 0) {
+            // Timeout in Non-blocking socket
+            if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                continue;
+            }
+            // Interupt with System Signal (EINTR)
+            if (errno == EINTR) {
+                continue;
+            }
             if (_is_running) {
                 std::cerr << "[UdpTransport] Error receiving data\n";
             }
@@ -16,7 +26,9 @@ void UdpTransport::receive_loop() {
         }
 
         if (bytes_received > 0 && _data_callback) {
-            _data_callback(buffer, static_cast<size_t>(bytes_received));
+            std::string_view data_view(reinterpret_cast<const char*>(buffer.get()),
+                                       static_cast<size_t>(bytes_received));
+            _data_callback(data_view);
         }
     }
 }
@@ -77,9 +89,11 @@ void UdpTransport::disconnect() {
     std::cout << "[UdpTransport] Disconnected cleanly\n";
 }
 
-bool UdpTransport::send(const uint8_t* data, size_t size) {
-    if (_sockfd < 0) return false;
+bool UdpTransport::send(std::string_view data) {
+    if (_sockfd < 0 || data.empty()) return false;
 
-    ssize_t bytes_sent = sendto(_sockfd, data, size, 0, (struct sockaddr*)&_target_addr, sizeof(_target_addr));
-    return bytes_sent == static_cast<ssize_t>(size);
+    ssize_t bytes_sent =
+        sendto(_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&_target_addr, sizeof(_target_addr));
+
+    return bytes_sent == static_cast<ssize_t>(data.size());
 }

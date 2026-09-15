@@ -1,9 +1,10 @@
 #pragma once
 #include "std17pch.h"
+#include <cerrno>
 
 class IOInterface {
  public:
-    using DataCallback = std::function<void(const uint8_t* data, size_t size)>;
+    using DataCallback = std::function<void(std::string_view data)>;
 
  protected:
     DataCallback _data_callback;
@@ -13,7 +14,7 @@ class IOInterface {
 
     virtual bool connect(const std::string& target, uint16_t port) = 0;
     virtual void disconnect()                                      = 0;
-    virtual bool send(const uint8_t* data, size_t size)            = 0;
+    virtual bool send(std::string_view data)                       = 0;
 
     void register_read_callback(DataCallback&& cb) { _data_callback = std::move(cb); }
 };

@@ -28,18 +28,18 @@ void execute_task_1_producer(int write_file_descriptor) {
 
     // Craft a dummy custom telemetry packet
     Packet packet;
-    packet.system_id = 5;
-    packet.msg_id    = 1001;
-    packet.payload   = {0xDE, 0xAD, 0xBE, 0xEF};  // 4 bytes of data
-    packet.checksum  = 0xFF;
+    packet.header.system_id = 5;
+    packet.header.msg_id    = 1001;
+    packet.payload          = {0xDE, 0xAD, 0xBE, 0xEF};  // 4 bytes of data
+    packet.checksum         = 0xFF;
 
     // Serialize packet into a raw byte stream matching RoCommLinkParser rules
     std::vector<uint8_t> frame;
     frame.reserve(6 + packet.payload.size());
     frame.push_back(0xAA);
-    frame.push_back(packet.system_id);
-    frame.push_back(static_cast<uint8_t>((packet.msg_id >> 8) & 0xFF));
-    frame.push_back(static_cast<uint8_t>(packet.msg_id & 0xFF));
+    frame.push_back(packet.header.system_id);
+    frame.push_back(static_cast<uint8_t>((packet.header.msg_id >> 8) & 0xFF));
+    frame.push_back(static_cast<uint8_t>(packet.header.msg_id & 0xFF));
     frame.push_back(static_cast<uint8_t>(packet.payload.size()));
     frame.insert(frame.end(), packet.payload.begin(), packet.payload.end());
     frame.push_back(static_cast<uint8_t>(packet.checksum & 0xFF));

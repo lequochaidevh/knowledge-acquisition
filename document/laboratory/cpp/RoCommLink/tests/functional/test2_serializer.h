@@ -48,9 +48,9 @@ void execute_task_2_consumer(int read_file_descriptor) {
             const auto& packet = packet_optional.value();
 
             std::cout << "[Task 2 (Child)] ➔ Frame received correctly!\n"
-                      << "  Message Identifier Target: " << packet.msg_id << "\n";
+                      << "  Message Identifier Target: " << packet.header.msg_id << "\n";
 
-            if (packet.msg_id == 2002) {
+            if (packet.header.msg_id == 2002) {
                 // Deserialize payload bytes backward straight into our structured type cleanly
                 TelemetryData incoming_stats;
                 std::memcpy(&incoming_stats, packet.payload.data(), sizeof(TelemetryData));

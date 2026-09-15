@@ -37,6 +37,7 @@
 #include <stdexcept>
 #include <numeric>
 #include <shared_mutex>
+#include <future>
 
 // C libs
 #include <stdint.h>

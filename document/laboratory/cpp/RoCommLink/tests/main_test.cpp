@@ -5,7 +5,7 @@
 using namespace std::chrono_literals;
 
 int main() {
-    // UDP_InterfaceTest::main();
     SerializerTest::main();
+    UDP_InterfaceTest::main();
     return 0;
 }

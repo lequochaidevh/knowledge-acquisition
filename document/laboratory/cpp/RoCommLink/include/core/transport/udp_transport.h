@@ -19,5 +19,5 @@ class UdpTransport : public IOInterface {
 
     void disconnect() override;
 
-    bool send(const uint8_t* data, size_t size) override;
+    bool send(std::string_view data) override;
 };

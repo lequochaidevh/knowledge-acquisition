@@ -14,5 +14,5 @@ class RoCommLinkDispatcher {
 
     void subscribe(uint16_t msg_id, MessageCallback&& cb);
 
-    void dispatch(const Packet& packet) const;
+    bool dispatch(const Packet& packet) const;
 };

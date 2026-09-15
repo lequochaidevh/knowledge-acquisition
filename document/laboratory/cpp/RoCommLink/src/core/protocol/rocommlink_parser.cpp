@@ -10,17 +10,17 @@ std::optional<Packet> RoCommLinkParser::parse_byte(uint8_t byte) {
             break;
 
         case State::WaitSystemIdentifier:
-            _current_packet.system_id = byte;
-            _state                    = State::WaitMessageIdentifierHighByte;
+            _current_packet.header.system_id = byte;
+            _state                           = State::WaitMessageIdentifierHighByte;
             break;
 
         case State::WaitMessageIdentifierHighByte:
-            _current_packet.msg_id = static_cast<uint16_t>(byte << 8);
-            _state                 = State::WaitMessageIdentifierLowByte;
+            _current_packet.header.msg_id = static_cast<uint16_t>(byte << 8);
+            _state                        = State::WaitMessageIdentifierLowByte;
             break;
 
         case State::WaitMessageIdentifierLowByte:
-            _current_packet.msg_id |= byte;
+            _current_packet.header.msg_id |= byte;
             _state = State::WaitPayloadLength;
             break;
 
