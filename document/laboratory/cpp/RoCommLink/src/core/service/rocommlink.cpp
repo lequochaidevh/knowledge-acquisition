@@ -64,7 +64,7 @@ bool RoCommLink::send_packet(const Packet& packet) {
     return _transport->send(out_view);
 }
 
-void RoCommLink::send_command_blocking(Packet& cmd_pkt) {
+void RoCommLink::send_command_blocking(const Packet& cmd_pkt) {
     uint16_t seq = cmd_pkt.header.sequence;
 
     std::future<CommandResult> ack_future = _command_tracker->track(seq, cmd_pkt);

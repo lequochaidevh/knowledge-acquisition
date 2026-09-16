@@ -39,5 +39,11 @@ class RoCommLink {
     // Outbound serialization helper interface for custom packets
     bool send_packet(const Packet& packet);
 
-    void send_command_blocking(Packet& cmd_pkt);
+    void send_command_blocking(const Packet& cmd_pkt);
+
+    // Explicit Mock Data Injector dedicated for testing pipelines without UDP
+    void inject_mock_serial_data(std::string_view bytes) {
+        using namespace std::chrono_literals;
+        _worker_pool->push([this, buf = std::move(bytes)]() mutable { this->process_raw_bytes(std::move(buf)); });
+    }
 };
