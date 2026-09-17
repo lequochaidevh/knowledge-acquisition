@@ -35,20 +35,31 @@ void UdpTransport::receive_loop() {
 
 UdpTransport::~UdpTransport() { disconnect(); }
 
-bool UdpTransport::connect(const std::string& target_ip, uint16_t port) {
+bool UdpTransport::connect(const std::string& target_ip, uint16_t local_port, uint16_t remote_port) {
     _sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (_sockfd < 0) {
         std::cerr << "[UdpTransport] Failed to create socket\n";
         return false;
     }
 
-    // Configure socket to allow address reuse
     int opt = 1;
     setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
+    struct sockaddr_in local_addr {};
+    std::memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family      = AF_INET;
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+    local_addr.sin_port        = htons(local_port);
+
+    if (bind(_sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
+        std::cerr << "[UdpTransport] Bind failed on local port: " << local_port << "\n";
+        close(_sockfd);
+        return false;
+    }
+
     std::memset(&_target_addr, 0, sizeof(_target_addr));
     _target_addr.sin_family = AF_INET;
-    _target_addr.sin_port   = htons(port);
+    _target_addr.sin_port   = htons(remote_port);
 
     if (inet_pton(AF_INET, target_ip.c_str(), &_target_addr.sin_addr) <= 0) {
         std::cerr << "[UdpTransport] Invalid IP address\n";
@@ -56,22 +67,15 @@ bool UdpTransport::connect(const std::string& target_ip, uint16_t port) {
         return false;
     }
 
-    // Bind locally so it can also listen/receive packets on this port
-    struct sockaddr_in local_addr {};
-    std::memset(&local_addr, 0, sizeof(local_addr));
-    local_addr.sin_family      = AF_INET;
-    local_addr.sin_addr.s_addr = INADDR_ANY;
-    local_addr.sin_port        = htons(port);
-
-    if (bind(_sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
-        std::cerr << "[UdpTransport] Bind failed\n";
-        close(_sockfd);
-        return false;
-    }
+    struct timeval tv;
+    tv.tv_sec  = 0;
+    tv.tv_usec = 100000;
+    setsockopt(_sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     _is_running  = true;
     _recv_thread = std::thread(&UdpTransport::receive_loop, this);
-    std::cout << "[UdpTransport] Connected and listening on port " << port << "\n";
+    std::cout << "[UdpTransport] Connected. Listening on port " << local_port << " -> Targeting remote port "
+              << remote_port << "\n";
     return true;
 }
 
@@ -91,9 +95,10 @@ void UdpTransport::disconnect() {
 
 bool UdpTransport::send(std::string_view data) {
     if (_sockfd < 0 || data.empty()) return false;
-
+    std::cout << "[UdpTransport] C1\n";
     ssize_t bytes_sent =
         sendto(_sockfd, data.data(), data.size(), 0, (struct sockaddr*)&_target_addr, sizeof(_target_addr));
 
+    std::cout << "[UdpTransport] C2\n";
     return bytes_sent == static_cast<ssize_t>(data.size());
 }

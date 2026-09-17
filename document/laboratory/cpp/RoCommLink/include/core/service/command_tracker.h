@@ -45,6 +45,7 @@ class CommandTracker {
                     it->second.last_sent = now;
                     retry_callback(it->second.packet);
                     ++it;
+                    std::cout << "[_command_tracker->check_timeouts]\n";
                 } else {
                     it->second.promise.set_value(CommandResult::FAILED);
                     it = _transactions.erase(it);

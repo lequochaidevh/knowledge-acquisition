@@ -8,7 +8,9 @@ RoCommLink::RoCommLink(std::unique_ptr<IOInterface> transport, size_t thread_cou
 
 RoCommLink::~RoCommLink() { stop(); }
 
-bool RoCommLink::start(const std::string& target_ip, uint16_t port) {
+// bool RoCommLink::start(const std::string& target_ip, uint16_t port)
+
+bool RoCommLink::start(const std::string& target, uint16_t local_port, uint16_t remote_port) {
     if (!_transport) return false;
 
     // Register modern C++17 string_view zero-allocation read callback
@@ -19,7 +21,7 @@ bool RoCommLink::start(const std::string& target_ip, uint16_t port) {
         _worker_pool->push([this, buf = std::string(data)]() mutable { this->process_raw_bytes(std::move(buf)); });
     });
 
-    if (!_transport->connect(target_ip, port)) {
+    if (!_transport->connect(target, local_port, remote_port)) {
         return false;
     }
 
@@ -68,13 +70,15 @@ void RoCommLink::send_command_blocking(const Packet& cmd_pkt) {
     uint16_t seq = cmd_pkt.header.sequence;
 
     std::future<CommandResult> ack_future = _command_tracker->track(seq, cmd_pkt);
+    std::cout << "[RoCommLink] C1\n";
 
     if (!send_packet(cmd_pkt)) {
         _command_tracker->resolve(seq, CommandResult::FAILED);
         return;
     }
+    std::cout << "[RoCommLink] C2\n";
 
-    if (ack_future.wait_for(std::chrono::seconds(2)) == std::future_status::ready) {
+    if (ack_future.wait_for(std::chrono::seconds(3)) == std::future_status::ready) {
         CommandResult result = ack_future.get();
         if (result == CommandResult::ACCEPTED) {
             std::cout << "[RoCommLink] Command acknowledged and accepted by peer.\n";
@@ -89,12 +93,12 @@ void RoCommLink::send_command_blocking(const Packet& cmd_pkt) {
 void RoCommLink::process_raw_bytes(std::string_view bytes) {
     if (bytes.empty()) return;
 
-    RoCommLinkParser* parser_ptr       = nullptr;
-    uint8_t           static_system_id = 0;
+    RoCommLinkParser* parser_ptr          = nullptr;
+    uint8_t           default_stream_slot = 0;
 
     {
         std::shared_lock<std::shared_mutex> read_lock(_parsers_mutex);
-        auto                                it = _parsers.find(static_system_id);
+        auto                                it = _parsers.find(default_stream_slot);
         if (it != _parsers.end()) {
             parser_ptr = it->second.get();
         }
@@ -102,10 +106,10 @@ void RoCommLink::process_raw_bytes(std::string_view bytes) {
 
     if (!parser_ptr) {
         std::unique_lock<std::shared_mutex> write_lock(_parsers_mutex);
-        if (_parsers.find(static_system_id) == _parsers.end()) {
-            _parsers[static_system_id] = std::make_unique<RoCommLinkParser>();
+        if (_parsers.find(default_stream_slot) == _parsers.end()) {
+            _parsers[default_stream_slot] = std::make_unique<RoCommLinkParser>();
         }
-        parser_ptr = _parsers[static_system_id].get();
+        parser_ptr = _parsers[default_stream_slot].get();
     }
 
     constexpr uint16_t MSG_ID_COMMAND_ACK  = 0x00FF;
@@ -117,6 +121,7 @@ void RoCommLink::process_raw_bytes(std::string_view bytes) {
         if (auto packet_opt = parser_ptr->parse_byte(raw_byte); packet_opt.has_value()) {
             Packet packet = std::move(packet_opt.value());
 
+            // CASE 1: Arriving verification feedback from remote node (Handled by Client side)
             if (packet.header.msg_id == MSG_ID_COMMAND_ACK) {
                 if (packet.payload.size() >= sizeof(CommandAckPayload)) {
                     CommandAckPayload ack_data;
@@ -126,17 +131,19 @@ void RoCommLink::process_raw_bytes(std::string_view bytes) {
                 continue;
             }
 
+            // CASE 2: Arriving mission action execution command (Handled by Server side)
             if (packet.header.msg_id == MSG_ID_USER_COMMAND) {
+                // Execute the callback registered by subscribe() and capture the true/false boolean result
                 bool          success = _dispatcher->dispatch(packet);
                 CommandResult result  = success ? CommandResult::ACCEPTED : CommandResult::DENIED;
 
+                //  Automated structural packing and injection of the response feedback packet
                 Packet ack_pkt{};
-                ack_pkt.header.magic        = 0x5A;
-                ack_pkt.header.version      = packet.header.version;
+                ack_pkt.header.magic        = 0xAA;
                 ack_pkt.header.system_id    = packet.header.system_id;
                 ack_pkt.header.component_id = packet.header.component_id;
                 ack_pkt.header.msg_id       = MSG_ID_COMMAND_ACK;
-                ack_pkt.header.sequence     = packet.header.sequence;
+                ack_pkt.header.sequence     = packet.header.sequence;  // Match the exact client sequence transaction ID
                 ack_pkt.header.payload_len  = sizeof(CommandAckPayload);
 
                 CommandAckPayload ack_payload{};
@@ -147,6 +154,7 @@ void RoCommLink::process_raw_bytes(std::string_view bytes) {
                 ack_pkt.payload.resize(sizeof(CommandAckPayload));
                 std::memcpy(ack_pkt.payload.data(), &ack_payload, sizeof(CommandAckPayload));
 
+                // Instantly fire the packet frame back through the outbound UDP pipeline
                 send_packet(ack_pkt);
             } else {
                 _dispatcher->dispatch(std::move(packet));

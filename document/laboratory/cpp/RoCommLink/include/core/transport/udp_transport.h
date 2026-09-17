@@ -15,7 +15,8 @@ class UdpTransport : public IOInterface {
 
     ~UdpTransport() override;
 
-    bool connect(const std::string& target_ip, uint16_t port) override;
+    //  bool connect(const std::string& target_ip, uint16_t port) override;
+    bool connect(const std::string& target, uint16_t local_port, uint16_t remote_port) override;
 
     void disconnect() override;
 

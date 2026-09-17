@@ -30,7 +30,8 @@ class RoCommLink {
 
     ~RoCommLink();
 
-    bool start(const std::string& target_ip, uint16_t port);
+    // bool start(const std::string& target_ip, uint16_t port);
+    bool start(const std::string& target, uint16_t local_port, uint16_t remote_port);
 
     void stop();
 

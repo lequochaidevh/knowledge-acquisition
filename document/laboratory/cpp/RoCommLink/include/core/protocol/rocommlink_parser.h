@@ -19,6 +19,8 @@ class RoCommLinkParser {
     uint8_t _payload_length = 0;
     uint8_t _bytes_read     = 0;
 
+    std::vector<uint8_t> _raw_frame_buffer;
+
  public:
     RoCommLinkParser() = default;
 
