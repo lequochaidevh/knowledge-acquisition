@@ -44,8 +44,9 @@ void execute_task_2_consumer(int read_file_descriptor) {
     uint8_t          stream_byte;
 
     while (read(read_file_descriptor, &stream_byte, 1) > 0) {
-        if (auto packet_optional = parser.parse_byte(stream_byte); packet_optional.has_value()) {
-            const auto& packet = packet_optional.value();
+        auto packet_optional = parser.parse_byte(stream_byte);
+        if (packet_optional.status == ParseStatus::Complete && packet_optional.packet.has_value()) {
+            const auto& packet = packet_optional.packet.value();
 
             std::cout << "[Task 2 (Child)] ➔ Frame received correctly!\n"
                       << "  Message Identifier Target: " << packet.header.msg_id << "\n";

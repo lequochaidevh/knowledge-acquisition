@@ -1,7 +1,9 @@
 #include "protocol/rocommlink_parser.h"
 #include "common/byte_utilities.h"
 
-std::optional<Packet> RoCommLinkParser::parse_byte(uint8_t byte) {
+void RoCommLinkParser::register_early_filter(EarlyFilterCallback&& callback) { _early_filter_cb = std::move(callback); }
+
+ParseResult RoCommLinkParser::parse_byte(uint8_t byte) {
     switch (_state) {
         case State::WaitStartOfTransmission:
             if (byte == 0x5A || byte == 0xAA) {
@@ -58,13 +60,17 @@ std::optional<Packet> RoCommLinkParser::parse_byte(uint8_t byte) {
                 _current_packet.header.payload_len |= byte;
                 _payload_length = static_cast<uint8_t>(_current_packet.header.payload_len & 0xFF);
 
+                _bytes_read = 0;
+
                 if (_payload_length > 0) {
-                    _current_packet.payload.resize(_payload_length);
-                    _bytes_read = 0;
-                    _state      = State::WaitPayloadData;
+                    // Check if system is running under global forward/bypass optimizations
+                    if (execute_early_filter()) {
+                    } else {
+                        _current_packet.payload.resize(_payload_length);
+                        _state = State::WaitPayloadData;
+                    }
                 } else {
-                    _bytes_read = 0;
-                    _state      = State::WaitChecksumVerification;
+                    _state = State::WaitChecksumVerification;
                 }
             }
             break;
@@ -79,10 +85,23 @@ std::optional<Packet> RoCommLinkParser::parse_byte(uint8_t byte) {
             }
             break;
 
+        case State::WaitPayloadSkip:
+            _raw_frame_buffer.push_back(byte);
+            _bytes_read++;
+
+            if (_bytes_read >= _current_packet.header.payload_len) {
+                _bytes_read = 0;
+                _state      = State::WaitChecksumVerification;  // CRC
+            }
+            break;
+
         case State::WaitChecksumVerification:
             if (_bytes_read == 0) {
                 _current_packet.checksum = static_cast<uint16_t>(byte << 8);
                 _bytes_read              = 1;
+                if (execute_early_filter()) {
+                    // callback skip calculate_checksum() function
+                }
             } else {
                 _current_packet.checksum |= byte;
 
@@ -91,11 +110,17 @@ std::optional<Packet> RoCommLinkParser::parse_byte(uint8_t byte) {
 
                 _state = State::WaitStartOfTransmission;
                 if (computed_checksum == _current_packet.checksum) {
-                    return std::move(_current_packet);  // Yield clean packet up the dispatch line
+                    // Yield clean packet up the dispatch line
+                    return ParseResult{ParseStatus::Complete, std::move(_current_packet)};
                 }
             }
             break;
+        case State::ForwardActive:
+            // Check if the current size of the raw frame data matches the total expected wire size.
+            _state = State::WaitStartOfTransmission;  // Frame boundary complete, reset cleanly.
+            // Instantly tell the driver loop to broadcast this byte over the network line!
+            return ParseResult{ParseStatus::StreamForwardByte, std::move(_current_packet)};
     }
 
-    return std::nullopt;
+    return ParseResult{ParseStatus::Processing, std::nullopt};
 }

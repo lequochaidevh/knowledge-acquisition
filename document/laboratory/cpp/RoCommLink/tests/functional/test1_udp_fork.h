@@ -150,11 +150,12 @@ void execute_task_2_consumer(int read_file_descriptor) {
 
         worker_pool.push([bytes = std::move(memory_chunk), parser, &dispatcher]() {
             for (uint8_t byte : bytes) {
-                if (auto packet_optional = parser->parse_byte(byte); packet_optional.has_value()) {
+                auto packet_optional = parser->parse_byte(byte);
+                if (packet_optional.status == ParseStatus::Complete && packet_optional.packet.has_value()) {
                     // Reset the unified atomic ms timestamp upon package arrival
                     _last_received_time_ms.store(get_current_time_ms());
 
-                    dispatcher.dispatch(packet_optional.value());
+                    dispatcher.dispatch(packet_optional.packet.value());
                 }
             }
         });
