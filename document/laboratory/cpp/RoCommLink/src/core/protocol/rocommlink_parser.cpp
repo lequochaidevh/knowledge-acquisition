@@ -116,6 +116,7 @@ ParseResult RoCommLinkParser::parse_byte(uint8_t byte) {
             }
             break;
         case State::ForwardActive:
+            // std::cout << "[Forward Debug] Buffer size: " << _raw_frame_buffer.size() << "\n";
             // Check if the current size of the raw frame data matches the total expected wire size.
             _state = State::WaitStartOfTransmission;  // Frame boundary complete, reset cleanly.
             // Instantly tell the driver loop to broadcast this byte over the network line!

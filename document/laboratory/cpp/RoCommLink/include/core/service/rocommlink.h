@@ -26,8 +26,8 @@ class RoCommLink {
     std::unique_ptr<RoCommLinkDispatcher> _dispatcher;
 
     // Per-system parser state maps to ensure data safety if streams interleave
-    std::unordered_map<uint8_t, std::unique_ptr<RoCommLinkParser>> _parsers;
-    mutable std::shared_mutex                                      _parsers_mutex;
+    //  std::unordered_map<uint8_t, std::unique_ptr<RoCommLinkParser>> _parsers;
+    mutable std::shared_mutex _parsers_mutex;
 
     std::unique_ptr<CommandTracker> _command_tracker;
 
@@ -35,23 +35,29 @@ class RoCommLink {
     std::atomic<bool> _is_running{false};
     std::thread       _timeout_thread;
 
-    void process_raw_bytes(std::string_view bytes);
+    void process_raw_bytes(std::string_view bytes, uint8_t id = 0);
 
     ForwardByteCallback _forward_handler_cb = nullptr;
 
  public:
+    std::unordered_map<uint8_t, std::unique_ptr<RoCommLinkParser>> _parsers;
+
     // Dynamically register a new physical interface link to the active runtime system
-    void add_transport(uint8_t interface_id, std::unique_ptr<IOInterface> transport);
+    void add_transport(std::unique_ptr<IOInterface> transport, uint8_t interface_id = 0);
     void add_routing_rule(uint8_t target_sys_id, uint8_t target_comp_id, uint8_t out_interface_id);
 
     void register_forward_handler(ForwardByteCallback callback) { _forward_handler_cb = std::move(callback); }
 
-    RoCommLink(std::unique_ptr<IOInterface> transport, size_t thread_count = 2);
+    RoCommLink([[maybe_unused]] std::unique_ptr<IOInterface> transport, [[maybe_unused]] size_t thread_count){
+        // NOT SUPPRORT
+    };
+
+    RoCommLink(size_t thread_count = 2);
 
     ~RoCommLink();
 
     // bool start(const std::string& target_ip, uint16_t port);
-    bool start(const std::string& target, uint16_t local_port, uint16_t remote_port);
+    bool start(const std::string& target, uint16_t local_port, uint16_t remote_port, uint8_t interface_id = 0);
 
     void stop();
 

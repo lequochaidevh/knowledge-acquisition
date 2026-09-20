@@ -1,12 +1,11 @@
 #include "service/rocommlink.h"
 
-RoCommLink::RoCommLink(std::unique_ptr<IOInterface> transport, size_t thread_count)
-    : _transport(std::move(transport)),
-      _worker_pool(std::make_unique<TaskQueue>(thread_count)),
+RoCommLink::RoCommLink(size_t thread_count)
+    : _worker_pool(std::make_unique<TaskQueue>(thread_count)),
       _dispatcher(std::make_unique<RoCommLinkDispatcher>()),
       _command_tracker(std::make_unique<CommandTracker>()) {}
 
-void RoCommLink::add_transport(uint8_t interface_id, std::unique_ptr<IOInterface> transport) {
+void RoCommLink::add_transport(std::unique_ptr<IOInterface> transport, uint8_t interface_id) {
     _transports[interface_id] = std::move(transport);
 }
 
@@ -48,29 +47,40 @@ RoCommLink::~RoCommLink() { stop(); }
 
 // bool RoCommLink::start(const std::string& target_ip, uint16_t port)
 
-bool RoCommLink::start(const std::string& target, uint16_t local_port, uint16_t remote_port) {
-    if (!_transport) return false;
+bool RoCommLink::start(const std::string& target, uint16_t local_port, uint16_t remote_port, uint8_t interface_id) {
+    // Locate the requested physical transport interface inside the core database map
 
-    // Register modern C++17 string_view zero-allocation read callback
-    _transport->register_read_callback([this](std::string_view data) {
+    auto it = _transports.find(interface_id);
+    if (it == _transports.end() || !it->second) return false;
+
+    auto& active_transport = it->second;
+
+    // Register modern C++17 string_view zero-allocation read callback with interface tracking context
+    active_transport->register_read_callback([this, id = interface_id](std::string_view data) {
         if (data.empty()) return;
 
-        // Safely capture and move a heap-allocated string allocation into worker pool
-        _worker_pool->push([this, buf = std::string(data)]() mutable { this->process_raw_bytes(std::move(buf)); });
+        // Safely capture and move a heap-allocated string allocation into the central worker pool
+        _worker_pool->push(
+            [this, id, buf = std::string(data)]() mutable { this->process_raw_bytes(std::move(buf), id); });
     });
 
-    if (!_transport->connect(target, local_port, remote_port)) {
+    // Invoke connection routines on the targeted lower-level network sockets
+    if (!active_transport->connect(target, local_port, remote_port)) {
         return false;
     }
 
-    _is_running     = true;
-    _timeout_thread = std::thread([this]() {
-        while (_is_running) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // Launch a single unified background timeout validation thread if not already running
+    if (!_is_running) {
+        _is_running     = true;
+        _timeout_thread = std::thread([this]() {
+            while (_is_running) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-            _command_tracker->check_timeouts([this](const Packet& retry_pkt) { this->send_packet(retry_pkt); });
-        }
-    });
+                // Process retries automatically back through the standard asynchronous routing roadways
+                _command_tracker->check_timeouts([this](const Packet& retry_pkt) { this->send_packet(retry_pkt); });
+            }
+        });
+    }
 
     return true;
 }
@@ -82,26 +92,43 @@ void RoCommLink::stop() {
         _timeout_thread.join();
     }
 
-    // Correctly call disconnect matching your IOInterface definition
-    if (_transport) {
-        _transport->disconnect();
+    // Safely iterate through and call disconnect on every active network interface pipeline
+    for (auto& [interface_id, transport_instance] : _transports) {
+        if (transport_instance) {
+            transport_instance->disconnect();
+        }
     }
 
     if (_worker_pool) {
         _worker_pool->shutdown();
     }
+
+    // Clear out the collection database map to prevent dangling memory state references
+    _transports.clear();
 }
 
 RoCommLinkDispatcher& RoCommLink::dispatcher() { return *_dispatcher; }
 
 bool RoCommLink::send_packet(const Packet& packet) {
-    if (!_transport) return false;
+    // Resolve which interface ID matches this packet's structural target coordinates
+    uint8_t target_interface_id = determine_routing_target(packet.header.system_id, packet.header.component_id);
 
+    // Locate the corresponding physical transport channel instance within the core database map
+    auto it = _transports.find(target_interface_id);
+    if (it == _transports.end() || !it->second) {
+        return false;
+    }
+
+    auto& active_transport = it->second;
+
+    // Serialize the clean high-level Packet structure into a raw binary frame
     std::vector<uint8_t> serialized_vector = PacketSerializer::serialize(packet);
 
     // Convert std::vector<uint8_t> framework buffer cleanly into string_view zero-copy footprint
     std::string_view out_view(reinterpret_cast<const char*>(serialized_vector.data()), serialized_vector.size());
-    return _transport->send(out_view);
+
+    // Pipe data out of the dynamically chosen hardware driver interface
+    return active_transport->send(out_view);
 }
 
 void RoCommLink::send_command_blocking(const Packet& cmd_pkt) {
@@ -128,15 +155,14 @@ void RoCommLink::send_command_blocking(const Packet& cmd_pkt) {
     }
 }
 
-void RoCommLink::process_raw_bytes(std::string_view bytes) {
+void RoCommLink::process_raw_bytes(std::string_view bytes, uint8_t connection_id) {
     if (bytes.empty()) return;
 
-    RoCommLinkParser* parser_ptr          = nullptr;
-    uint8_t           default_stream_slot = 0;
+    RoCommLinkParser* parser_ptr = nullptr;
 
     {
         std::shared_lock<std::shared_mutex> read_lock(_parsers_mutex);
-        auto                                it = _parsers.find(default_stream_slot);
+        auto                                it = _parsers.find(connection_id);
         if (it != _parsers.end()) {
             parser_ptr = it->second.get();
         }
@@ -144,10 +170,10 @@ void RoCommLink::process_raw_bytes(std::string_view bytes) {
 
     if (!parser_ptr) {
         std::unique_lock<std::shared_mutex> write_lock(_parsers_mutex);
-        if (_parsers.find(default_stream_slot) == _parsers.end()) {
-            _parsers[default_stream_slot] = std::make_unique<RoCommLinkParser>();
+        if (_parsers.find(connection_id) == _parsers.end()) {
+            _parsers[connection_id] = std::make_unique<RoCommLinkParser>();
         }
-        parser_ptr = _parsers[default_stream_slot].get();
+        parser_ptr = _parsers[connection_id].get();
     }
 
     constexpr uint16_t MSG_ID_COMMAND_ACK  = 0x00FF;

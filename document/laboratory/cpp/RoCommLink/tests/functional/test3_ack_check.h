@@ -19,8 +19,9 @@ struct TakeoffCommand {
 void execute_task_1_operator_node() {
     std::cout << "[Operator (Parent)] System booting up...\n";
 
-    auto       dummy_transport = std::make_unique<UdpTransport>();
-    RoCommLink comm(std::move(dummy_transport), 2);
+    RoCommLink comm(2);
+
+    comm.add_transport(std::make_unique<UdpTransport>());
 
     // Operator starts up, binds local port to 14551 and sets outbound target to 14550
     if (!comm.start("127.0.0.1", /*local_port=*/14551, /*remote_port=*/14550)) {
@@ -45,8 +46,9 @@ void execute_task_1_operator_node() {
 void execute_task_2_drone_node() {
     std::cout << "[Drone (Child)] Embedded systems online. Activating network sockets...\n";
 
-    auto       dummy_transport = std::make_unique<UdpTransport>();
-    RoCommLink comm(std::move(dummy_transport), 2);
+    RoCommLink comm(2);
+
+    comm.add_transport(std::make_unique<UdpTransport>());
 
     // Register transactional handling rules for Message ID 0x0001
     comm.dispatcher().subscribe(0x0001, [&comm](const Packet& packet) {
