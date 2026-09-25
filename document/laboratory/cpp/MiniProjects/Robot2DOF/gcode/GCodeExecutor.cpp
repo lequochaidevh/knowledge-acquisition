@@ -1,22 +1,22 @@
 #include "GCodeCommand.h"
-#include "../application.h"  // Robot2DOF
+#include "../application.h"  // ArmRobot
 #include <cmath>
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <unistd.h>
 
-static void moveLinearSmooth(Robot2DOF& robot, double tx, double ty, double feedrate, double dt);
-static void moveLinear(Robot2DOF& robot, double targetX, double targetY, double feedrate, double dt);
-static void moveArcCW(Robot2DOF& robot, double cx, double cy, double targetX, double targetY, double feedrate,
+static void moveLinearSmooth(ArmRobot& robot, double tx, double ty, double feedrate, double dt);
+static void moveLinear(ArmRobot& robot, double targetX, double targetY, double feedrate, double dt);
+static void moveArcCW(ArmRobot& robot, double cx, double cy, double targetX, double targetY, double feedrate,
                       double dt);
-static void moveArcCCW(Robot2DOF& robot, double cx, double cy, double targetX, double targetY, double feedrate,
+static void moveArcCCW(ArmRobot& robot, double cx, double cy, double targetX, double targetY, double feedrate,
                        double dt);
 static void dwell(double seconds);
 static bool absoluteMode = true;
 // TODO: Declare scaler => 100 and flexiable
 // Execute G-code every line
-void ExecuteGCodeStep(Robot2DOF& robot, const std::vector<GCodeCommand>& cmds, double dt) {
+void ExecuteGCodeStep(ArmRobot& robot, const std::vector<GCodeCommand>& cmds, double dt) {
     for (auto& cmd : cmds) {
         if (flag_impl.load() != 1) break;
         if (cmd.type == "G0" || cmd.type == "G1") {
@@ -85,7 +85,7 @@ void ExecuteGCodeStep(Robot2DOF& robot, const std::vector<GCodeCommand>& cmds, d
 
 // ======== G-Code Implementations ========
 //
-static void moveLinear(Robot2DOF& robot, double targetX, double targetY, double feedrate, double dt) {
+static void moveLinear(ArmRobot& robot, double targetX, double targetY, double feedrate, double dt) {
     double x0 = robot.GetCurrentX();
     double y0 = robot.GetCurrentY();
     targetX /= 100;
@@ -108,7 +108,7 @@ static void moveLinear(Robot2DOF& robot, double targetX, double targetY, double 
     }
 }
 
-static void moveLinearSmooth(Robot2DOF& robot, double tx, double ty, double feedrate, double dt) {
+static void moveLinearSmooth(ArmRobot& robot, double tx, double ty, double feedrate, double dt) {
     double cx = robot.GetCurrentX_Machine();
     double cy = robot.GetCurrentY_Machine();
 
@@ -168,7 +168,7 @@ static void moveLinearSmooth(Robot2DOF& robot, double tx, double ty, double feed
     robot.MoveTo(tx, ty);
 }
 
-static void moveArcCW(Robot2DOF& robot, double cx, double cy, double tx, double ty, double feedrate, double dt) {
+static void moveArcCW(ArmRobot& robot, double cx, double cy, double tx, double ty, double feedrate, double dt) {
     double x0 = robot.GetCurrentX();
     double y0 = robot.GetCurrentY();
     cx /= 100;
@@ -197,7 +197,7 @@ static void moveArcCW(Robot2DOF& robot, double cx, double cy, double tx, double 
 }
 
 // (G3)
-static void moveArcCCW(Robot2DOF& robot, double cx, double cy, double tx, double ty, double feedrate, double dt) {
+static void moveArcCCW(ArmRobot& robot, double cx, double cy, double tx, double ty, double feedrate, double dt) {
     double x0 = robot.GetCurrentX();
     double y0 = robot.GetCurrentY();
     cx /= 100;

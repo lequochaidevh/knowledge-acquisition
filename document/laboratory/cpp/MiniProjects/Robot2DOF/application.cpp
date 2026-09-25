@@ -2,9 +2,13 @@
 #include "application.h"
 #include "window/window.h"
 
+#ifndef GCODE_DEFINE_VAR
+#define GCODE_DEFINE_VAR "demo.gcode"
+#endif
+
 static std::vector<GCodeCommand> gcodeCmds;
 
-bool sim_enabled = false;
+bool   sim_enabled   = false;
 double target_theta1 = 0.0;
 double target_theta2 = 0.0;
 double target_x = 0.6, target_y = 0.0;
@@ -13,12 +17,12 @@ std::atomic<uint8_t> flag_impl{1};
 // Draw path
 
 std::vector<std::pair<double, double>> pathPoints;
-bool drawPath = false; // toggle by D Key
+bool                                   drawPath = false;  // toggle by D Key
 
-int main(){
-    WindowConfigure_t cfg{"Robot2DOF Sim", 800, 800};
-    auto window = NativeWindow::Create(EWindowSpec::GLFW, cfg);
-    GCodeParser parser;
+int main() {
+    WindowConfigure_t cfg{"ArmRobot Sim", 800, 800};
+    auto              window = NativeWindow::Create(EWindowSpec::GLFW, cfg);
+    GCodeParser       parser;
     // ---------- callbacks ----------
     window->SetKeyCallback([](int key, int action) {
         if (action != KEY_PRESS) return;
@@ -32,10 +36,18 @@ int main(){
                 sim_enabled = !sim_enabled;
                 printf("sim = %d\n", sim_enabled);
                 break;
-            case KEY_1: robot.theta1 += 0.1; break;
-            case KEY_2: robot.theta1 -= 0.1; break;
-            case KEY_3: robot.theta2 += 0.1; break;
-            case KEY_4: robot.theta2 -= 0.1; break;
+            case KEY_1:
+                robot.theta1 += 0.1;
+                break;
+            case KEY_2:
+                robot.theta1 -= 0.1;
+                break;
+            case KEY_3:
+                robot.theta2 += 0.1;
+                break;
+            case KEY_4:
+                robot.theta2 -= 0.1;
+                break;
             case KEY_D: {
                 drawPath = !drawPath;
                 printf("drawPath = %d\n", drawPath);
@@ -54,8 +66,7 @@ int main(){
                 if (!sols.empty()) {
                     target_theta1 = sols[0].theta1;
                     target_theta2 = sols[0].theta2;
-                    printf("IK target set. theta1=%.3f theta2=%.3f\n",
-                           target_theta1, target_theta2);
+                    printf("IK target set. theta1=%.3f theta2=%.3f\n", target_theta1, target_theta2);
                 } else {
                     printf("IK failed: target unreachable\n");
                 }
@@ -65,55 +76,53 @@ int main(){
     });
 
     window->SetMouseClickCallback([](double wx, double wy) {
-        target_x = wx;
-        target_y = wy;
+        target_x    = wx;
+        target_y    = wy;
         show_target = true;
         printf("Set target (%.3f, %.3f)\n", wx, wy);
     });
 
     // ---------- Simulation loop ----------
-    std::thread execThread;
-    std::atomic<bool> thread_done{true}; 
+    std::thread       execThread;
+    std::atomic<bool> thread_done{true};
 
     double lastt = window->GetTime();
     while (!window->ShouldClose()) {
         double now = window->GetTime();
-        double dt = now - lastt;
-        lastt = now;
+        double dt  = now - lastt;
+        lastt      = now;
         if (sim_enabled) {
             {
-                if(flag_impl.load() == 2) {
-                    time_acc += dt;                
-                    double alpha = 1.0 - exp(-4.0 * dt); //speed
+                if (flag_impl.load() == 2) {
+                    time_acc += dt;
+                    double alpha = 1.0 - exp(-4.0 * dt);  // speed
                     robot.theta1 += alpha * (target_theta1 - robot.theta1);
                     robot.theta2 += alpha * (target_theta2 - robot.theta2);
                     robot.UpdatePosition();
 
                     // ---  ---
-                    double err1 = fabs(target_theta1 - robot.theta1);
-                    double err2 = fabs(target_theta2 - robot.theta2);
+                    double err1    = fabs(target_theta1 - robot.theta1);
+                    double err2    = fabs(target_theta2 - robot.theta2);
                     double delta_e = std::max(err1, err2);  // or sqrt(err1²+err2²)
 
                     if (delta_e < 0.007) {
                         flag_impl.store(0);
-                        printf("Reached target (Δθ=%.4f). flag_impl=0\n", delta_e); // break loop
+                        printf("Reached target (Δθ=%.4f). flag_impl=0\n", delta_e);  // break loop
                     }
                 }
             }
         }
 
-        if(flag_impl.load() == 1 && thread_done.load()) {
+        if (flag_impl.load() == 1 && thread_done.load()) {
             if (execThread.joinable()) execThread.join();
             thread_done = false;
-            execThread = std::thread([&]() {
-                gcodeCmds = \
-                    parser.Parse(\
-                        "/home/devh/linux_std/c_driver_stream/"
-                        "robot2dof/initSimp/src/gcode/demo.gcode"
-                    );
+            execThread  = std::thread([&]() {
+                gcodeCmds = parser.Parse(GCODE_DEFINE_VAR);
                 ExecuteGCodeStep(robot, gcodeCmds, 0.07);
                 thread_done = true;
-                if(flag_impl.load() == 1) { flag_impl.store(0); } // stop when implement GCODE file
+                if (flag_impl.load() == 1) {
+                    flag_impl.store(0);
+                }  // stop when implement GCODE file
             });
         }
 
@@ -175,18 +184,18 @@ int main(){
 
             // Draw the path of Robot when Moveto() x y
             if (drawPath && !pathPoints.empty()) {
-                glColor3f(0.1f, 0.8f, 0.1f); // green color
+                glColor3f(0.1f, 0.8f, 0.1f);  // green color
                 glBegin(GL_LINE_STRIP);
-                for (auto &p : pathPoints)
-                    glVertex2f(p.first, p.second);
+                for (auto &p : pathPoints) glVertex2f(p.first, p.second);
                 glEnd();
             }
         }
 
         window->SwapBuffers();
         window->PollEvents();
-
     }
-    if(execThread.joinable()) { execThread.join(); }
+    if (execThread.joinable()) {
+        execThread.join();
+    }
     return 0;
 }

@@ -3,7 +3,7 @@
 #include <string>
 
 enum class GCodeType { G0, G1, Unknown };
-class Robot2DOF;
+class ArmRobot;
 struct GCodeCommand {
     // GCodeType type;
     std::string type;  // G0, G1, G3, G4, ...
@@ -19,4 +19,4 @@ struct GCodeCommand {
     bool hasY = true;
 };
 
-void ExecuteGCodeStep(Robot2DOF& robot, const std::vector<GCodeCommand>& cmds, double dt);
+void ExecuteGCodeStep(ArmRobot& robot, const std::vector<GCodeCommand>& cmds, double dt);

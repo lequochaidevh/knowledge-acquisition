@@ -1,13 +1,13 @@
 #pragma once
 
-#include "mathHelper.h"
+#include "math_util.h"
 
 // ---------- Robot class ----------
 struct IKResult {
     double theta1, theta2;
 };
 
-class Robot2DOF {
+class ArmRobot {
  public:
     double l1, l2;
     double theta1, theta2;  // (rad)
@@ -15,9 +15,9 @@ class Robot2DOF {
     double offsetX = 0.0;
     double offsetY = 0.0;
     // Todo: Add singleton patter
-    Robot2DOF(double _l1, double _l2) : l1(_l1), l2(_l2), theta1(0), theta2(0) { UpdatePosition(); }
+    ArmRobot(double _l1, double _l2) : l1(_l1), l2(_l2), theta1(0), theta2(0) { UpdatePosition(); }
 
-    virtual ~Robot2DOF() = default;
+    virtual ~ArmRobot() = default;
 
     // --- Update mx, my base on theta1, theta2 ---
     void UpdatePosition();

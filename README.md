@@ -157,9 +157,11 @@ make install
 ##### Third-party Solutions
 **Terminal UI - Debug tool - Preview**
 - Accept on_click signal by the mouse.
-![alt text](document/laboratory/cpp/unit/terminal_ui/preview/image.png)
+![alt text](document/laboratory/cpp/ThirdpartyUnitTest/terminal_ui/preview/image.png)
 
 ##### Utils helper - Support Simulation
 **Docker auto setup + ROS2 + Kitty**
-![alt text](util/docker_start/franka/preview/test.png)
-![alt text](docker/runtime/ros2/learn/preview/image.png)
+
+##### Mini Projects
+**Robot 2DOF with Gcode simulation**
+![alt text](document/laboratory/cpp/MiniProjects/Robot2DOF/preview/image_demo.png)

@@ -9,17 +9,23 @@ find_package(Threads REQUIRED)
 
 list(APPEND CMAKE_PREFIX_PATH "$ENV{LOCAL_MINOR_ROOT}")
 
+set(GCODE_FILENAME "$ENV{REPO_PATH}/document/laboratory/cpp/MiniProjects/Robot2DOF/gcode/demo.gcode")
+
+if(NOT GCODE_FILENAME)
+    set(GCODE_FILENAME "DefaultValue")
+endif()
+
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 file(GLOB SOURCE_FILES_DIR
-    "${CMAKE_SOURCE_DIR}/robot/2DOF/*.cpp"
+    "${CMAKE_SOURCE_DIR}/robot/*.cpp"
     "${CMAKE_SOURCE_DIR}/window/*.cpp"
     "${CMAKE_SOURCE_DIR}/gcode/*.cpp"
 )
-# --- Robot2DOF App ---
+# --- ArmRobot App ---
 add_executable(robot2dof
     application.cpp
     ${SOURCE_FILES_DIR}
@@ -28,7 +34,7 @@ add_executable(robot2dof
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/base>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/robot/2DOF>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/robot>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/window>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/gcode>
     $<INSTALL_INTERFACE:include/robot2dof>
@@ -46,3 +52,5 @@ target_link_libraries(robot2dof PRIVATE
     glm::glm
     Threads::Threads
 )
+
+target_compile_definitions(robot2dof PRIVATE GCODE_DEFINE_VAR="${GCODE_FILENAME}")

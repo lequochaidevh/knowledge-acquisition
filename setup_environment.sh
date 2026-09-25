@@ -1,6 +1,7 @@
 #!/usr/bin/bash -e
 
 SETUP_ENV_SCRIPT_PATH=$(pwd)
+export REPO_PATH=$SETUP_ENV_SCRIPT_PATH
 
 cd internal_root/
 export LOCAL_MINOR_ROOT=$(pwd)
