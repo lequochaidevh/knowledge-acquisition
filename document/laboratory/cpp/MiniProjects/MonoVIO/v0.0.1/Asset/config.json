@@ -1,0 +1,8 @@
+{
+    "camera_id": 0,
+    "width": 640,
+    "height": 480,
+    "fps": 10,
+    "enable_ui": false,
+    "skip_frame" : 1
+}
