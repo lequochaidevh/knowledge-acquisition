@@ -1,0 +1,26 @@
+# SSHFS (SSH Filesystem) Quick Guide
+
+**SSHFS** is a powerful tool that allows you to mount a remote directory into your local file system over a secure SSH connection, making remote files behave exactly like local folders. It leverages **FUSE** (Filesystem in Userspace) to build a file system without requiring root-level kernel modifications.
+
+This guide covers basic installation concepts, mounting/unmounting syntax, and advanced performance optimizations.
+
+---
+
+## Key Benefits
+* **No Server-Side Setup:** You only need to install SSHFS on your **local machine (host)**. The remote server only requires an active SSH daemon (`sshd`).
+* **Secure Data Transfer:** Inherits full encryption from the SSH protocol.
+* **On-the-Fly Editing:** Work on remote files directly using your favorite local IDEs, media players, or document viewers without downloading them first.
+
+---
+
+## Installation Guide
+
+SSHFS only needs to be installed on your **local machine (client)**. The remote machine only needs an active SSH server.
+
+### 🐧 Linux
+
+#### Ubuntu / Debian / Linux Mint
+```bash
+sudo apt update
+sudo apt install sshfs
+```
