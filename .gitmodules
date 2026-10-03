@@ -31,3 +31,6 @@
 [submodule "third-party/glm"]
 	path = third-party/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "linux/projects/LIRA_SDK"]
+	path = linux/projects/LIRA_SDK
+	url = https://github.com/lequochaidevh/LIRA_SDK.git
