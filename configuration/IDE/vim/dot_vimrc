@@ -13,6 +13,9 @@ set shortmess+=c
 
 call plug#begin('~/.vim/plugged')
 Plug 'vim-scripts/AutoComplPop'
+
+Plug 'airblade/vim-gitgutter'
+Plug 'rhysd/vim-clang-format'
 call plug#end()
 
 autocmd FileType c,cpp nnoremap <C-_> I// <Esc>
@@ -20,4 +23,18 @@ autocmd FileType c,cpp vnoremap <C-_> :s/^/\/\/ /<CR>:noh<CR>
 
 autocmd FileType sh nnoremap <C-_> I# <Esc>
 autocmd FileType sh vnoremap <C-_> :s/^/# /<CR>:noh<CR>
+
+" git update
+set updatetime=1000
+let g:gitgutter_sign_added          = '▎'
+let g:gitgutter_sign_modified       = '▎'
+let g:gitgutter_sign_removed        = '◢'
+let g:gitgutter_sign_removed_first_line = '◥'
+let g:gitgutter_sign_modified_removed = '▍'
+
+let g:clang_format#style = "file"
+
+map <F3> :ClangFormat<CR>
+" Leader : default is '\'
+map <Leader>f :ClangFormat<CR>
 
