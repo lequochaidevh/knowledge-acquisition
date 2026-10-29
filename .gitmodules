@@ -34,3 +34,6 @@
 [submodule "linux/projects/LIRA_SDK"]
 	path = linux/projects/LIRA_SDK
 	url = https://github.com/lequochaidevh/LIRA_SDK.git
+[submodule "mcu_project/fork-esp-fc"]
+	path = mcu_project/fork-esp-fc
+	url = https://github.com/lequochaidevh/fork-esp-fc.git
