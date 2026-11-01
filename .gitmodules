@@ -37,3 +37,6 @@
 [submodule "mcu_project/fork-esp-fc"]
 	path = mcu_project/fork-esp-fc
 	url = https://github.com/lequochaidevh/fork-esp-fc.git
+[submodule "third-party/firmware-tools/MCUViewer-probe"]
+	path = third-party/firmware-tools/MCUViewer-probe
+	url = https://github.com/klonyyy/MCUViewer-probe.git
